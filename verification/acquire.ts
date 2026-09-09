@@ -146,7 +146,7 @@ export async function acquire(opts: { limit?: number; concurrency?: number; log?
   // First scene defines the grid; every other scene must match it (same MGRS tile).
   const first = await readBands(scenes[0]!, bboxUtm);
   const grid = first.red.grid;
-  let frame: SamplingFrame = buildSamplingFrame(parcel, plan, grid);
+  const frame: SamplingFrame = buildSamplingFrame(parcel, plan, grid);
   log(`frame: ${frame.units.length} units (${count(frame, 'parcel_cell')} parcel cells, ${count(frame, 'near')} near, ${count(frame, 'far')} far) on a ${grid.width}x${grid.height} px grid`);
 
   const observations: Record<string, SceneObservation> = {};
@@ -167,8 +167,6 @@ export async function acquire(opts: { limit?: number; concurrency?: number; log?
     kept.push(r.scene);
     observations[r.scene.sceneId] = r.obs;
   }
-  frame = { ...frame, units: frame.units };
-
   const snapshot = finalizeSnapshot({
     provenance: 'REAL',
     tier: 0,

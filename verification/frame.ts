@@ -61,7 +61,8 @@ export function buildSamplingFrame(parcel: ParcelRecord, plan: AnalysisPlan, gri
   const parcelGeom = parcel.geometry as Polygon;
   const parcelPixels = maskOfGeometry(grid, parcelGeom);
   const parcelSet = new Set(parcelPixels);
-  const centroid = cellCentroidLngLat(cellsForPolygon(parcelGeom, plan.controlRule.unitResolution)[0] ?? '');
+  const ring = parcelGeom.coordinates[0]!;
+  const centroid: [number, number] = [ring.reduce((s, p) => s + p[0]!, 0) / ring.length, ring.reduce((s, p) => s + p[1]!, 0) / ring.length];
   units.push({
     unitId: 'parcel',
     zone: 'parcel',

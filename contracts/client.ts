@@ -23,7 +23,7 @@ export const RESTORATION_DEED_ABI = parseAbi([
   'struct ProjectInput { bytes32 h3Root; bytes32 geometryHash; bytes32 baselineRef; bytes32 metricId; bytes32 tenureAttestationHash; uint8 tenureType; bytes32 encumbranceHash; address restorer; address steward; }',
   'struct MilestoneTerms { uint8 mType; uint256 amount; uint256 thresholdQuantity; uint64 notBefore; uint64 deadline; }',
   'struct DeedTerms { uint256 projectId; address verifier; bytes32 analysisPlanHash; bytes32 methodologyVersion; uint16 confidenceBps; uint16 benefitShareBps; uint16 retentionBps; address bufferPool; }',
-  'struct Milestone { MilestoneTerms terms; uint8 state; bytes32 resultHash; uint32 runIndex; uint256 verifiedQuantity; address assignee; uint256 releasedGross; }',
+  'struct Milestone { MilestoneTerms terms; uint8 state; bytes32 resultHash; uint32 runIndex; uint256 verifiedQuantity; address assignee; uint256 releasedGross; bool reclaimed; }',
   'struct Deed { DeedTerms terms; address sponsor; uint256 totalAmount; uint256 funded; uint256 releasedNet; uint256 retained; uint256 reclaimed; uint32 runCount; uint8 milestoneCount; bool retentionSettled; }',
   'function getMilestone(uint256 deedId, uint8 milestoneId) view returns (Milestone)',
   'function getDeed(uint256 deedId) view returns (Deed)',

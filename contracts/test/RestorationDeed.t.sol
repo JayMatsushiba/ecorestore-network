@@ -349,6 +349,29 @@ contract RestorationDeedTest is Test {
         assertEq(usdc.balanceOf(sponsor) - before, EST - gross);
     }
 
+    function test_reclaimAfterReleaseKeepsRetentionPathOpen() public {
+        uint32 run = _run();
+        _verify(1, run, keccak256("est"), RestorationDeed.VerdictStatus.PARTIAL, 21 * Q);
+        deed.releaseTranche(deedId, 1);
+        vm.warp(block.timestamp + 301 days);
+        uint32 run2 = _run();
+        _verify(2, run2, keccak256("held"), RestorationDeed.VerdictStatus.PARTIAL, 21 * Q);
+        deed.releaseTranche(deedId, 2);
+        // Sponsor reclaims the unreleased half of the persistence tranche after its deadline...
+        vm.warp(block.timestamp + 500 days);
+        vm.prank(sponsor);
+        deed.reclaim(deedId, 2);
+        assertEq(uint256(deed.getMilestone(deedId, 2).state), uint256(RestorationDeed.MilestoneState.RELEASED));
+        // ...and retention can still be released to the restorer.
+        uint256 retained = deed.getDeed(deedId).retained;
+        assertGt(retained, 0);
+        deed.releaseRetention(deedId);
+        assertEq(deed.getDeed(deedId).retained, 0);
+        vm.prank(sponsor);
+        vm.expectRevert(abi.encodeWithSelector(RestorationDeed.WrongState.selector, RestorationDeed.MilestoneState.RELEASED));
+        deed.reclaim(deedId, 2);
+    }
+
     function test_reclaimBeforeDeadlineRejected() public {
         vm.prank(sponsor);
         vm.expectRevert(RestorationDeed.TooEarly.selector);

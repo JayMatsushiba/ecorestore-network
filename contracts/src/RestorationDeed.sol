@@ -83,6 +83,7 @@ contract RestorationDeed {
         uint256 verifiedQuantity; // lower bound accepted, metric units x1e4
         address assignee; // third-party lender assigned this tranche (§4.5)
         uint256 releasedGross;
+        bool reclaimed; // sponsor has recovered the unreleased balance
     }
 
     struct DeedTerms {
@@ -344,7 +345,7 @@ contract RestorationDeed {
         Deed storage d = _deed(deedId);
         Milestone storage m = _milestone(deedId, milestoneId);
         if (msg.sender != projects[d.terms.projectId].input.restorer) revert NotAuthorized();
-        if (m.state == MilestoneState.RELEASED || m.state == MilestoneState.RECLAIMED) revert WrongState(m.state);
+        if (m.state == MilestoneState.RELEASED || m.state == MilestoneState.RECLAIMED || m.reclaimed) revert WrongState(m.state);
         m.assignee = assignee;
         emit TrancheAssigned(deedId, milestoneId, assignee);
     }
@@ -393,11 +394,14 @@ contract RestorationDeed {
         Milestone storage m = _milestone(deedId, milestoneId);
         if (msg.sender != d.sponsor) revert NotAuthorized();
         if (m.terms.deadline == 0 || block.timestamp <= m.terms.deadline) revert TooEarly();
-        if (m.state == MilestoneState.RECLAIMED) revert WrongState(m.state);
+        if (m.reclaimed) revert WrongState(m.state);
         uint256 amount = m.terms.amount - m.releasedGross;
         uint256 avail = _available(d);
         if (amount > avail) amount = avail;
-        m.state = MilestoneState.RECLAIMED;
+        m.reclaimed = true;
+        // A released or failed milestone keeps its state so retention can still be
+        // released or withheld; an unverified one can no longer be verified.
+        if (m.state == MilestoneState.PENDING || m.state == MilestoneState.INSUFFICIENT) m.state = MilestoneState.RECLAIMED;
         d.reclaimed += amount;
         if (amount > 0 && !usdc.transfer(d.sponsor, amount)) revert TransferFailed();
         emit Reclaimed(deedId, milestoneId, amount, d.sponsor);

@@ -230,7 +230,8 @@ function trajectory(evidence: EvidenceBundle, result: VerificationResult) {
   };
   const scenes = new Set(result.stacSceneIds);
   return {
-    treatmentDate: (evidence.tier0.provenance, result.window),
+    window: result.window,
+    tier0Provenance: t0.provenance,
     points: t0.scenes
       .filter((s) => scenes.has(s.sceneId))
       .map((s) => {
