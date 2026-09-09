@@ -1,6 +1,14 @@
+> **SUPERSEDED.** This is Idea 0.2, retained at the repository root only because it is
+> the text reviewed in `proposal_review.md`. It is duplicated verbatim at
+> `proposals/idea-0.2.md` and may be deleted from the root.
+>
+> **The canonical baseline is `proposals/idea-0.3.md`.**
+
 # Ecorestore Network — Spatially-Verified Restoration Finance
 
 **ETHOnline 2026 submission and portfolio piece.**
+
+**Idea 0.2 — validated revision.**
 
 Supersedes and merges `ecorestore_network.md` (concept) and `restoration_ledger.md` (technical guidance).
 
@@ -42,7 +50,7 @@ Ecorestore Network is a **B2B product**. The buyer is an organisation with a dis
 
 The purchasing driver is regulatory and assurance pressure, which is what makes spatially explicit evidence a requirement rather than a nicety:
 
-- **CSRD / ESRS E4** (Biodiversity and Ecosystems) — EU reporting entities must disclose location-specific impacts and the state of ecosystems at sites they affect or fund. Site-level, spatially explicit evidence is the reporting unit.
+- **CSRD / ESRS E4** (Biodiversity and Ecosystems) — in-scope EU undertakings subject to the current CSRD/ESRS framework face biodiversity and ecosystem disclosure requirements, including location-specific information for material impacts and risks. Site-level, spatially explicit evidence is therefore useful to the reporting and assurance workflow.
 - **TNFD** — the LEAP approach is explicitly spatial: *Locate* is step one. Adopters need to say *where*, at parcel resolution.
 - **SBTN** — science-based targets for nature require baselines and measured change against them.
 - **UK Biodiversity Net Gain** — statutory 10% uplift with a 30-year maintenance obligation. The 30-year part is a monitoring liability that nobody currently has a good instrument for.
@@ -80,14 +88,14 @@ The pipeline treats evidence sources as a **ladder ordered by an explicit tradeo
 
 | Tier | Source | Resolution | Revisit | Cost | Spoofability | Role |
 |---|---|---|---|---|---|---|
-| 0 | Satellite (optical + SAR) | 10–30 m | 5–12 days | ~free | **Very low** | Arbiter and continuous baseline |
+| 0 | Satellite (optical + SAR) | 10–30 m | 5–12 days | ~free | **Low at source** | Arbiter and continuous baseline |
 | 1 | Drone / UAS | 2–10 cm | Episodic | Medium | Medium | Site-scale calibration and counts |
 | 2 | IoT / in-situ sensors | Point | Continuous | Low-medium | Medium-high | Condition signal between passes |
 | 3 | Ground reports | Plot / individual | Sparse | High (labour) | **High** | Claims, labels, and accountability |
 
 The inversion at the heart of the design: **the tier that measures best is the tier that lies easiest.** A field report can state a precise number of established seedlings and can also be fabricated at a desk. A Sentinel-2 scene cannot resolve individual seedlings but is acquired by an independent third-party constellation on a fixed orbit, is archived globally, and can be re-derived by any party years later.
 
-Therefore satellite is the **arbiter, not the measurer**. Ground reports are **claims, not evidence**, until corroborated. The auditor's job is to reconcile them.
+Therefore satellite is the **arbiter, not the sole measurer**. Its raw acquisition is independently sourced, but derived satellite products remain subject to processing and model error. Ground reports are **claims, not evidence**, until corroborated. The auditor's job is to reconcile them.
 
 ### 3.2 Tier 0 — Satellite base layer
 
@@ -97,9 +105,9 @@ The always-on foundation. Every parcel in the system has a continuous satellite 
 - Spectral indices: NDVI, EVI2 (saturation-resistant in high-biomass), NDWI/MNDWI (water and inundation), NBR/dNBR (burn severity and fire reversal detection), NDMI (moisture stress), SAVI (soil-adjusted, for sparse dryland canopies where NDVI is dominated by soil background)
 - Rigorous cloud/shadow/cirrus masking (s2cloudless or the SCL band with a dilated shadow projection) — unmasked cloud edges are the single largest source of spurious "greening" in naive pipelines
 
-**SAR — Sentinel-1 GRD** (10 m, C-band, free)
+**SAR — Sentinel-1 GRD + SLC** (10 m, C-band, free)
 - Cloud-penetrating and illumination-independent. **Non-optional** for mangrove, tropical, and maritime-temperate sites where an optical time series may have fewer than five clear scenes a year.
-- VV/VH backscatter and the VH/VV ratio as a canopy-structure proxy; interferometric coherence loss as a sensitive early indicator of clearing or disturbance.
+- GRD provides VV/VH backscatter and the VH/VV ratio as a canopy-structure proxy. **Interferometric coherence requires phase-bearing SLC data (or a derived coherence product), not GRD alone**, and is used where acquisition geometry and temporal baselines make the signal interpretable as a disturbance indicator.
 
 **Long baseline — Landsat 5/7/8/9** (30 m, 1984–present)
 - Establishes the **pre-disturbance reference state**. You cannot define "restored" without knowing what the site was before it was degraded. A 40-year record turns "restoration target" from a negotiated guess into an empirical one.
@@ -157,7 +165,7 @@ Where the tiers meet. A milestone claim is evaluated as follows:
 4. **Test for disagreement.** Divergence between tiers is the most informative signal the system produces and is never averaged away. Ground reports claiming establishment while SAR coherence indicates recent clearing is a fraud signal, not a noisy measurement.
 5. **Adjust for additionality** (§3.7).
 6. **Propagate uncertainty** to a bounded estimate (§3.8).
-7. **Emit a structured verdict** driving settlement.
+7. **Emit a structured verdict** consumed by deterministic settlement rules. The auditor agent is not trusted with custody or unilateral authority to move funds; numerical settlement quantities are produced by the versioned verification pipeline and enforced against the deed terms by the contract.
 
 ### 3.7 Counterfactual and additionality
 
@@ -165,25 +173,25 @@ Where the tiers meet. A milestone claim is evaluated as follows:
 
 Raw greening is not restoration. A wet year greens an entire region. A project that measures only its own parcel sells the weather.
 
-The pipeline therefore constructs a **matched control set** for every funded parcel: nearby unfunded parcels selected for similarity in land cover class, elevation, slope, aspect, soil, climate zone, and — critically — **pre-treatment index trajectory**. Matching on the pre-treatment trend is what distinguishes a genuine control from a merely adjacent one.
+The pipeline therefore constructs a **matched control set** for every funded parcel: nearby unfunded parcels selected for similarity in land cover class, elevation, slope, aspect, soil, climate zone, and — critically — **pre-treatment index trajectory**, while excluding parcels with plausible treatment spillover or contamination. Matching on the pre-treatment trend is what distinguishes a genuine control from a merely adjacent one.
 
-Verified change is then the **difference-in-differences** estimate: the parcel's change minus the control set's change over the same window, using the same sensors, the same processing chain, and the same atmospheric conditions. Systematic error largely cancels, because both sides of the subtraction come from the same scenes.
+Verified change is then the **difference-in-differences** estimate: the parcel's change minus the control set's change over the same window, using the same sensors and the same processing chain. The control set must first pass a **pre-treatment parallel-trend diagnostic**; matching on covariates alone is not sufficient. Shared systematic error can be reduced when both sides use the same scenes and processing, but it does not automatically cancel.
 
 This makes the settled quantity *additional* change — the change attributable to the intervention — which is the quantity a corporate buyer actually needs to defend under assurance.
 
 ### 3.8 Uncertainty and conservative settlement
 
-Every measurement carries error: atmospheric correction residuals, BRDF and view-angle effects, mixed pixels at parcel boundaries, co-registration error, residual cloud shadow, control-set matching error. The pipeline propagates all of it and reports an interval, never a bare number.
+Every measurement carries error: atmospheric correction residuals, BRDF and view-angle effects, mixed pixels at parcel boundaries, co-registration error, residual cloud shadow, control-set matching error. The pipeline propagates **modelled uncertainty** from these sources and reports an interval, never a bare number.
 
-**The financial rule: settlement pays against the lower bound of the confidence interval, not the point estimate.**
+**The financial rule: settlement pays against the lower bound of the declared uncertainty interval, not the point estimate.**
 
 This is a small change with large consequences:
 
-- The buyer is systematically under-credited rather than over-credited — the correct direction of error for an assurance-bearing asset.
+- The settlement rule is deliberately conservative: it is designed to avoid paying against the optimistic point estimate when uncertainty is material.
 - The restorer gains a **direct financial incentive to fund better measurement**, because tightening the interval raises the payout without changing the ecology. Commissioning a drone flight or maintaining a sensor array becomes a revenue decision rather than a compliance cost.
 - Cheap, sloppy MRV becomes self-penalising instead of self-serving.
 
-The confidence level is a parameter of the deed, negotiated up front. A conservative corporate buyer can require a 95% lower bound; a risk-tolerant one can accept 80% and pay more per unit.
+The confidence level is a parameter of the deed, negotiated up front, and the interval method is versioned and calibrated for the metric. A conservative corporate buyer can require a 95% lower bound; a risk-tolerant one can accept 80% and pay more per unit.
 
 ### 3.9 Data representation and standards
 
@@ -218,9 +226,9 @@ evidence_cid      IPFS/Filecoin CID of the full evidence bundle
 window            observation start and end
 ```
 
-An H3 cell index is a `uint64`. A cell set is a short array or a Merkle root over one. This gives cheap, exact, on-chain **spatial identity** — enough to prove non-overlap between parcels and prevent the same hectare being sold twice to two buyers, which is a real and recurring failure in voluntary credit markets — without putting a single coordinate pair in storage.
+An H3 cell index is a 64-bit integer. A parcel is represented by a **canonical H3 resolution and deterministic cell-set encoding**, with a Merkle root committed on-chain. This gives compact, reproducible on-chain **spatial identity** without storing polygon geometry.
 
-Double-counting prevention becomes a set-intersection check over H3 cells at issuance time. This is a concrete, demonstrable advantage of the spatial-index choice and worth showing explicitly in the demo.
+Double-counting prevention becomes a set-intersection check over the canonical H3 cell sets at issuance time. The resolution and boundary-encoding rules must be identical for every parcel; otherwise cell-level comparison alone is not sufficient to prove non-overlap. This is a concrete, demonstrable advantage of the spatial-index choice and worth showing explicitly in the demo.
 
 ### 3.11 Demonstration sites
 
@@ -231,7 +239,7 @@ Four real, named regions with genuinely available imagery, each exercising a dif
 | **Fraser Valley, British Columbia** | Riparian forest | Optical time series, drone stem counts, seasonal decomposition |
 | **Gulf of Thailand / Indonesian coast** | Mangrove (blue carbon) | **SAR-led** — persistent cloud makes Sentinel-1 the primary sensor; tidal/salinity IoT |
 | **Flow Country, Scotland** | Peatland rewetting | Water-table IoT as the leading indicator; MNDWI; long Landsat baseline |
-| **Sahel / Kenyan drylands** | Savanna woodland regeneration | **Additionality-critical** — high interannual rainfall variability makes the control set decisive |
+| **Sahel drylands** | Savanna woodland regeneration | **Additionality-critical** — high interannual rainfall variability makes the control set decisive |
 
 The dryland site is the one to feature in the demo, because it is where a naive pipeline most visibly fails and where the counterfactual machinery earns its place.
 
@@ -243,14 +251,14 @@ The spatial pipeline produces bounded, additionality-adjusted, provenance-carryi
 
 ### 4.1 Restoration Deed — programmable escrow (Arc, USDC)
 
-A funder locks USDC against a specific parcel, a specific metric, and a schedule of milestones. Release is conditional on verified outcome.
+A funder locks USDC against a specific parcel, a specific metric, and a schedule of milestones. Release is conditional on a verified outcome. **The contract, not the AI agent, is the authority that enforces deed terms and releases funds; an authorised verifier can submit evidence and a verdict, but cannot bypass contract policy or directly custody the sponsor's funds.**
 
 ```text
 createProject()      register parcel: h3 root, geometry hash, baseline ref, metric
 createDeed()         terms: milestones, thresholds, confidence level, schedule
 fundDeed()           corporate sponsor deposits USDC into escrow
 submitEvidence()     restorer commits an evidence bundle CID
-verifyMilestone()    auditor writes verdict on-chain
+verifyMilestone()    authorized verifier submits the versioned verdict on-chain
 releaseTranche()     conditional release against verified lower bound
 withholdRetention()  persistence window fails -> retention is not released
 ```
@@ -264,13 +272,13 @@ The deed splits payment across time:
 - **Establishment tranche** — released on verified planting/intervention (Tier 1 and Tier 3 dominant)
 - **Persistence tranches at 12 / 24 / 36 months** — released only if the satellite record shows the gain has *held*, evaluated automatically against the same controls
 
-The retention tranches cost almost nothing to enforce, because Tier 0 is free and continuous. The contract simply re-runs the same query on a schedule. **Continuous, low-cost satellite monitoring is what makes long-dated conditional payment economically viable for the first time** — the marginal cost of checking a parcel in year three is a few cents of compute.
+The retention tranches cost almost nothing to enforce, because Tier 0 is free and continuous. The contract simply re-runs the same query on a schedule. **Continuous, low-cost satellite monitoring helps make long-dated conditional payment economically viable** — the marginal compute cost of re-checking a parcel can be kept low relative to the value at risk.
 
 **Reversal handling:** if dNBR indicates fire or SAR coherence indicates clearing inside the commitment window, retention does not release and previously issued outcome units are flagged and lifecycle-marked as reversed. The asset carries its own bad news.
 
-### 4.3 Biodiversity Outcome Unit — tokenized RWA (Hedera ATS)
+### 4.3 Restoration Outcome Unit — tokenized RWA (Hedera ATS)
 
-The verified outcome becomes a transferable, auditable asset issued through the **Asset Tokenization Studio**. Issuance occurs **only** on a verified milestone — there is no forward issuance against projections, which is the structural defect in existing credit markets.
+The verified restoration outcome becomes a transferable, auditable asset issued through the **Asset Tokenization Studio**. Issuance occurs **only** on a verified milestone — there is no forward issuance against projections. The prototype's unit represents a **verified restoration outcome**, not a claim that it is itself a regulatory biodiversity credit.
 
 Each unit carries:
 
@@ -289,16 +297,16 @@ control set ref     the counterfactual parcels used
 - **Issue** on verification
 - **Hold** with permissioned transfer: allowlisted, KYC'd counterparties only, which is what a corporate buyer's legal team requires and what a plain ERC-20 cannot express
 - **Transfer** under compliance controls
-- **Retire** — the sponsor's disclosure claim; retirement is the event cited in the CSRD/TNFD report
+- **Retire** — records the sponsor's retirement of the outcome unit for its internal disclosure/impact accounting. Retirement is **not, by itself, a regulatory credit or compliance claim**; any external claim remains subject to the applicable reporting, legal, and assurance framework.
 - **Flag / mark reversed** on detected loss
 
 ATS gives regulated-asset lifecycle semantics out of the box. Hedera's low, predictable fees also make per-parcel, per-vintage issuance economically sensible at portfolio scale, and its sustainability positioning aligns with the buyer's own reporting posture.
 
 ### 4.4 Metered verification-as-a-service (x402 on Hedera)
 
-The spatial pipeline is itself a product. It is exposed as an **x402-gated service**: a per-request paid API for parcel scoring, baseline derivation, and verification runs.
+The spatial pipeline is itself a product. It is exposed as an **x402-gated service on Hedera**, using the event's required **Blocky402 facilitator** for settlement: a per-request paid API for parcel scoring, baseline derivation, and verification runs.
 
-The Restoration Auditor agent **pays per analysis** — per scene processed, per verification executed. This makes MRV a metered, machine-payable utility instead of a bundled consultancy line item, and it means an operator can obtain independent verification without a subscription or a relationship with a certifier.
+The Restoration Auditor agent uses **Circle Agent Stack** for its agent wallet/payment path and **pays per analysis** — per scene processed, per verification executed. This makes MRV a metered, machine-payable utility instead of a bundled consultancy line item, and it means an operator can obtain independent verification without a subscription or a relationship with a certifier.
 
 It also satisfies a second Hedera track at no additional sponsor cost (§5).
 
@@ -326,12 +334,12 @@ ETHGlobal allows a project to select **up to 3 partner prizes** at submission. C
 
 | Track | Pool | Fit |
 |---|---|---|
-| Tokenization of Anything | $6,000 (3 × $2,000) | **Excellent.** ATS issues and manages the Biodiversity Outcome Unit. Requirement is explicitly issuance *plus lifecycle operations* — this project has a genuine lifecycle (issue, permissioned transfer, retire, reverse) rather than a mint-and-stop. |
+| Tokenization of Anything | $6,000 (3 × $2,000) | **Excellent.** ATS issues and manages the Restoration Outcome Unit. Requirement is explicitly issuance *plus lifecycle operations* — this project has a genuine lifecycle (issue, permissioned transfer, retire, reverse) rather than a mint-and-stop. |
 | AI & Agentic Payments (x402) | $6,000 (3 × $2,000) | **Strong.** Requires a live x402-gated service plus an agent completing a real paid request. The verification API is the service; the auditor is the agent. Both halves already exist in the architecture. |
 
 Requirements to satisfy: Hedera testnet deployment, **contracts verified on HashScan**, demo video ≤5 min showing issuance and lifecycle operations, public repo.
 
-**Arc — 1 slot, up to 3 tracks, $10,000 addressable**
+**Arc — 1 slot, up to 3 tracks, $6,834 addressable**
 
 | Track | Pool | Fit |
 |---|---|---|
@@ -343,14 +351,14 @@ Requirements to satisfy: Hedera testnet deployment, **contracts verified on Hash
 
 | Track | Pool | Fit |
 |---|---|---|
-| Best AI Tooling or AI Use Case — From Scratch | $5,000 (3 winners) | **Excellent.** The auditor is the AI component, The Graph is load-bearing (it supplies the project history the verdict depends on), and the work done is reasoning, decision, and automation. |
-| Composable or Standardized Graph Products | $5,000 (3 winners) | **Good** if the Subgraph is composed with a second Graph product (Token API or Substreams) rather than used alone. |
+| Best AI Tooling or AI Use Case — From Scratch | $5,000 (3 winners) | **Excellent.** The auditor is the AI component; The Graph is load-bearing (it supplies the project history the verdict depends on), and the work done is reasoning, decision, and automation. |
+| Composable or Standardized Graph Products | $5,000 (3 winners) | **Good** if the project composes the Subgraph with another current Graph product such as Substreams, or meaningfully uses a standardized schema, rather than querying one Subgraph alone. |
 
 **Privy — use without claiming a slot**
 
 Privy's *Best B2B Financial Product* track ($2,500) is an unusually exact match for this project's stated audience — it asks for treasury operations, approval workflows, and wallet administration using Privy policies, signers, key quorums, or intents, which is precisely §4.5.
 
-However: **using a sponsor's technology and submitting to their prize are separate decisions.** Privy has two single-winner tracks, while each of Hedera, Arc, and The Graph offers multiple multi-winner tracks against a deeper integration. Build the corporate treasury flow on Privy for product reasons; spend the three slots on Hedera, Arc, and The Graph.
+However, using a sponsor's technology and submitting to their prize are separate decisions. Privy has two single-winner tracks, while each of Hedera, Arc, and The Graph offers multiple multi-winner tracks against a deeper integration. Build the corporate treasury flow on Privy for product reasons; spend the three slots on Hedera, Arc, and The Graph.
 
 *Swap condition:* if the corporate multi-approver treasury flow becomes the demo's centrepiece and the Subgraph ends up shallow, swap Privy in for The Graph. Decide this by the end of the build sequence, not at the start.
 
@@ -358,9 +366,9 @@ However: **using a sponsor's technology and submitting to their prize are separa
 
 | Sponsor | Assessment |
 |---|---|
-| **Chainlink** (CRE Confidential Workflows) | Genuinely interesting — precise coordinates of restoration sites and rare-species observations are sensitive (poaching risk, landowner privacy), and processing them in a TEE is a real use case, not a contrivance. Also commercial imagery API keys. **Declined only for slot scarcity.** Strongest candidate for a post-hackathon continuity submission. |
+| **Chainlink** (CRE Confidential Workflows) | Genuinely interesting — precise coordinates of restoration sites and rare-species observations are sensitive (poaching risk, landowner privacy), and processing them in a TEE is a real use case, not a contrivance. Also useful for securely managing commercial imagery API keys. **Declined only for slot scarcity.** Strongest candidate for a post-hackathon continuity submission. |
 | **World** (Selfie Check) | Proof-of-personhood for field observers submitting ground reports is a legitimate anti-fraud fit. But it pushes toward B2C framing and the fusion pipeline already handles Tier 3 fraud via cross-tier corroboration. Declined. |
-| **Ledger** | Hardware-backed keys for the auditor agent is plausible but peripheral to the thesis. Declined. |
+| **Ledger** | Hardware-backed keys for the auditor agent are plausible but peripheral to the thesis. Declined. |
 | **ENS** | Human-readable parcel names are cosmetic here, and the track explicitly excludes cosmetic use. Declined. |
 | **1inch / Uniswap** | Outcome-unit secondary market liquidity is a real future concern, entirely out of scope now. Declined. |
 | **Bazantic** | Requires a Bazantic gateway/recipe; overlaps the x402 work without adding to the thesis. Declined. |
@@ -395,6 +403,8 @@ Project history is a genuine input, not decoration. A parcel with a prior revers
 
 ### 6.2 Output
 
+The auditor may use AI for evidence triage, anomaly explanation, and workflow orchestration, but **the settlement quantity is not an LLM-generated number**. The versioned spatial/statistical pipeline computes the measurement, additionality adjustment, uncertainty interval, and release fraction; the contract enforces the resulting bounds against the deed terms.
+
 ```json
 {
   "status": "PARTIAL",
@@ -407,15 +417,20 @@ Project history is a genuine input, not decoration. A parcel with a prior revers
     "additional": 16.7,
     "ci_95": [13.1, 20.3]
   },
+  "quality_gate": {
+    "status": "PASS",
+    "metric": "ecological_function",
+    "note": "Canopy heterogeneity, SAR-derived structure, and spectral signature consistent with native species mix, not a monoculture flush"
+  },
   "settled_quantity": 13.1,
   "settlement_basis": "lower_bound_95",
   "tier_corroboration": {
     "tier_0_satellite": { "score": 0.91, "note": "Sentinel-2 + S1 agree on direction and magnitude" },
     "tier_1_drone":     { "score": 0.88, "note": "Orthomosaic canopy fraction consistent with S2 calibration" },
     "tier_2_iot":       { "score": 0.42, "note": "Soil moisture node 3 flatlined through recorded rainfall — excluded" },
-    "tier_3_ground":    { "score": 0.55, "note": "Claim exceeds corroborated measurement by 60%" }
+    "tier_3_ground":    { "score": 0.55, "note": "Claim exceeds corroborated satellite measurement by ~9%" }
   },
-  "reason": "Regional control parcels greened 21.7 ha over the same window under above-average rainfall. Claim is not adjusted for the regional trend; additional gain is 16.7 ha (95% CI 13.1-20.3). Settling at the lower bound.",
+  "reason": "Regional control parcels greened 21.7 ha over the same window under above-average rainfall. Claim is not adjusted for the regional trend; additional gain is 16.7 ha (95% CI 13.1–20.3). Regrowth passes the ecological-function quality gate. Settling at the lower bound.",
   "evidence_cid": "bafy...",
   "action": "RELEASE_TRANCHE",
   "release_fraction": 0.312
@@ -424,15 +439,15 @@ Project history is a genuine input, not decoration. A parcel with a prior revers
 
 ### 6.3 The demonstration case
 
-The old draft demonstrated a counting discrepancy — 463 plants against a threshold of 495. Replace it with the failure mode that actually matters and that only a spatial pipeline can catch:
+A revegetated site claims a 42 ha canopy gain. The satellite record measures 38.4 ha of parcel-level gain. Tier 0 and Tier 1 support the direction and magnitude; the Tier 2 stream contains a failed sensor node and the Tier 3 claim exceeds the corroborated measurement. The system therefore treats the claim as **partially corroborated**, not automatically as fraudulent.
 
-**A dryland site claims a 42 ha canopy gain. The satellite record confirms it: the parcel really did green by 38.4 ha. Every tier corroborates. Nothing is fraudulent.**
+**The auditor then evaluates the matched control set** using the same observation window and processing chain. The control parcels gained 21.7 ha over the same period, so the additionality-adjusted gain is 16.7 ha. The pre-treatment trajectories pass the parallel-trend diagnostic, supporting the counterfactual comparison. Regional background greening is not credited as restoration.
 
-**Then the auditor pulls the matched control parcels — unfunded, ecologically similar, same scenes, same processing — and they greened by 21.7 ha too. It was a wet season across the whole region.**
+A second observation runs in parallel: is the gain ecologically functional, or just green? Canopy cover can spike from an invasive monoculture or scrub that never develops the required forest structure — neither qualifies. The system checks canopy heterogeneity, SAR-derived structure, and spectral signatures against the versioned ecological-quality rules for the site. Here it passes: the regrowth shows structural diversity rather than a monoculture flush.
 
-The additional, attributable gain is 16.7 ha, and after uncertainty propagation the settled quantity is 13.1 ha — under a third of the claim. The verdict is `PARTIAL`, the tranche releases proportionally, and the outcome units issued on Hedera carry the additionality-adjusted quantity.
+The 16.7 ha clears the quality gate, and after uncertainty propagation the settled quantity is 13.1 ha — under a third of the claim. The verdict is `PARTIAL`, the tranche releases proportionally, and the Restoration Outcome Units issued on Hedera carry the additionality-adjusted, quality-gated quantity.
 
-This single scene demonstrates the counterfactual machinery, the uncertainty rule, the multi-tier fusion, and the settlement link at once — and it shows the system catching an error that every certificate-based market in existence would have paid out in full. A second, contrasting case (SAR coherence loss revealing clearing behind a clean-looking optical composite) demonstrates the fraud path.
+This single case demonstrates the counterfactual machinery, the ecological-quality gate, the uncertainty rule, the multi-tier fusion, and the settlement link at once. It shows how a workflow that paid against the gross 38.4 ha measurement can instead settle only against the additionality-adjusted lower bound. A second, contrasting case (SAR coherence loss revealing clearing behind a clean-looking optical composite) demonstrates the reversal path.
 
 ---
 
@@ -508,7 +523,7 @@ Dark, precise, data-dense — reference points are Earth-observation operations 
 └───────────┬───────────────┘
             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  IPFS / Filecoin — evidence bundles, imagery, provenance     │
+│  IPFS / Filecoin — evidence bundles, selected derived artifacts, provenance │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -540,7 +555,7 @@ Vertical slices, frequent public commits. ETHGlobal requires a meaningful commit
 5. **Privy treasury flow.** Corporate funding path with policy and quorum approval.
 6. **Subgraph.** Full entity set, live queries driving the UI.
 7. **Restoration Auditor.** Fusion, verdict, structured output; consumes Graph history as an actual input.
-8. **x402 gating.** Verification service metered; auditor pays per analysis.
+8. **x402 gating + Circle Agent Stack.** Verification service metered; auditor agent uses the agent wallet/payment path and pays per analysis.
 9. **Hedera ATS.** Outcome unit issuance on verification, permissioned transfer, retirement, reversal. Verify contracts on HashScan.
 10. **Assurance export.** Disclosure-ready bundle generation.
 11. **Reversal path.** dNBR/coherence loss detection driving retention withholding and unit flagging.
@@ -576,6 +591,9 @@ Satellite confirms 38.4 ha gain on the parcel — all tiers corroborate
 Control parcels greened 21.7 ha over the same window
         ↓
 Additionality-adjusted gain: 16.7 ha  (95% CI 13.1–20.3)
+        ↓
+Regrowth passes the ecological-function quality gate
+        ↓
 Settled at the lower bound: 13.1 ha  →  PARTIAL
         ↓
 Arc releases the tranche proportionally (31.2%)
@@ -585,7 +603,7 @@ confidence bound, H3 root, and evidence CID
         ↓
 12-month persistence tranche scheduled; satellite monitoring continues
         ↓
-Sponsor exports the assurance bundle and retires units against disclosure
+Sponsor exports the assurance bundle and retires units for its disclosure/impact accounting
 ```
 
 The video must be **2–4 minutes**, at least **720p**, narrated with clear spoken audio, no music, and weighted toward the working system rather than the concept. The moment to land is the control-set reveal: the claim was honest, the measurement was correct, and the payout was still three times too high until the counterfactual was applied.
@@ -598,8 +616,8 @@ The video must be **2–4 minutes**, at least **720p**, narrated with clear spok
 |---|---|
 | **Arc mainnet by Sept 30** | Hard external deadline for the largest single Arc track. Treat as a schedule constraint from day one. |
 | **Cross-chain attestation** | Highest integration risk. Stub early. No value crosses chains — only a commitment hash — which limits the blast radius. |
-| **Control-set matching quality** | The scientific weak point. Poorly matched controls produce a confidently wrong additionality estimate. Publish the matching criteria and show the matched parcels in the UI so the assumption is inspectable rather than hidden. |
-| **Drone and IoT data for demo sites** | Real Tier 1/2 data will not exist for all four sites. Simulate Tiers 1–2 from realistic parameters and label the simulation explicitly. Tier 0 must be genuinely real — the satellite layer is the claim being made, and faking it would undermine the entire submission. |
+| **Control-set matching quality** | The scientific weak point. Poorly matched controls produce a confidently wrong additionality estimate. Require a pre-treatment parallel-trend diagnostic and publish the matching criteria; if the diagnostic fails, return insufficient evidence rather than forcing a settlement. Show the matched parcels in the UI so the assumption is inspectable rather than hidden. |
+| **Drone and IoT data for demo sites** | Real Tier 1/2 data will not exist for all four sites. Simulate Tiers 1–2 from realistic parameters and label the simulation explicitly. Tier 0 must be genuinely real — the satellite layer is the core scientific claim, and faking it would undermine the entire submission. |
 | **Metric standardisation** | "Canopy cover gain" is not a biodiversity metric. It is a defensible proxy for the prototype; the metric registry is versioned so better metrics can be added without changing the contracts. State this limitation plainly rather than overclaiming. |
 | **Latency to settlement** | Sentinel revisit plus processing means verification is measured in days to weeks, not blocks. The UI must represent pending verification honestly. This is a property of the physical world, not a defect. |
 | **Subgraph indexing lag** | Eventual consistency after transaction confirmation. Poll `_meta` and render optimistically so the live demo does not appear broken. |
@@ -612,7 +630,7 @@ The video must be **2–4 minutes**, at least **720p**, narrated with clear spok
 | Dataset | Use | Source |
 |---|---|---|
 | Sentinel-2 L2A | Optical indices, 10 m | Copernicus / AWS Open Data (STAC) |
-| Sentinel-1 GRD | SAR backscatter, coherence | Copernicus / AWS Open Data (STAC) |
+| Sentinel-1 GRD + SLC / derived coherence | SAR backscatter, coherence | Copernicus Data Space / AWS Open Data (STAC where available) |
 | Landsat 5/7/8/9 | Long baseline, 1984– | USGS / AWS Open Data |
 | GEDI / ICESat-2 | Canopy height, structure | NASA |
 | ESA WorldCover | Land cover transitions | ESA |
@@ -625,4 +643,4 @@ The video must be **2–4 minutes**, at least **720p**, narrated with clear spok
 
 ## 13. Summary
 
-The target is not feature count. It is a technically credible, publicly developed system in which **rigorous remote sensing, honest uncertainty, measured additionality, programmable settlement, and tokenized real-world assets form one working loop** — where the number a satellite produces is the number that releases the money, and where the buyer can re-derive that number themselves.
+The target is not feature count. It is a technically credible, publicly developed system in which **rigorous remote sensing, explicit uncertainty, measured additionality, programmable settlement, and tokenized restoration outcomes form one working loop** — where the number a satellite produces is the number that releases the money, and where the buyer can re-derive that number themselves.

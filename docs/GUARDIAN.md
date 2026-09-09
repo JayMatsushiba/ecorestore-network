@@ -1,0 +1,156 @@
+# Ecorestore Network — Hedera Guardian Integration
+
+## 1. Purpose
+
+Hedera Guardian provides the environmental methodology and verification workflow layer.
+
+Guardian is not the scientific calculation engine and is not the financial settlement authority.
+
+Guardian policies define roles, schemas, workflows and verification-related state.
+
+---
+
+## 2. Authority Boundary
+
+```text
+Ecorestore Verification Engine
+        ↓
+canonical VerificationResult
+        ↓
+Guardian policy / verifier workflow
+        ↓
+authorized verification
+        ↓
+Arc Restoration Deed
+```
+
+Guardian consumes the deterministic result.
+
+It does not independently calculate the scientific result.
+
+---
+
+## 3. Intended Responsibilities
+
+Guardian will eventually manage:
+
+* project verification workflow;
+* evidence schemas;
+* verifier roles;
+* verification credentials;
+* approval state;
+* restoration outcome state;
+* relevant lifecycle/provenance.
+
+Guardian policies provide roles, schemas, workflows and rules for environmental processes.
+
+---
+
+## 4. Verification Result
+
+Guardian should receive a structured, versioned result from Ecorestore.
+
+The result should include:
+
+* methodology version;
+* parcel H3 root;
+* metric;
+* measured change;
+* additionality-adjusted result;
+* uncertainty interval;
+* lower bound;
+* quality status;
+* evidence commitment.
+
+---
+
+## 5. Security Boundary
+
+Guardian authorization does not allow an AI agent to bypass the deterministic result.
+
+The verified result is an input to the environmental verification workflow.
+
+Financial execution remains outside Guardian.
+
+---
+
+## 6. Financial Separation
+
+Guardian must not be treated as the mechanism that releases Arc funds.
+
+The Arc Restoration Deed remains the financial authority.
+
+This separation avoids coupling environmental methodology to financial custody.
+
+---
+
+## 7. The ATS seam — how Guardian and the token connect
+
+**Guardian is the issuance authority. ATS is the instrument.** Guardian decides whether
+and how much to issue and carries the provenance; ATS is what the buyer holds and
+transfers.
+
+A completed Guardian policy run produces a **Verifiable Presentation** bundling the
+trust chain, each VC DID-signed, pinned to IPFS, written to an HCS topic,
+hash-addressable. **ERC-1643 exists precisely to bind off-chain compliance documents to
+a token, and a Guardian VP is an off-chain compliance document:**
+
+```text
+setDocument(
+  name         = "guardian-trust-chain-v1"
+  uri          = ipfs://bafy...            (the VP)
+  documentHash = keccak256(VP)
+)
+
+issueByPartition(
+  partition    = keccak256(h3_root, window_start, window_end)   // the vintage
+  holder       = sponsor
+  value        = settled_quantity                              // lower bound
+  data         = abi.encode(vp_hash, hcs_topic_id, hcs_seq_no)
+)
+```
+
+**What guarantees the seam is public verifiability, not on-chain enforcement.** HCS
+messages are not readable from Hedera's EVM, so no contract can check the VP. The mint
+records the VP hash and HCS message ID, and anyone can fetch the HCS message, fetch the
+IPFS document, re-hash, and confirm the token corresponds to a real completed policy
+run. This is the same reproducibility argument the spatial pipeline makes.
+
+Persistence re-verification maps onto a Guardian `timer` block; the Ecorestore verdict
+enters through an `externalDataBlock`.
+
+---
+
+## 8. The VVB tension
+
+Guardian's trust model is built around **a human VVB approving submissions** — the thing
+this project argues should be computed.
+
+The resolution: **the pipeline does not remove the VVB, it changes what the VVB
+reviews** — from "is this claim form plausible?" to "is the pipeline correctly
+configured, is the pre-registered analysis plan honoured, and is the parallel-trend
+diagnostic passing?" That is a role a registry would accept.
+
+---
+
+## 9. Build plan — design C, build B
+
+Guardian is ~10 microservices plus MongoDB, IPFS, a vault and a Standard Registry
+testnet account: realistically 1-3 days to stand up and 2-4 days to author a minimal
+real policy. **Guardian is not stood up for the hackathon.**
+
+Instead, at M4:
+
+1. **Publish the verdict VC schema** as a Guardian-compatible JSON schema in the repo.
+2. **Emit the verdict as a signed VC** against that schema.
+3. **Bind that VC into the ATS token via a real `setDocument()` call** at issuance,
+   partition set to the vintage — the Ecorestore verifier occupying the slot Guardian
+   would occupy.
+4. **One diagram and one paragraph** showing Guardian dropping into that slot.
+
+"We plan to integrate Guardian" is a promise. A working ERC-1643 binding of a signed
+verdict VC into a partitioned token, with the drop-in point specified, is a demonstrated
+architecture with a credible path.
+
+Implementation decisions must be checked against the current Guardian documentation
+before integration.
