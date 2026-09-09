@@ -1,0 +1,30 @@
+{
+  "name": "ecorestore-network",
+  "version": "1.0.0",
+  "description": "Project for EthOnline Hackathon 2026",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JayMatsushiba/ecorestore-network.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JayMatsushiba/ecorestore-network/issues"
+  },
+  "homepage": "https://github.com/JayMatsushiba/ecorestore-network#readme",
+  "devDependencies": {
+    "@types/node": "^26.5.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}
