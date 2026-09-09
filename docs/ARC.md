@@ -134,3 +134,22 @@ M1 implements:
 * tests.
 
 Arc Testnet is the deployment environment; track mainnet readiness from day one.
+
+## 8. Implementation state (2026-09-10)
+
+`contracts/src/RestorationDeed.sol` implements every M1 item above with a 28-test
+Foundry suite (`npm run test:contracts`). Notes:
+
+- Verdict statuses mirror the engine. `INSUFFICIENT_EVIDENCE` / `INVALID_RESULT` leave
+  a milestone re-verifiable under a later run; `NOT_ADDITIONAL` / `GATE_FAILED` fail it;
+  `VERIFIED` / `PARTIAL` with a positive lower bound make it releasable.
+- Release = `amount × min(lowerBound, threshold) / threshold`, capped by escrow;
+  retention withheld; benefit share routed to the steward; assignee paid if set.
+- `recordVerificationRun()` precedes `verifyMilestone()`; the verdict cites its run.
+- `reclaim()` returns the unreleased balance to the sponsor after a milestone deadline.
+- `contracts/client.ts` is the only path from a `VerificationResult` to calldata.
+
+Arc Testnet: chain id 5042002, RPC `https://rpc.testnet.arc.io`, explorer
+`https://testnet.arcscan.app`. `contracts/script/Deploy.s.sol` is ready; **the contract
+has not been deployed** (no deployer key in the build environment). The end-to-end demo
+has run against a local anvil chain.

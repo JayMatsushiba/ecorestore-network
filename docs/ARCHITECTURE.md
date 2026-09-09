@@ -254,6 +254,11 @@ never written. Those gaps carry into M1 rather than being backdated. See Idea 0.
 mainnet-readiness deadline. The pipeline builds against a deployed contract, not the
 reverse.
 
+**State on 2026-09-10:** the M1 contract, the M2 engine against real Tier 0, the M3
+vertical slice (`scripts/demo.ts`) and the M4 Guardian/ATS seam (prepared calldata, not
+broadcast) are prototyped on one branch — see `docs/DEVELOPMENT_LOG.md`. Arc Testnet
+deployment, the Subgraph, Sentinel-1 and the Auditor LLM remain open.
+
 M1 does not implement:
 
 * satellite processing;
