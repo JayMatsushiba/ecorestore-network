@@ -1,3 +1,8 @@
+> **HISTORICAL.** The M0 rewrite (`45b81dc`). Its authority model, milestone
+> discipline, `INSUFFICIENT_EVIDENCE` gate and data-labelling rules were carried into
+> the canonical baseline; its deletions of the market, sponsor and finance analysis
+> were not. See `proposals/idea-0.3.md` §13.3.
+
 # Ecorestore Network — Spatially-Verified Restoration Finance
 
 **ETHOnline 2026 submission and portfolio piece.**

@@ -84,33 +84,54 @@ The Auditor may invoke the deterministic engine and explain its result, but cann
 
 ---
 
-## 4. Synthetic Demonstration Environment
+## 4. Demonstration Environment — mixed provenance
 
-The hackathon prototype uses one synthetic British Columbia restoration project.
+The prototype uses one British Columbia restoration project: **Kootenay Riparian
+Restoration**.
 
-All synthetic evidence must be explicitly labeled:
+**Tier 0 is real.** Sentinel-2 L2A, Sentinel-1, Landsat and ICESat-2 are real
+acquisitions for the parcel, the near control ring and the far control ring. The
+satellite layer is the core scientific claim of the project and is not fabricated.
+Real Tier 0 displays its STAC scene IDs and processing graph version.
 
-> SYNTHETIC DEMONSTRATION DATA — NOT REAL FIELD, SATELLITE, SENSOR OR REGULATORY MEASUREMENT.
+*(This amends the all-synthetic rule this section previously carried. See Idea 0.3
+§3.2 and §13.5.)*
 
-Synthetic data exists to make the deterministic verification pipeline testable and reproducible during the hackathon.
+**Tiers 1-3 are simulated** from realistic parameters and must be explicitly labeled:
 
-It must never be presented as actual environmental measurement.
+> SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.
+
+Simulated data exists to make the deterministic verification pipeline testable and
+reproducible during the hackathon. It must never be presented as actual environmental
+measurement, and it must be visually distinguishable from real Tier 0 at all times.
 
 ---
 
 ## 5. Spatial Identity
 
-H3 provides the spatial identity layer.
+**H3 is the index and join key. Polygon geometry carries quantities and the
+non-overlap test.**
+
+H3 cells are not equal-area (icosahedral distortion, plus 12 pentagons), so hectares
+are never derived from cell counts. H3 non-overlap also does not prove parcel
+non-overlap: adjacent parcels can legitimately share a boundary cell. Both problems
+disappear when the intersection test runs on real geometry.
+
+*(This replaces the earlier framing in which H3 proved non-overlap. See Idea 0.3
+§3.10 and §13.5. The result is strictly simpler.)*
 
 The prototype uses:
 
-* canonical H3 resolution;
-* deterministic cell-set encoding;
-* parcel H3 root;
-* geometry hash;
-* evidence hash/CID.
+* canonical H3 resolution and deterministic cell-set encoding — identity and join key;
+* parcel H3 root committed on-chain;
+* off-chain polygon geometry with a `geometry_hash` commitment — areas and the
+  double-counting check, with an explicit boundary tolerance;
+* Location Protocol attestation shape for parcel records (compatibility, not a
+  dependency — the Astral oracle is a research preview and is not on the critical path);
+* evidence hash / CID.
 
-Polygon geometry remains off-chain.
+The on-chain parcel record also carries `analysis_plan_hash` (Idea 0.3 §3.7.1),
+`tenure_attestation` (§4.5) and `encumbrances` (§4.6).
 
 ---
 
@@ -125,9 +146,9 @@ Tier 2 — IoT / in-situ
 Tier 3 — Ground reports
 ```
 
-For M1 these are represented by controlled synthetic fixtures.
+For M2, Tier 0 is real acquisition and Tiers 1-3 are controlled simulated fixtures.
 
-The future production system may ingest real Sentinel-2, Sentinel-1, Landsat, drone, IoT and field evidence.
+The future production system extends the real Tier 0 ingest to real drone, IoT and field evidence.
 
 ---
 
@@ -140,13 +161,15 @@ Owns:
 * evidence normalization;
 * baseline;
 * parcel observations;
-* control matching;
+* control matching — **near ring and far ring**, drawn by the pre-registered rule
+  rather than chosen at verification time;
 * parallel-trend diagnostics;
-* difference-in-differences;
-* additionality;
-* uncertainty;
+* difference-in-differences against the far ring;
+* **leakage estimation from near/far ring divergence**;
+* biophysical additionality;
+* uncertainty, with an **empirical coverage figure** alongside the nominal interval;
 * lower-bound settlement quantity;
-* quality gates;
+* quality gates and issuance gates;
 * canonical `VerificationResult`.
 
 Does not own:
@@ -157,6 +180,11 @@ Does not own:
 * AI reasoning.
 
 ### Guardian
+
+**Guardian is the issuance authority; ATS is the instrument.** Guardian decides whether
+and how much to issue and carries the provenance; ATS is what the buyer holds and
+transfers. Guardian never touches money. For the hackathon Guardian is *not stood up* —
+the seam is built and the drop-in point specified (Idea 0.3 §4.4.2).
 
 Owns:
 
@@ -214,19 +242,28 @@ May not:
 
 ---
 
-## 8. M0 Boundary
+## 8. Milestone Boundary
 
-M0 establishes architecture and interfaces only.
+**M0 is not complete.** As committed in `45b81dc` it delivered documentation and
+directory structure, but `verification/{engine,models,fixtures}.ts`,
+`auditor/agent.ts`, `guardian/adapter.ts` and `contracts/RestorationDeed.sol` are empty
+files, `app/src/App.tsx` is the unmodified Vite template, and the development log was
+never written. Those gaps carry into M1 rather than being backdated. See Idea 0.3 §9.1.
 
-M0 does not implement:
+**M1 is the Arc Restoration Deed**, ordered first against the September 30, 2026
+mainnet-readiness deadline. The pipeline builds against a deployed contract, not the
+reverse.
+
+M1 does not implement:
 
 * satellite processing;
 * control matching;
 * difference-in-differences;
+* leakage;
 * additionality;
 * uncertainty;
 * Guardian integration;
-* Arc integration;
+* Hedera ATS issuance;
 * Graph indexing;
 * AI agent;
 * x402;

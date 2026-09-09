@@ -2,13 +2,18 @@
 
 ## 1. Demonstration Principle
 
-The demo uses one synthetic British Columbia restoration project.
+The demo uses one British Columbia restoration project with a **mixed evidence
+provenance that must never be blurred**.
 
-All environmental measurements are synthetic.
+**Tier 0 is real.** Sentinel-2 L2A, Sentinel-1, Landsat and ICESat-2 acquisitions for
+the parcel and both control rings, shown with their STAC scene IDs and processing graph
+version. The satellite layer is the core scientific claim and is not fabricated.
 
-The application must visibly state:
+**Tiers 1-3 are simulated.** Wherever they appear the application must visibly state:
 
-> SYNTHETIC DEMONSTRATION DATA — NOT REAL FIELD, SATELLITE, SENSOR OR REGULATORY MEASUREMENT.
+> SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.
+
+Real and simulated evidence must be visually distinguishable at all times.
 
 ---
 
@@ -18,9 +23,12 @@ Working name:
 
 **Kootenay Riparian Restoration — British Columbia**
 
-The location is used as a synthetic geographic context.
+The parcel is a real location with real satellite coverage. The restoration project,
+the deed, the claim and all Tier 1-3 evidence are constructed for the demonstration.
 
-No claim is made that the displayed measurements represent actual conditions at the site.
+Tier 0 indices are genuine measurements of that ground. No claim is made that a
+restoration intervention took place there, that the Tier 1-3 evidence is real, or
+that any displayed outcome constitutes certification.
 
 ---
 
@@ -29,31 +37,43 @@ No claim is made that the displayed measurements represent actual conditions at 
 ```text
 Sponsor selects project
         ↓
-Reviews parcel and evidence
+Reviews parcel, tenure attestation, encumbrance declaration,
+and the committed analysis plan
         ↓
-Restoration Deed is funded
+Restoration Deed is funded in USDC
         ↓
-Evidence is submitted
+Mobilisation tranche draws against verified effort — the restorer is paid to start
         ↓
-Auditor investigates
+Evidence is submitted   (Tier 0 REAL, Tiers 1-3 SIMULATED and labelled)
         ↓
-Deterministic verification runs
+Auditor investigates, querying project history via The Graph
+        ↓
+Control set is DRAWN by the pre-registered rule — not chosen
         ↓
 Parallel-trend diagnostic
         ↓
-Additionality calculation
+Difference-in-differences against the far ring
         ↓
-Uncertainty calculation
+Leakage deduction from near/far ring divergence
+        ↓
+Biophysical additionality
+        ↓
+Uncertainty, with empirical coverage reported
+        ↓
+Issuance gates: native species fraction, no net habitat loss, condition floor
         ↓
 Lower-bound settlement quantity
         ↓
-Guardian verification
+Arc settlement; benefit share routes to the steward address
         ↓
-Arc settlement
+Verdict signed as a VC; outcome issued into the vintage partition
+with setDocument(VC)      [Guardian drops into this slot in production]
         ↓
-Outcome displayed
+Persistence tranche scheduled; monitoring commitment runs past it
         ↓
-History available through Graph
+Assurance bundle exported
+        ↓
+History available through The Graph
 ```
 
 ---
@@ -100,19 +120,19 @@ This is a critical trust property.
 
 ---
 
-## 6. Synthetic Data Rules
+## 6. Data Provenance Rules
 
 Never:
 
-* imply synthetic values are real satellite observations;
-* cite synthetic values as field measurements;
+* imply simulated values are real satellite observations;
+* cite simulated values as field measurements;
 * describe the demonstration as regulatory certification;
 * call the outcome a regulatory biodiversity credit.
 
 Use:
 
-* synthetic dataset;
-* synthetic observation;
+* simulated dataset / simulated observation (Tiers 1-3);
+* real Sentinel-2 / Sentinel-1 acquisition, with scene IDs (Tier 0);
 * demonstration outcome;
 * prototype verification.
 
@@ -120,15 +140,25 @@ Use:
 
 ## 7. Demo Priority
 
-If time becomes constrained:
+If time becomes constrained, **cut in this order**: the rotating globe, then secondary
+UI views, then x402, then ATS lifecycle depth, then the Subgraph.
 
-1. deterministic verification;
-2. additionality;
-3. uncertainty;
-4. Arc settlement;
-5. Guardian;
-6. Graph;
-7. Auditor;
-8. UI polish.
+**Never cut** additionality, leakage, uncertainty, pre-registration, or the
+`INSUFFICIENT_EVIDENCE` path. Those are the thesis.
 
 Do not cut the scientific core to add cosmetic features.
+
+## 8. The two UI views that must ship
+
+1. **Additionality view** — parcel trajectory against the far-ring control envelope,
+   with the near ring shown separately so leakage is visible. The gap between the lines
+   *is* the settled quantity.
+2. **Assurance export** — the disclosure-ready bundle: quantities with bounds, empirical
+   coverage, evidence provenance, STAC scene IDs, processing graph version, control-set
+   and ring geometry, analysis plan hash and run index, obligation status, transaction
+   references, verdict VC.
+
+Plus the **assurance-adjusted comparison** — *"11.2 ha defensible vs. 42 ha at risk"* —
+because the value proposition is insurance against restatement, not units per dollar.
+A buyer told they get a third of the credits buys elsewhere; a buyer told their units
+survive assurance does not.

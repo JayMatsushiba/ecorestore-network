@@ -1,3 +1,6 @@
+> **HISTORICAL.** Pre-`73e4be7` draft of Idea 0.2, before the scientific-claim
+> tightening edits. Superseded by `proposals/idea-0.3.md`.
+
 # Ecorestore Network — Spatially-Verified Restoration Finance
 
 **ETHOnline 2026 submission and portfolio piece.**

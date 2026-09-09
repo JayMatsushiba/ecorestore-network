@@ -33,7 +33,8 @@ The Auditor must not:
 * approve its own verification;
 * release sponsor funds;
 * bypass Guardian authorization;
-* bypass Arc contract rules.
+* bypass Arc contract rules;
+* select or re-select the control set — it is drawn by the pre-registered rule.
 
 ---
 
@@ -43,12 +44,17 @@ Potential inputs:
 
 ```text
 project
-deed terms
+deed terms              incl. analysis_plan_hash
 claim
-evidence bundle
+evidence bundle         tier, real | simulated
 verification result
-project history
+project history         prior claims, verdicts, payments, reversals,
+                        and VERIFICATION RUN COUNT
 ```
+
+A parcel with a prior reversal, a repeatedly-revised claim, ground reports that
+consistently overshoot corroborated measurement, **or eleven verification runs behind
+one submitted result**, is scored differently from a clean one.
 
 ---
 
@@ -95,4 +101,9 @@ Do not connect payment systems.
 
 ## 7. M5
 
-M5 implements the Auditor after the deterministic verification engine, Guardian boundary, Arc boundary and Graph history are sufficiently stable.
+M5 implements the Auditor after the deterministic verification engine (M2), the Arc
+contracts (M1), the vertical slice (M3) and Graph history are sufficiently stable.
+
+The verdict is emitted as structured JSON **and** as a signed W3C VC against the
+published Guardian-compatible schema, so it can be bound into the outcome token via
+`setDocument()`.

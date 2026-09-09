@@ -1,3 +1,9 @@
+> **SUPERSEDED.** This is Idea 0.2, retained at the repository root only because it is
+> the text reviewed in `proposal_review.md`. It is duplicated verbatim at
+> `proposals/idea-0.2.md` and may be deleted from the root.
+>
+> **The canonical baseline is `proposals/idea-0.3.md`.**
+
 # Ecorestore Network — Spatially-Verified Restoration Finance
 
 **ETHOnline 2026 submission and portfolio piece.**

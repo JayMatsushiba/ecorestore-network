@@ -1,3 +1,7 @@
+> **HISTORICAL.** Original concept note. Its "no central certifier required" framing
+> is explicitly rejected in `proposals/idea-0.3.md` §2.1 — that is the positioning
+> that got Toucan killed. Superseded by `proposals/idea-0.3.md`.
+
 # Ecorestore Network - Decentralized Autonomous Organization
 
 ## 1. Objective 

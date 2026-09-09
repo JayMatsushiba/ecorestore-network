@@ -51,9 +51,14 @@ It may eventually include:
 * imagery;
 * derived spatial products.
 
-During M1, evidence is synthetic and controlled.
+**Tier 0 is real.** Sentinel-2 L2A, Sentinel-1, Landsat and ICESat-2 acquisitions for
+the parcel and both control rings, with STAC scene IDs and processing graph version
+recorded in every result.
 
-Synthetic evidence must be explicitly marked as synthetic.
+**Tiers 1-3 are simulated** from realistic parameters and must be explicitly marked as
+simulated wherever they appear.
+
+*(This amends the earlier all-synthetic framing. See Idea 0.3 §3.2 and §13.5.)*
 
 ---
 
@@ -81,21 +86,53 @@ Regional or background change must be accounted for.
 
 ---
 
-## 6. Matched Controls
+## 6. Matched Controls — two rings
 
 Control parcels represent the counterfactual.
 
-Controls should be selected using relevant characteristics such as:
+Controls are selected on land cover, elevation, slope, aspect, soil, climate and
+pre-treatment index trajectory. Matching on the pre-treatment trend is what
+distinguishes a genuine control from a merely adjacent one.
 
-* land cover;
-* elevation;
-* slope;
-* aspect;
-* soil;
-* climate;
-* pre-treatment trajectory.
+**The control set is drawn by the pre-registered rule (§6.1), never chosen at
+verification time.**
 
-Potential treatment spillover or contamination must exclude a control.
+**Two rings, because leakage biases the estimate upward:**
+
+* **near ring** — matched, immediately adjacent, leakage-exposed;
+* **far ring** — matched, buffered beyond plausible displacement distance.
+
+Excluding grazing, fuelwood collection or cultivation from a funded parcel displaces
+that pressure to adjacent land. Because controls are drawn from nearby parcels,
+displaced pressure degrades the controls at the same time the parcel improves, and the
+DiD **overstates** additionality on both sides at once. This is the one place the design
+is not conservative, so it is handled explicitly rather than assumed away by a buffer.
+
+**The DiD estimate uses the far ring. The divergence between rings is a direct leakage
+estimate**, reported in the result and deducted.
+
+### 6.1 Pre-registration
+
+The analysis plan hash is committed at `createDeed()`, before any outcome is
+observable:
+
+```text
+metric_id + version
+observation windows              fixed dates, not "a 6-month window"
+control selection RULE           covariates, calipers, k, exclusion buffer
+                                 — the rule, never the selected parcels
+index and masking chain version
+confidence level
+parallel-trend diagnostic + its pass criterion
+leakage ring geometry            near-ring and far-ring radii
+```
+
+Re-runs are permitted, but **every run is recorded on-chain and the result cites its
+run index.** A parcel with eleven runs and one submitted result is visible.
+
+Without this, the control set is selected and the analysis run at verification time by
+a service the restorer pays per request — a researcher-degrees-of-freedom problem with
+money attached. Every number stays honest; the estimator is still biased.
 
 ---
 
@@ -135,11 +172,20 @@ The implementation must define the exact mathematical form and version it.
 
 ---
 
-## 9. Additionality
-
-Additionality distinguishes intervention-attributable change from change that would plausibly have occurred without the intervention.
+## 9. Additionality — two distinct things
 
 The system must not settle against gross parcel greening alone.
+
+**Biophysical additionality** — the DiD adjustment against the far ring, less the
+leakage deduction. *This is what the engine measures.*
+
+**Financial additionality** — would this have happened without the payment? *This is
+not measurable from imagery.* It is addressed procedurally by the encumbrance registry
+(Idea 0.3 §4.6), which records legal obligations, public subsidy and existing claims at
+parcel registration and attaches an `obligation_status` to the outcome.
+
+Conflating the two is the criticism levelled hardest at credit markets. The vocabulary
+is kept split everywhere in the code and the interface.
 
 ---
 
@@ -149,14 +195,28 @@ The engine must represent uncertainty explicitly.
 
 The result must contain an interval rather than only a point estimate.
 
-Potential sources include:
+Sources, in order of typical magnitude for a DiD estimate:
 
-* observation error;
-* residual cloud contamination;
-* spatial boundary error;
-* control matching uncertainty;
-* model uncertainty;
-* measurement uncertainty.
+1. **control-matching error**;
+2. **index → physical-quantity model transfer error**;
+3. leakage estimation error;
+4. mixed pixels at parcel boundaries;
+5. residual cloud and cloud-shadow contamination;
+6. atmospheric correction residuals, BRDF and view-angle effects;
+7. co-registration error.
+
+The first two dominate. Listing atmospheric and co-registration terms first, as earlier
+drafts did, gets the ordering backwards.
+
+### 10.1 Empirical coverage
+
+Analytically propagated intervals are routinely mis-calibrated, and the entire financial
+argument rests on the bound meaning what it says. The result therefore reports an
+**empirical coverage figure alongside the nominal one**: on held-out ground-truth plots,
+does the nominal 95% interval contain truth approximately 95% of the time?
+
+If coverage is materially below nominal, the settlement rule is not yet sound. That must
+be reported, not hidden.
 
 ---
 
@@ -205,16 +265,25 @@ The canonical result should contain, at minimum:
 ```text
 projectId
 parcelH3Root
+geometryHash
+analysisPlanHash          §6.1
+runIndex                  §6.1
 methodologyVersion
+processingGraphVersion
+stacSceneIds              real Tier 0 provenance
 metric
 claimedQuantity
 observedChange
-controlChange
-additionalityAdjusted
+controlChangeFarRing
+controlChangeNearRing
+leakageEstimate
+additionalityAdjusted     biophysical
 uncertainty
+empiricalCoverage         §10.1
 lowerBound
 parallelTrendStatus
 qualityGateStatus
+obligationStatus          §9
 verificationStatus
 evidenceHash
 evidenceCid
@@ -245,8 +314,14 @@ AI may not:
 
 ---
 
-## 15. M1 Objective
+## 15. Milestone
 
-M1 implements the complete deterministic synthetic verification pipeline and tests its failure modes.
+The verification engine is **M2**, not M1. M1 is the Arc Restoration Deed, ordered
+first against the September 30, 2026 mainnet-readiness deadline (Idea 0.3 §9).
 
-No blockchain integration is required to consider M1 complete.
+M2 implements the complete deterministic verification pipeline against real Tier 0 and
+simulated Tiers 1-3, and tests its failure modes — including `INSUFFICIENT_EVIDENCE` on
+parallel-trend failure.
+
+No blockchain integration is required to consider M2 complete; M3 is the vertical
+slice that joins them.

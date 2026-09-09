@@ -13,15 +13,25 @@ The Graph must be load-bearing rather than decorative.
 ## 2. Intended Entities
 
 ```text
-Project
-RestorationDeed
-EvidenceSubmission
-Verification
+Project              parcel, tenure attestation, encumbrances
+RestorationDeed      terms, analysis_plan_hash, benefit_share
+Contribution
+Milestone            mobilisation / establishment / persistence
+Assignment           tranche pledged to a third-party lender
+EvidenceSubmission   tier, CID, real | simulated
+VerificationRun      run index, plan hash, submitted or not
+Verification         verdict, controls, leakage, CI, coverage, tier scores
 GuardianCredential
-OutcomeUnit
+OutcomeUnit          vintage partition, obligation_status, lifecycle state
 Settlement
+Reversal             detected loss, cause, affected units, buffer draw
+ControlSet           near ring and far ring
 Retirement
 ```
+
+**`VerificationRun` is the entity that makes pre-registration enforceable.** Re-runs
+are permitted, but every run is indexed, so a parcel with eleven verification runs and
+one submitted result is visible to anyone reading the Subgraph.
 
 Additional entities may be added only when required by the implementation.
 
@@ -53,8 +63,11 @@ retrieve project history
 retrieve prior verification
 retrieve prior settlement
 detect repeated claim/reversal patterns
+COUNT VERIFICATION RUNS BEHIND A SUBMITTED RESULT
 inspect current deed state
 ```
+
+Run count is genuine history and a genuine anomaly signal, not decoration.
 
 The Auditor should not merely query The Graph to populate UI cards.
 

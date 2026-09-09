@@ -1,3 +1,6 @@
+> **HISTORICAL.** Early technical guidance, merged into Idea 0.2 and superseded by
+> `proposals/idea-0.3.md`.
+
 # Restoration Ledger — ETHOnline Technical Guidance
 
 ## 1. Build Objective

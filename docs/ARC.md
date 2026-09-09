@@ -38,16 +38,22 @@ The intended contract contains:
 
 ```text
 project
-parcel identity
+parcel identity            h3 root + geometry hash
+tenure attestation         hashed rights attestation + type
+encumbrances               legal obligations, subsidy, existing claims
 metric
 methodology version
-milestones
+analysis plan hash         committed BEFORE any outcome is observable
+milestones                 mobilisation / establishment / persistence
 thresholds
 confidence level
+benefit share              fraction routed to a named steward address
 funding
 verification authority
+assignments                tranches pledged to third-party lenders
 released amount
 remaining escrow
+buffer withholding         fraction retained against portfolio reversals
 ```
 
 ---
@@ -55,16 +61,29 @@ remaining escrow
 ## 4. Intended Lifecycle
 
 ```text
-createProject()
-createDeed()
+createProject()      parcel, tenure attestation, encumbrances
+createDeed()         terms + analysis_plan_hash + benefit_share
 fundDeed()
+drawMobilisation()   cost-recovery advance against verified EFFORT, not outcome
 submitEvidence()
-verifyMilestone()
-releaseTranche()
+verifyMilestone()    versioned verdict + run index
+releaseTranche()     against the verified lower bound; routes the benefit share
+assignTranche()      pledge a future tranche to a third-party lender
 withholdRetention()
 ```
 
-The exact interface will be designed during M3.
+**Why the additions.** Outcome-only payment means the restorer fronts land access,
+stock, labour and three years of maintenance against a payment that arrives at
+12/24/36 months. The parties named as the supply side have the least access to working
+capital, so an outcome-only instrument selects for well-capitalised operators — it
+reallocates existing restoration rather than increasing it.
+
+The deed already holds committed USDC against machine-evaluable conditions, which is a
+better credit instrument than a small restorer's balance sheet. `drawMobilisation()`
+and `assignTranche()` are what turn that into working capital, and MRV cost is paid
+from escrow rather than the restorer's pocket. See Idea 0.3 §4.5.
+
+The exact interface is designed during M1.
 
 ---
 
@@ -86,35 +105,32 @@ Settlement calculations must be bounded by contract state.
 
 ---
 
-## 6. Synthetic Data
+## 6. Data Provenance
 
-The contract may receive synthetic verification results during the hackathon.
-
-Those results must be visibly marked as synthetic in the application and documentation.
-
----
-
-## 7. M0
-
-M0 creates only the Solidity scaffold.
-
-Do not deploy.
-
-Do not implement the complete escrow logic.
+Verification results reaching the contract derive from **real Tier 0 satellite data**
+combined with **simulated Tiers 1-3**. The application and documentation must show which
+is which, and must never present simulated evidence as measurement.
 
 ---
 
-## 8. M3
+## 7. M1 — Arc comes first
 
-M3 implements:
+**The build sequence is reordered.** Earlier drafts put Arc contracts at step 4,
+behind a full spatial pipeline and a globe. The Arc Testnet→Mainnet track carries a
+hard external deadline of **September 30, 2026**, and that ordering cannot meet it.
 
-* deed creation;
+Contracts are **M1**. The pipeline builds against a deployed contract, not the reverse.
+
+M1 implements:
+
+* deed creation with the committed analysis plan hash;
+* tenure attestation and encumbrance recording at project registration;
 * USDC funding;
-* milestone state;
-* authorized verification;
-* lower-bound settlement;
-* replay protection;
-* release/withholding;
+* milestone state (mobilisation / establishment / persistence);
+* authorized verification with replay protection;
+* lower-bound settlement bounded by contract state;
+* mobilisation draw, `assignTranche()`, benefit-share routing;
+* release / withholding;
 * tests.
 
-Arc Testnet is the intended deployment environment.
+Arc Testnet is the deployment environment; track mainnet readiness from day one.
