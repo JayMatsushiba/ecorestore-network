@@ -1,0 +1,31 @@
+{
+  "parcelId": "kootenay-riparian-001",
+  "name": "Kootenay Riparian Restoration — east bank, Creston Valley",
+  "locationNote": "Real location on the east bank of the Kootenay River in the Creston Valley, British Columbia. The parcel geometry was chosen from actual Sentinel-2 scene availability and the SCL water mask of scene S2B_11UNQ_20240724_0_L2A. No claim is made that a restoration intervention took place here; the deed, the claim and all Tier 1-3 evidence are constructed for the demonstration. Tier 0 indices are genuine measurements of this ground.",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-116.5800, 49.1265],
+        [-116.5690, 49.1265],
+        [-116.5690, 49.1320],
+        [-116.5800, 49.1320],
+        [-116.5800, 49.1265]
+      ]
+    ]
+  },
+  "h3Resolution": 10,
+  "ecosystem": "temperate riparian floodplain",
+  "tenureAttestation": {
+    "type": "co_management",
+    "attestorDid": "did:key:z6MkSimulatedStewardAttestorForDemonstrationOnly",
+    "documentHash": "0x8f1c3b0f0c9a1a3b5e7d9f1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f",
+    "provenance": "SIMULATED"
+  },
+  "encumbrances": {
+    "legalObligations": [],
+    "publicSubsidy": [],
+    "existingClaims": [],
+    "provenance": "SIMULATED"
+  }
+}
