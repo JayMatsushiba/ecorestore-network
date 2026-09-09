@@ -137,7 +137,7 @@ Arc Testnet is the deployment environment; track mainnet readiness from day one.
 
 ## 8. Implementation state (2026-09-10)
 
-`contracts/src/RestorationDeed.sol` implements every M1 item above with a 28-test
+`contracts/src/RestorationDeed.sol` implements every M1 item above with a 31-test
 Foundry suite (`npm run test:contracts`). Notes:
 
 - Verdict statuses mirror the engine. `INSUFFICIENT_EVIDENCE` / `INVALID_RESULT` leave

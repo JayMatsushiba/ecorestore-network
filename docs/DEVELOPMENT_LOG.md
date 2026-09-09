@@ -77,7 +77,7 @@ parameterised by realistic values rather than by the Tier 0 outcome.
   `releaseTranche` (proportional to lower bound / threshold, capped by milestone amount
   and escrow, retention withheld, benefit share routed, assignee paid), `assignTranche`,
   `withholdRetention`, `releaseRetention`, `reclaim`.
-- 28 Foundry tests. `contracts/client.ts` is the only path from a result to calldata
+- 31 Foundry tests. `contracts/client.ts` is the only path from a result to calldata
   and refuses a result whose plan hash or content hash disagree.
 
 **Auditor boundary** (`auditor/agent.ts`): rule-based anomaly detection (run count
@@ -92,7 +92,7 @@ deterministic narrator behind an `AuditorNarrator` interface. No LLM, no keys.
 | Suite | Result |
 |---|---|
 | `npm test` (vitest, 9 files) | 54 passed |
-| `forge test` | 28 passed |
+| `forge test` | 31 passed |
 | `npm run typecheck` | clean |
 | `npm run demo` | 3 scenarios, offline |
 | `DEMO_RPC_URL=… npm run demo` on anvil | 11 transactions per scenario, all succeed |
@@ -108,7 +108,7 @@ Engine results on the **real** snapshot (run 1, fixed time):
 | Biophysical additionality | −0.0432 (−2.65 ha) |
 | 95% interval | [−11.62, +5.45] ha |
 | Parallel trend | PASS, Δslope 0.013 NDVI/yr, p = 0.76, n = 1,229 |
-| Empirical coverage (40 placebos) | 0.85 vs nominal 0.95 |
+| Empirical coverage (40 placebos) | 0.875 vs nominal 0.95 |
 | Status | `NOT_ADDITIONAL`, settled 0 ha |
 
 No intervention took place on this ground, so this is the correct answer. The
@@ -156,7 +156,7 @@ commits to that state; none of these is treated as settled):
 
 - **Uncertainty method.** The bootstrap adds a far-ring residual draw per iteration as
   the representation of control-matching error (Idea 0.3 §3.8 term 1). Without it,
-  placebo coverage on this snapshot was **0.33**; with it, **0.85**. The interval is
+  placebo coverage on this snapshot was **0.33**; with it, **0.875**. The interval is
   reported with that coverage figure, not hidden behind the nominal 95%.
 - **Placebo-in-space coverage** stands in for held-out ground-truth plots, which do
   not exist for a simulated intervention. It tests calibration under the null on real
@@ -181,7 +181,7 @@ commits to that state; none of these is treated as settled):
 
 ### Unresolved risks
 
-- Coverage 0.85 < 0.95: the settlement rule is not yet calibrated for this metric.
+- Coverage 0.875 < 0.95: the settlement rule is not yet calibrated for this metric.
 - The synthetic scenario's interval is wide (≈ ±10 ha on a 49 ha parcel) because the
   residual shock is applied unscaled; a spatial covariance model would narrow it.
 - Real Tier 0 for one tile and three seasons only; a second parcel or a different

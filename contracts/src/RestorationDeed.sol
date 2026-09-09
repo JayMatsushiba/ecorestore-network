@@ -197,6 +197,7 @@ contract RestorationDeed {
         if (terms.analysisPlanHash == bytes32(0)) revert BadTerms("analysis plan hash");
         if (terms.confidenceBps == 0 || terms.confidenceBps >= BPS) revert BadTerms("confidence");
         if (uint256(terms.benefitShareBps) + terms.retentionBps > BPS) revert BadTerms("benefit share + retention");
+        if (terms.retentionBps > 0 && terms.bufferPool == address(0)) revert BadTerms("buffer pool");
         if (schedule.length == 0 || schedule.length > 255) revert BadTerms("schedule length");
 
         deedId = ++deedCount;
@@ -350,12 +351,14 @@ contract RestorationDeed {
         emit TrancheAssigned(deedId, milestoneId, assignee);
     }
 
-    /// @notice A failed persistence milestone sends the accumulated retention
-    ///         to the buffer pool instead of the restorer (§4.2).
+    /// @notice A persistence milestone that failed, or expired without a verdict,
+    ///         sends the accumulated retention to the buffer pool instead of the
+    ///         restorer (§4.2): persistence was not demonstrated.
     function withholdRetention(uint256 deedId, uint8 milestoneId) external nonReentrant {
         Deed storage d = _deed(deedId);
         Milestone storage m = _milestone(deedId, milestoneId);
-        if (m.terms.mType != MilestoneType.PERSISTENCE || m.state != MilestoneState.FAILED) revert WrongState(m.state);
+        bool notDemonstrated = m.state == MilestoneState.FAILED || m.state == MilestoneState.RECLAIMED;
+        if (m.terms.mType != MilestoneType.PERSISTENCE || !notDemonstrated) revert WrongState(m.state);
         if (d.retentionSettled) revert BadTerms("retention settled");
         uint256 amount = d.retained;
         d.retained = 0;

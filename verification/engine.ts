@@ -292,7 +292,9 @@ function resampleWeighted(xs: number[], w: number[], rng: () => number): number 
  * additional change = 0 (no intervention there). Controls are re-drawn by the
  * committed rule excluding that unit, the bootstrap interval is computed, and
  * coverage is the fraction of intervals containing zero. This tests interval
- * calibration under the null on real data; it is not held-out ground truth.
+ * calibration of the DiD estimator under the null on real data; it is not
+ * held-out ground truth. The parcel's near ring is not a near ring for a
+ * pseudo-parcel elsewhere, so no leakage term enters the placebo.
  */
 export function empiricalCoverage(series: UnitSeries[], plan: AnalysisPlan, seed: number): { empirical: number | null; placebos: number } {
   const cov = plan.uncertainty.coverage;
@@ -309,8 +311,7 @@ export function empiricalCoverage(series: UnitSeries[], plan: AnalysisPlan, seed
   for (const pseudo of chosen) {
     const far = drawControls('far', { preLevel: pseudo.preLevel!, preSlope: pseudo.preSlope! }, series, plan, pseudo.unit.unitId);
     if (far.matched.length < plan.controlRule.matching.minMatched) continue;
-    const near = drawControls('near', { preLevel: pseudo.preLevel!, preSlope: pseudo.preSlope! }, series, plan);
-    const draws = bootstrapAdditionalHa([pseudo], far.matched, near.matched, pseudo.unit.areaHa, plan, cov.bootstrapIterations, seed ^ hashId(pseudo.unit.unitId));
+    const draws = bootstrapAdditionalHa([pseudo], far.matched, [], pseudo.unit.areaHa, plan, cov.bootstrapIterations, seed ^ hashId(pseudo.unit.unitId));
     const lo = quantile(draws, alpha / 2);
     const hi = quantile(draws, 1 - alpha / 2);
     n++;

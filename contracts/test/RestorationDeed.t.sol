@@ -311,6 +311,32 @@ contract RestorationDeedTest is Test {
         assertEq(deed.getDeed(deedId).retained, 0);
     }
 
+    function test_expiredPersistenceWithholdsRetention() public {
+        uint32 run = _run();
+        _verify(1, run, keccak256("est"), RestorationDeed.VerdictStatus.PARTIAL, 21 * Q);
+        deed.releaseTranche(deedId, 1);
+        uint256 retained = deed.getDeed(deedId).retained;
+        // Persistence window passes with no verdict at all; sponsor reclaims the tranche.
+        vm.warp(block.timestamp + 801 days);
+        vm.prank(sponsor);
+        deed.reclaim(deedId, 2);
+        assertEq(uint256(deed.getMilestone(deedId, 2).state), uint256(RestorationDeed.MilestoneState.RECLAIMED));
+        vm.expectRevert(abi.encodeWithSelector(RestorationDeed.WrongState.selector, RestorationDeed.MilestoneState.RECLAIMED));
+        deed.releaseRetention(deedId);
+        deed.withholdRetention(deedId, 2);
+        assertEq(usdc.balanceOf(bufferPool), retained);
+    }
+
+    function test_retentionNeedsBufferPool() public {
+        RestorationDeed.DeedTerms memory t = _terms();
+        t.bufferPool = address(0);
+        RestorationDeed.MilestoneTerms[] memory s = new RestorationDeed.MilestoneTerms[](1);
+        s[0] = RestorationDeed.MilestoneTerms(RestorationDeed.MilestoneType.ESTABLISHMENT, 1e6, Q, 0, 0);
+        vm.prank(sponsor);
+        vm.expectRevert(abi.encodeWithSelector(RestorationDeed.BadTerms.selector, "buffer pool"));
+        deed.createDeed(t, s);
+    }
+
     function test_retentionReleasedAfterPersistenceHolds() public {
         uint32 run = _run();
         _verify(1, run, keccak256("est"), RestorationDeed.VerdictStatus.PARTIAL, 21 * Q);

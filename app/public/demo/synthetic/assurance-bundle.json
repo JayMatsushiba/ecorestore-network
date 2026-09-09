@@ -9,11 +9,12 @@
     "note": "SYNTHETIC TREATMENT EFFECT INJECTED: +0.25 NDVI added to every post-window parcel observation of the real snapshot 0x5be25dd2046d1719eaf23d413ef7f17df3762c0196363f105a1219141d26d63d. Sensitivity scenario only — not an observation."
   },
   "trajectory": {
-    "treatmentDate": {
+    "window": {
       "label": "verification",
       "start": "2023-06-01",
       "end": "2025-09-30"
     },
+    "tier0Provenance": "SIMULATED",
     "points": [
       {
         "sceneId": "S2A_11UNQ_20230608_0_L2A",
@@ -1273,7 +1274,7 @@
       "seed": 20260910,
       "empiricalCoverage": {
         "nominal": 0.95,
-        "empirical": 0.85,
+        "empirical": 0.875,
         "method": "placebo_in_space_far_ring_v1",
         "placebos": 40,
         "basis": "Placebo-in-space over far-ring units on REAL Tier 0 (truth = 0 by construction). Not held-out ground-truth plots."
@@ -1373,14 +1374,14 @@
     "evidenceCidNote": "CIDv1 raw/sha2-256 computed locally over the canonical evidence commitment; not pinned to IPFS by this prototype.",
     "simulatedTiersBanner": "SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
     "computedAt": "2026-09-10T00:00:00Z",
-    "resultHash": "0x006228df2caa32a0eae6ae5a91e5c048aa007165110da9098175db9385a26a1b"
+    "resultHash": "0xb75481e991660b09ddffe2539f1bcfa258aa0aeff257b7a13e2a6e0c96f0f2e6"
   },
   "verdictCredential": {
     "@context": [
       "https://www.w3.org/2018/credentials/v1",
       "https://ecorestore.network/contexts/verification/v1"
     ],
-    "id": "urn:ecorestore:verdict:0x006228df2caa32a0eae6ae5a91e5c048aa007165110da9098175db9385a26a1b",
+    "id": "urn:ecorestore:verdict:0xb75481e991660b09ddffe2539f1bcfa258aa0aeff257b7a13e2a6e0c96f0f2e6",
     "type": [
       "VerifiableCredential",
       "EcorestoreVerificationResult"
@@ -1489,7 +1490,7 @@
         "confidenceLevel": 0.95,
         "intervalLower": 2.2271,
         "intervalUpper": 21.6266,
-        "empiricalCoverage": 0.85,
+        "empiricalCoverage": 0.875,
         "parallelTrendStatus": "PASS",
         "parallelTrendPValue": 0.761591,
         "qualityGateStatus": "PASS",
@@ -1499,7 +1500,7 @@
         "settlementBasis": "lower_bound_95",
         "evidenceHash": "0x1dc624425cdb27a58b1da06801087ebcb90cf60e86ae5bbde2b56df4c671cdb6",
         "evidenceCid": "bafkreidkccui3xjiwxbleercc4qc37j4lcjsszujirr5mqymz74gc32owa",
-        "resultHash": "0x006228df2caa32a0eae6ae5a91e5c048aa007165110da9098175db9385a26a1b",
+        "resultHash": "0xb75481e991660b09ddffe2539f1bcfa258aa0aeff257b7a13e2a6e0c96f0f2e6",
         "simulatedTiersBanner": "SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT."
       }
     ],
@@ -1508,7 +1509,7 @@
       "created": "2026-09-10T00:00:00Z",
       "verificationMethod": "did:key:z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43#z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43",
       "proofPurpose": "assertionMethod",
-      "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..wySHHBYX6XM5_LdP7f7tMeuVoDMQI1ZytWDVksYrXyCYafECESy249s1nEyaWC0sBIZ0OY_F3g0t46Ca45qzAA"
+      "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..TQW0foDss5Ost4GIOnHm5SFsAxkQPx63tGZXkaeOcdCsT3PqXe_x-l8jYPtNf6qVMkfjsImQa5uOQduQhNaRAQ"
     }
   },
   "credentialCheck": {
@@ -1518,7 +1519,7 @@
     "errors": []
   },
   "presentation": {
-    "presentationHash": "0xa1f3928915cd9cfb12d8275f54457851a2f893caa1ed0444eaead9dcbc4f0957",
+    "presentationHash": "0x011e551cf37ddbe3bace6bf7b85375c9aaa536c25587c5ea967c4b125f42da16",
     "guardian": {
       "stoodUp": false,
       "note": "Guardian is not stood up for this prototype (Idea 0.3 §4.4.2). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.",
@@ -1542,7 +1543,7 @@
     },
     "outcome": {
       "mode": "outbox",
-      "outboxPath": "/home/jay/Programming_Projects/ecorestore-network/.claude/worktrees/spatial-pipeline-prototype/guardian/outbox/external-006228df2caa32a0.json",
+      "outboxPath": "/home/jay/Programming_Projects/ecorestore-network/.claude/worktrees/spatial-pipeline-prototype/guardian/outbox/external-b75481e991660b09.json",
       "detail": "GUARDIAN_URL not set; request written to outbox and NOT submitted"
     }
   },
@@ -1561,8 +1562,8 @@
     "document": {
       "name": "0xf43874124c26effdfb797d41bb548a8825b465e2948bb031f6b8e104dbe6c827",
       "nameUtf8": "ecorestore-verdict-vc-v1",
-      "uri": "ipfs://bafkreid6yhjyrx4mwqyad3eompkl6qgcgkgosutjkxfjy6yqv4ii4dndge",
-      "documentHash": "0xb2c0676477a0994d0b5a65bdf1ff5b22930cbdbf87f9b3ae19c62acdf9e51b49",
+      "uri": "ipfs://bafkreidgfd35pnmyr2hedjbyyq75kdsencw4cmfir34sgedqhucfrayit4",
+      "documentHash": "0xb084a5815b63560fe408c44e60de35f5c40411f452220c252d7e37e6cbea1378",
       "pinned": false
     },
     "hcs": {
@@ -1574,12 +1575,12 @@
       {
         "standard": "ERC-1643",
         "function": "setDocument(bytes32,string,bytes32)",
-        "data": "0x010648caf43874124c26effdfb797d41bb548a8825b465e2948bb031f6b8e104dbe6c8270000000000000000000000000000000000000000000000000000000000000060b2c0676477a0994d0b5a65bdf1ff5b22930cbdbf87f9b3ae19c62acdf9e51b490000000000000000000000000000000000000000000000000000000000000042697066733a2f2f6261666b726569643679686a797278346d777179616433656f6d706b6c36716763676b676f7375746a6b78666a793679717634696934646e646765000000000000000000000000000000000000000000000000000000000000"
+        "data": "0x010648caf43874124c26effdfb797d41bb548a8825b465e2948bb031f6b8e104dbe6c8270000000000000000000000000000000000000000000000000000000000000060b084a5815b63560fe408c44e60de35f5c40411f452220c252d7e37e6cbea13780000000000000000000000000000000000000000000000000000000000000042697066733a2f2f6261666b726569646766643335706e6d7972326865646a6279797137356b6473656e637734636d6669723334736765647168756366726179697434000000000000000000000000000000000000000000000000000000000000"
       },
       {
         "standard": "ERC-1410",
         "function": "issueByPartition(bytes32,address,uint256,bytes)",
-        "data": "0x67c84919820b78c6ef8d0dc943949a20b519758d0f8b57e19796c2b9f5a937fdc762c5a3000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000000000000000000000000000000000000000056ff00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000080a1f3928915cd9cfb12d8275f54457851a2f893caa1ed0444eaead9dcbc4f0957000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        "data": "0x67c84919820b78c6ef8d0dc943949a20b519758d0f8b57e19796c2b9f5a937fdc762c5a3000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000000000000000000000000000000000000000056ff00000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000080011e551cf37ddbe3bace6bf7b85375c9aaa536c25587c5ea967c4b125f42da16000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       }
     ],
     "guardianDropIn": "In production the Guardian mintDocumentBlock produces the VP whose hash is bound here; the ERC-1643 document then points at the IPFS-pinned VP and the HCS message ID is carried in the issuance data."
@@ -1592,47 +1593,47 @@
       "txs": [
         {
           "step": "createProject",
-          "hash": "0x31142b5db3ee83c582311eed9f93b5c678983a433e9bcbe65bdae743a0666ad0"
+          "hash": "0x1fdc2f78b6abb9686eb73a30aa5cc738e1701516d4ecdaaaf1387682b30ab1ea"
         },
         {
           "step": "createDeed",
-          "hash": "0x6f4e2020789de24b63d951fc8cfaccb7fdcd03372f878bb3472b614798e4a6be"
+          "hash": "0x7c58f9c8bd3fda8ff8b506b5c0160f575e55661a3721b72f69929f42db8126fb"
         },
         {
           "step": "fundDeed",
-          "hash": "0xabb1edf71805b561894027df20fc18e83247fd54ac2a99f2007251bb476850c3"
+          "hash": "0x6df17f37cf7c3f039f62701ead12392536787f5f9fc8dcb78fdde4a23656d99d"
         },
         {
           "step": "submitEvidence(tier0 SIMULATED)",
-          "hash": "0x21ff5b841799708e521aba5b93d89eacdfa44d16d0500630fbba3211269dada9"
+          "hash": "0xcddfc09d94a985f990b791d9dc0d2a79b45255c9b01994f19fe8e8cfc1639940"
         },
         {
           "step": "submitEvidence(tier3 SIMULATED)",
-          "hash": "0x9dc0b9cb48e06992b0d0f1b6a665b67a574aa81f8245b5e713f457ccf534cd72"
+          "hash": "0xe5d8e0a9470cd6be7ae0928717f02d76d0cd5e4ce6b162665d84db39dda0fcdc"
         },
         {
           "step": "recordVerificationRun(effort)",
-          "hash": "0xa175279f12790ba3d93b1e3b5468ae0a28c5aa2a07191fd03ede8a0261e3803c"
+          "hash": "0xb4c901d0dc1de8ab2daf0b4f1d976b05423d5f4e019b026abdc204923991fc6a"
         },
         {
           "step": "verifyMilestone(mobilisation)",
-          "hash": "0x5aa6633c6003ea5fafe5b9555e42af456ecf1289f22c3dda30c626df0d54a566"
+          "hash": "0x54e53d392032583d93681a8b335bc69d9ed9fb93c6d9b6a439a1d7c2c2a6390e"
         },
         {
           "step": "drawMobilisation",
-          "hash": "0x76015e35d35b3dabcf321ccee2d724d29877241df5ff1cab0ef6569f87e60d37"
+          "hash": "0x52383e11e206441ab0c931ee23d785f958de146f9723c58901317fea89a87dff"
         },
         {
           "step": "recordVerificationRun(outcome)",
-          "hash": "0xcaa5f0cf44ce5bcec6b4b72e06ec01ff10986de653153655914209772d17996f"
+          "hash": "0x5946732a79b8418ed18180b7d7f91dc625f5829aa3fdbd9fcf604b79fa103c3b"
         },
         {
           "step": "verifyMilestone(establishment)",
-          "hash": "0xe299a25d178f6c1deebeb3a03a95629e0330c26f76a419a65153f0a2ff86c47d"
+          "hash": "0x43504e1f851d6c0c7802c92ca2352755041f2eafa5ab5118ac50a2921da14eeb"
         },
         {
           "step": "releaseTranche(establishment)",
-          "hash": "0x17b77c817beb23e8caa3ebc0149127b40ae13c80503af442eb1df7e521bfb446"
+          "hash": "0x4bba7e1e4321c9323b997c19ccc57d4f1420a79cb08bb79a532d086e139ad9ca"
         }
       ],
       "balances": {
@@ -1647,16 +1648,16 @@
       "deedId": "2",
       "milestoneId": 1,
       "runIndex": 2,
-      "resultHash": "0x006228df2caa32a0eae6ae5a91e5c048aa007165110da9098175db9385a26a1b",
+      "resultHash": "0xb75481e991660b09ddffe2539f1bcfa258aa0aeff257b7a13e2a6e0c96f0f2e6",
       "analysisPlanHash": "0xf9b5265f5a104caebb9c9a64328b42c2cbb958dff318367dcd7017e3c6e15cb6",
       "status": 1,
       "lowerBoundQuantity": "22271",
       "claimedQuantity": "420000",
-      "calldata": "0x0b095352000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002006228df2caa32a0eae6ae5a91e5c048aa007165110da9098175db9385a26a1bf9b5265f5a104caebb9c9a64328b42c2cbb958dff318367dcd7017e3c6e15cb6000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000056ff00000000000000000000000000000000000000000000000000000000000668a0"
+      "calldata": "0x0b095352000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002b75481e991660b09ddffe2539f1bcfa258aa0aeff257b7a13e2a6e0c96f0f2e6f9b5265f5a104caebb9c9a64328b42c2cbb958dff318367dcd7017e3c6e15cb6000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000056ff00000000000000000000000000000000000000000000000000000000000668a0"
     }
   },
   "auditorReport": {
-    "resultHash": "0x006228df2caa32a0eae6ae5a91e5c048aa007165110da9098175db9385a26a1b",
+    "resultHash": "0xb75481e991660b09ddffe2539f1bcfa258aa0aeff257b7a13e2a6e0c96f0f2e6",
     "verificationStatus": "PARTIAL",
     "settledQuantity": 2.2271,
     "anomalies": [
@@ -1673,7 +1674,7 @@
       {
         "code": "COVERAGE_BELOW_NOMINAL",
         "severity": "warning",
-        "detail": "empirical coverage 0.85 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric"
+        "detail": "empirical coverage 0.875 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric"
       },
       {
         "code": "IOT_FLATLINE",
@@ -1686,7 +1687,7 @@
         "detail": "Tier 0 is SIMULATED: SYNTHETIC TREATMENT EFFECT INJECTED: +0.25 NDVI added to every post-window parcel observation of the real snapshot 0x5be25dd2046d1719eaf23d413ef7f17df3762c0196363f105a1219141d26d63d. Sensitivity scenario only — not an observation."
       }
     ],
-    "narrative": "Claim: 42 ha of riparian_woody_cover_gain_ha over 2023-06-01 → 2025-09-30 (run 2, plan 0xf9b5265f…).\nTier 0 (SIMULATED): 72 Sentinel-2 scenes, processing graph 1.0.0.\nGross parcel change: 13.67 ha (ΔNDVI 0.2233). Far-ring controls, drawn by the committed rule: 1.01 ha. Near ring: 1.14 ha.\nParallel-trend diagnostic: PASS (p = 0.761591, n = 1229).\nDifference-in-differences: 12.66 ha; leakage deducted: 0.00 ha; biophysical additionality: 12.65 ha.\n95% interval [2.23, 21.63] ha; empirical coverage 0.85 over 40 placebos.\nResult: PARTIAL — settled at the lower 95% bound (2.2271 ha) against a claim of 42 ha. Settled quantity: 2.2271 ha (lower_bound_95).\nThe claim of 42 ha is not dishonest and the measurement is not wrong; 39.77 ha of it is regional change, leakage and uncertainty, none of which is paid.\nAnomalies: [info] RUN_COUNT: 1 recorded run(s) without a submitted result | [warning] CLAIM_EXCEEDS_GROSS: claim 42 ha exceeds gross measured parcel gain 13.67 ha by more than 50% | [warning] COVERAGE_BELOW_NOMINAL: empirical coverage 0.85 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric | [info] IOT_FLATLINE: node-3 flatlined through recorded rainfall (SIMULATED Tier 2) — excluded from corroboration | [critical] SYNTHETIC_TIER0: Tier 0 is SIMULATED: SYNTHETIC TREATMENT EFFECT INJECTED: +0.25 NDVI added to every post-window parcel observation of the real snapshot 0x5be25dd2046d1719eaf23d413ef7f17df3762c0196363f105a1219141d26d63d. Sensitivity scenario only — not an observation.\nSIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
+    "narrative": "Claim: 42 ha of riparian_woody_cover_gain_ha over 2023-06-01 → 2025-09-30 (run 2, plan 0xf9b5265f…).\nTier 0 (SIMULATED): 72 Sentinel-2 scenes, processing graph 1.0.0.\nGross parcel change: 13.67 ha (ΔNDVI 0.2233). Far-ring controls, drawn by the committed rule: 1.01 ha. Near ring: 1.14 ha.\nParallel-trend diagnostic: PASS (p = 0.761591, n = 1229).\nDifference-in-differences: 12.66 ha; leakage deducted: 0.00 ha; biophysical additionality: 12.65 ha.\n95% interval [2.23, 21.63] ha; empirical coverage 0.875 over 40 placebos.\nResult: PARTIAL — settled at the lower 95% bound (2.2271 ha) against a claim of 42 ha. Settled quantity: 2.2271 ha (lower_bound_95).\nThe claim of 42 ha is not dishonest and the measurement is not wrong; 39.77 ha of it is regional change, leakage and uncertainty, none of which is paid.\nAnomalies: [info] RUN_COUNT: 1 recorded run(s) without a submitted result | [warning] CLAIM_EXCEEDS_GROSS: claim 42 ha exceeds gross measured parcel gain 13.67 ha by more than 50% | [warning] COVERAGE_BELOW_NOMINAL: empirical coverage 0.875 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric | [info] IOT_FLATLINE: node-3 flatlined through recorded rainfall (SIMULATED Tier 2) — excluded from corroboration | [critical] SYNTHETIC_TIER0: Tier 0 is SIMULATED: SYNTHETIC TREATMENT EFFECT INJECTED: +0.25 NDVI added to every post-window parcel observation of the real snapshot 0x5be25dd2046d1719eaf23d413ef7f17df3762c0196363f105a1219141d26d63d. Sensitivity scenario only — not an observation.\nSIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
     "boundary": {
       "llmUsed": false,
       "note": "Narrative is a deterministic template. An LLM narrator (M5) would implement AuditorNarrator and could only rephrase; every number above is copied from the canonical result."
