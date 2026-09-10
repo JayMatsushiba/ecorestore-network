@@ -1,0 +1,16 @@
+# Guardian quickstart — publish the web proxy on the host's public interface.
+#
+# The upstream quickstart binds its web proxy (UI + /api/v1) to 127.0.0.1:3000.
+# For the demonstration the Guardian UI is part of what is shown, so this overlay
+# republishes it on every interface at GUARDIAN_PUBLIC_PORT (default 3000). Reaching it
+# from the internet additionally requires the security group rule the CloudFormation
+# stack creates when GuardianUiCidr is non-empty (deploy/cloudformation/demo-host.yml).
+#
+# Applied by deploy/host/guardian.sh from the Guardian checkout:
+#   docker compose -f docker-compose-quickstart.yml -f <this file> up -d
+# Nothing else in the quickstart is exposed: api-gateway, MongoDB, NATS and IPFS keep
+# their loopback or internal-only bindings.
+services:
+  web-proxy:
+    ports: !override
+      - "${GUARDIAN_PUBLIC_PORT:-3000}:80"
