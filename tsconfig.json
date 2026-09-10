@@ -24,6 +24,7 @@
     "auditor/**/*.ts",
     "contracts/**/*.ts",
     "scripts/**/*.ts",
+    "verify/**/*.ts",
     "vitest.config.ts"
   ],
   "exclude": ["node_modules", "app", "contracts/lib", "contracts/out"]

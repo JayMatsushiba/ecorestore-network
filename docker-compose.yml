@@ -1,0 +1,103 @@
+# Ecorestore Network — first containerised prototype (docs/DEPLOYMENT.md §7).
+#
+#   docker compose up --build                      with Guardian (docker-compose.override.yml is
+#                                                  merged automatically and joins its network)
+#   docker compose -f docker-compose.yml up --build  standalone: Guardian requests go to the outbox
+#   docker compose --profile chain up --build      also start anvil and settle on a local chain
+#   docker compose --profile acquire run --rm acquire --limit 5
+#                                                  batch job: re-acquire REAL Tier 0 (network)
+#
+# Then open http://localhost:${FRONTEND_PORT:-3001}
+#
+# Trust boundaries are enforced by the network topology, not by convention:
+#   analysis   internal-only network — no egress, no Guardian, no RPC, no keys
+#   verify     the only service that holds VERIFIER_SEED and reaches Guardian / a chain
+#   frontend   talks to verify only, through nginx
+name: ecorestore
+
+services:
+  analysis:
+    build: ./analysis
+    image: ecorestore/analysis
+    networks: [internal]
+    expose: ["8000"]
+    environment:
+      ANALYSIS_PORT: "8000"
+    restart: unless-stopped
+
+  verify:
+    build:
+      context: .
+      dockerfile: verify/Dockerfile
+    image: ecorestore/verify
+    depends_on:
+      analysis:
+        condition: service_healthy
+    networks: [internal, edge]
+    ports:
+      - "127.0.0.1:${VERIFY_PORT:-8080}:8080"
+    environment:
+      ANALYSIS_URL: http://analysis:8000
+      VERIFIER_SEED: ${VERIFIER_SEED:-ecorestore-demo-verifier}
+      GUARDIAN_URL: ${GUARDIAN_URL:-}
+      GUARDIAN_PUBLIC_URL: ${GUARDIAN_PUBLIC_URL:-}
+      GUARDIAN_POLICY_ID: ${GUARDIAN_POLICY_ID:-}
+      GUARDIAN_BLOCK_TAG: ${GUARDIAN_BLOCK_TAG:-}
+      GUARDIAN_POLICY_TAG: ${GUARDIAN_POLICY_TAG:-}
+      DEMO_RPC_URL: ${DEMO_RPC_URL:-}
+      DEMO_MNEMONIC: ${DEMO_MNEMONIC:-}
+      GUARDIAN_OUTBOX_DIR: /app/guardian/outbox
+    volumes:
+      # Staged (not submitted) Guardian requests land on the host for inspection.
+      - ./guardian/outbox:/app/guardian/outbox
+    restart: unless-stopped
+
+  frontend:
+    build: ./app
+    image: ecorestore/frontend
+    depends_on:
+      verify:
+        condition: service_healthy
+    networks: [edge]
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3001}:80"
+    restart: unless-stopped
+
+  # Optional local chain. `docker compose --profile chain up` and set
+  # DEMO_RPC_URL=http://anvil:8545 in .env for verify to settle on it.
+  anvil:
+    profiles: [chain]
+    image: ghcr.io/foundry-rs/foundry:latest
+    command: ["anvil", "--host", "0.0.0.0", "--chain-id", "31337", "--silent"]
+    networks: [internal]
+    expose: ["8545"]
+    healthcheck:
+      test: ["CMD-SHELL", "cast chain-id --rpc-url http://127.0.0.1:8545 >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Batch job, not a runtime service: regenerates the REAL Tier 0 snapshot from
+  # Earth Search into ./out/acquire/. Promoting the output to
+  # verification/fixtures/ is a deliberate, reviewed step — see docs/DEPLOYMENT.md §7.
+  acquire:
+    profiles: [acquire]
+    build: ./analysis
+    image: ecorestore/analysis
+    entrypoint: ["ecorestore-acquire"]
+    command: ["--out", "/out", "--cache", "/cache"]
+    networks: [egress]
+    volumes:
+      - ./verification/fixtures:/fixtures:ro
+      - ./out/acquire:/out
+      - acquire-cache:/cache
+
+networks:
+  # No default gateway: containers here cannot reach anything outside compose.
+  internal:
+    internal: true
+  edge: {}
+  egress: {}
+
+volumes:
+  acquire-cache: {}
