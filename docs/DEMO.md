@@ -1,5 +1,7 @@
 # Ecorestore Network — Demonstration Plan
 
+The 4-minute video script that shoots this plan is `docs/VIDEO_SCRIPT.md`.
+
 ## 1. Demonstration Principle
 
 The demo uses one British Columbia restoration project with a **mixed evidence
