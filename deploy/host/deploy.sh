@@ -99,7 +99,12 @@ else
   unset GUARDIAN_URL
 fi
 
+# The outbox is bind-mounted into verify, which runs as the image's unprivileged
+# `node` user (uid 1000, verify/Dockerfile). This script runs as root, so the
+# directory must be handed to that uid or every staged Guardian request fails with
+# EACCES — which is exactly how the first deployment failed.
 mkdir -p guardian/outbox
+chown 1000:1000 guardian/outbox
 
 # --- 4. up ------------------------------------------------------------------------
 "${compose[@]}" pull --quiet

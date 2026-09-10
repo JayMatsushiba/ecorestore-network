@@ -80,9 +80,22 @@ Run locally in the worktree, on the code as committed:
   of the local 3.7.0 checkout: web-proxy published on `3000:80`, no loopback bind.
 * `actionlint` 1.7.12, `cfn-lint` 1.56.2, `shellcheck` 0.11 (style level): clean.
 
-**Not validated:** anything on AWS. The AWS session on the development machine had
-expired, so the stack was not created, no image was pushed, no SSM command was sent,
-and no workflow has run. The first real run is the validation this entry lacks.
+**Not validated at the time of writing:** anything on AWS. Later the same day the
+stack was created in us-west-2 (`ecorestore-demo`, host `32.189.224.38`), the
+parameters, secret, variables and `demo` environment were set, and PR #5 merged. The
+first Deploy run (`34480834081`) failed at the OIDC step in every build job:
+`Not authorized to perform sts:AssumeRoleWithWebIdentity`. CloudTrail showed the
+presented subject as `repo:JayMatsushiba@45748435/ecorestore-network@1358238302:environment:demo`
+— GitHub's immutable subject format, the default for repositories created after
+2026-07-15, which the trust policy's name-only patterns did not match. The template
+now accepts both forms (`GitHubOwnerId`, `GitHubRepositoryId`); the stack was updated
+in place and the re-run of `34480834081` succeeded: three images pushed to ECR, the
+SSM deploy completed, `/health` answered through Caddy. The first live verification
+then failed on outbox permissions (*Unresolved risks*); after the fix all three
+scenarios ran through `http://32.189.224.38/api/verify/<scenario>` on the Python
+engine — `real` NOT_ADDITIONAL, `synthetic` PARTIAL (SIMULATED, labelled),
+`trend-failure` INSUFFICIENT_EVIDENCE — in about one second each. A second push to
+`main` (PR #6, the Claude review workflows) deployed again without intervention.
 
 ### Architectural, scientific and security decisions
 
@@ -112,13 +125,20 @@ and no workflow has run. The first real run is the validation this entry lacks.
   hackathon: one host serves all three tiers. §11 now says so; §2–§3 remain as the
   lower-cost arrangement for later.
 * `docs/DEPLOYMENT.md` §7.7 previously said the AWS deployment was "a later milestone";
-  it now points at §13. It is still not deployed.
+  it now points at §13, and §12 records the live deployment.
 
 ### Unresolved risks
 
-* **Unexecuted pipeline.** No workflow has run against AWS. Likely first-run
-  friction: `!reset`/`!override` need compose ≥ 2.24 on the host (user-data installs the
-  latest release, unpinned); ECR repository names are account-global.
+* **Two defects found only by running it, both fixed the same day.** (1) The deploy
+  role's trust policy did not match GitHub's immutable OIDC subject (see *Tests /
+  validation*); the stack was updated in place. (2) The first live verification failed
+  with `EACCES` on the outbox: `deploy.sh` created the bind-mounted directory as root
+  and `verify` runs as the image's `node` user (uid 1000); the directory was handed
+  to that uid on the host and the script now does so after `mkdir`. Between the
+  ownership fix on the host and the merge of the script fix (PR #7), a fresh host
+  would reproduce (2).
+* **Compose on the host is unpinned.** User-data installs the latest Compose release
+  (v5.5.1 at bootstrap); `!reset`/`!override` need ≥ 2.24.
 * **Copilot review (PR #5) fixes, applied the same day:** Guardian UI port closed by
   default; `deploy.sh` refuses a missing or default `VERIFIER_SEED` and any
   `DEMO_RPC_URL`/`DEMO_MNEMONIC`; attachment requires a *running* Guardian web-proxy
@@ -146,8 +166,9 @@ and no workflow has run. The first real run is the validation this entry lacks.
 
 ### Next steps
 
-1. `aws login`, create the stack, set the parameters and GitHub secret/variables per
-   `deploy/README.md`, and push to `main` — the first real run of the pipeline.
+1. Merge PR #7 so the repository matches the running stack (trust policy, outbox
+   ownership). Consider pinning the Compose version in user-data and adding a
+   non-root deploy user on the host.
 2. Deploy `RestorationDeed` to Arc Testnet (M1) and, once it exists, decide how the
    deployed `verify` addresses it.
 3. Author and publish a Guardian policy carrying `ecorestore_verdict_ingest`; until

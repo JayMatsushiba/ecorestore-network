@@ -89,6 +89,16 @@ few minutes; `/opt/ecorestore/BOOTSTRAPPED` appears when it is done
 If the account already has a GitHub OIDC provider (`aws iam list-open-id-connect-providers`),
 pass `CreateGitHubOidcProvider=false`.
 
+The deploy role's trust policy names the repository two ways, because GitHub's OIDC
+subject changed: repositories created after 2026-07-15 present
+`repo:<owner>@<ownerId>/<repo>@<repoId>:environment:demo` rather than
+`repo:<owner>/<repo>:environment:demo`. The template defaults `GitHubOwnerId` and
+`GitHubRepositoryId` to this repository's ids; for a fork, pass the values of
+`gh api repos/<owner>/<repo> -q '.owner.id, .id'`. A mismatch fails every build job
+with `Not authorized to perform sts:AssumeRoleWithWebIdentity`, and CloudTrail
+(`AssumeRoleWithWebIdentity`, in the stack's region) shows the subject that was
+presented.
+
 ### 2. Parameters the host reads
 
 ```bash

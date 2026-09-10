@@ -35,6 +35,18 @@ Parameters:
   GitHubBranch:
     Type: String
     Default: main
+  GitHubOwnerId:
+    Type: String
+    Default: "45748435"
+    Description: >-
+      Numeric id of the repository owner (gh api repos/<owner>/<repo> -q .owner.id).
+      Repositories created after 2026-07-15 present an immutable OIDC subject of the
+      form repo:<owner>@<ownerId>/<repo>@<repoId>:...; the trust policy accepts both
+      that and the name-only form.
+  GitHubRepositoryId:
+    Type: String
+    Default: "1358238302"
+    Description: Numeric id of the repository (gh api repos/<owner>/<repo> -q .id).
   CreateGitHubOidcProvider:
     Type: String
     Default: "true"
@@ -125,8 +137,19 @@ Resources:
                 # deploy/README.md step 3 creates it that way), not by this condition.
                 # The branch subject covers jobs without an environment.
                 token.actions.githubusercontent.com:sub:
+                  # Name-only subject (repositories created before 2026-07-15).
                   - !Sub repo:${GitHubRepository}:ref:refs/heads/${GitHubBranch}
                   - !Sub repo:${GitHubRepository}:environment:demo
+                  # Immutable subject with owner and repository ids (the default for
+                  # repositories created after 2026-07-15; this one is).
+                  - !Sub
+                    - repo:${Owner}@${GitHubOwnerId}/${Repo}@${GitHubRepositoryId}:ref:refs/heads/${GitHubBranch}
+                    - Owner: !Select [0, !Split ["/", !Ref GitHubRepository]]
+                      Repo: !Select [1, !Split ["/", !Ref GitHubRepository]]
+                  - !Sub
+                    - repo:${Owner}@${GitHubOwnerId}/${Repo}@${GitHubRepositoryId}:environment:demo
+                    - Owner: !Select [0, !Split ["/", !Ref GitHubRepository]]
+                      Repo: !Select [1, !Split ["/", !Ref GitHubRepository]]
       Policies:
         - PolicyName: push-images
           PolicyDocument:
