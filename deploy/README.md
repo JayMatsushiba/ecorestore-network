@@ -168,8 +168,10 @@ workflow run points at the site.
 
 ## Guardian
 
-Guardian is switched on for a judging window, not on every push. From the Actions tab
-run **Guardian** with `up`; it pulls the `3.7.0` images, starts the quickstart with
+Guardian is switched on for a judging window, not on every push. The workflow runs
+`deploy/host/guardian.sh` from the application checkout as last deployed (it never
+moves that checkout; only a deploy does) and takes the same host lock as a deploy, so
+the two never overlap. From the Actions tab run **Guardian** with `up`; it pulls the `3.7.0` images, starts the quickstart with
 `deploy/guardian/docker-compose.public.yml` layered on top (which publishes only the web
 proxy, on `:3000`), and waits for the UI. Then run **Deploy** once so `verify` joins
 `guardian-quickstart_default` and starts POSTing verdicts to `http://web-proxy:80`.

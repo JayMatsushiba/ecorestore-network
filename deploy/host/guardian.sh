@@ -37,9 +37,12 @@ export GUARDIAN_PUBLIC_PORT="${GUARDIAN_PUBLIC_PORT:-3000}"
 # Leave GUARDIAN_ENV empty: the quickstart's env file is configs/.env.quickstart.guardian.system.
 export GUARDIAN_ENV=""
 
-# One operation on the host at a time; deploy.sh takes the same lock.
-exec 9>/var/lock/ecorestore-host.lock
-flock -w 900 9 || { echo "another deploy or Guardian operation holds the host lock" >&2; exit 1; }
+# One operation on the host at a time; deploy.sh takes the same lock. The workflows
+# acquire it first and set ECORESTORE_HOST_LOCK; then this process already holds it.
+if [ -z "${ECORESTORE_HOST_LOCK:-}" ]; then
+  exec 9>/var/lock/ecorestore-host.lock
+  flock -w 900 9 || { echo "another deploy or Guardian operation holds the host lock" >&2; exit 1; }
+fi
 
 cd "$GUARDIAN_DIR"
 compose=(docker compose -f docker-compose-quickstart.yml -f "$APP_DIR/deploy/guardian/docker-compose.public.yml")

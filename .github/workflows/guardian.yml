@@ -4,9 +4,10 @@
 # switched on for a judging window rather than on every push.
 #
 # The host runs Guardian from its own checkout at /opt/ecorestore/guardian (cloned by
-# the CloudFormation user-data at the pinned tag) with deploy/host/guardian.sh.
-# Hedera operator credentials come from SSM Parameter Store on the host, never from
-# GitHub.
+# the CloudFormation user-data at the pinned tag) with deploy/host/guardian.sh, taken
+# from the application checkout *as deployed* — this workflow never moves that
+# checkout, so it cannot race a deploy; only deploy.yml advances it. Hedera operator
+# credentials come from SSM Parameter Store on the host, never from GitHub.
 #
 # After `up`, run the Deploy workflow (or push to main) so `verify` re-attaches to
 # Guardian's network; after `down`, re-deploy so it falls back to the outbox.
@@ -50,10 +51,14 @@ jobs:
           ACTION: ${{ inputs.action }}
         run: |
           set -euo pipefail
+          # Same lock as deploy.yml, taken here so the whole operation is serialised
+          # with a deploy; guardian.sh sees ECORESTORE_HOST_LOCK and does not re-acquire.
           script="set -euo pipefail
+          exec 9>/var/lock/ecorestore-host.lock
+          flock -w 900 9 || { echo 'host lock busy' >&2; exit 1; }
+          export ECORESTORE_HOST_LOCK=1
           cd /opt/ecorestore/app
-          git fetch --quiet origin main
-          git checkout --quiet --detach origin/main
+          echo \"guardian.sh from deployed commit \$(git rev-parse --short HEAD)\"
           exec deploy/host/guardian.sh $ACTION"
           params=$(jq -cn --arg s "$script" '{commands: [$s], executionTimeout: ["1800"]}')
           command_id=$(aws ssm send-command \

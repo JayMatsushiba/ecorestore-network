@@ -22,9 +22,13 @@ APP_DIR="${APP_DIR:-/opt/ecorestore/app}"
 PARAM_PATH="${PARAM_PATH:-/ecorestore/demo}"
 GUARDIAN_NETWORK="${GUARDIAN_NETWORK:-guardian-quickstart_default}"
 
-# One operation on the host at a time; guardian.sh takes the same lock.
-exec 9>/var/lock/ecorestore-host.lock
-flock -w 900 9 || { echo "another deploy or Guardian operation holds the host lock" >&2; exit 1; }
+# One operation on the host at a time; guardian.sh takes the same lock. The workflows
+# acquire it before the checkout and set ECORESTORE_HOST_LOCK, in which case this
+# process already holds it and must not reopen fd 9 (that would release it).
+if [ -z "${ECORESTORE_HOST_LOCK:-}" ]; then
+  exec 9>/var/lock/ecorestore-host.lock
+  flock -w 900 9 || { echo "another deploy or Guardian operation holds the host lock" >&2; exit 1; }
+fi
 
 cd "$APP_DIR"
 if [ "$(git rev-parse HEAD)" != "$SHA" ]; then

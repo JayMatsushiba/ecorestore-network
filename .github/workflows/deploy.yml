@@ -113,9 +113,15 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # The host's checkout is advanced to the deployed commit first, so the
-          # script that runs is the one committed alongside these images.
+          # Take the host lock before touching the checkout, so a concurrent Guardian
+          # command cannot move it between checkout and deploy; deploy.sh sees
+          # ECORESTORE_HOST_LOCK and does not re-acquire. The checkout is advanced to
+          # the deployed commit so the script that runs is the one committed alongside
+          # these images.
           script="set -euo pipefail
+          exec 9>/var/lock/ecorestore-host.lock
+          flock -w 900 9 || { echo 'host lock busy' >&2; exit 1; }
+          export ECORESTORE_HOST_LOCK=1
           cd /opt/ecorestore/app
           git fetch --quiet origin
           git checkout --quiet --detach $SHA

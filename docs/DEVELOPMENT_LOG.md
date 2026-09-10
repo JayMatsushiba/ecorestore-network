@@ -124,8 +124,10 @@ and no workflow has run. The first real run is the validation this entry lacks.
   `DEMO_RPC_URL`/`DEMO_MNEMONIC`; attachment requires a *running* Guardian web-proxy
   on the network, not just the network; old SHA-tagged images are removed after each
   deploy; `guardian.sh down` detaches foreign endpoints first; `deploy.yml` and
-  `guardian.yml` use separate concurrency groups and the host scripts serialise with
-  `flock`; the smoke test fails when `DEMO_URL` is unset; ECR repositories set
+  `guardian.yml` use separate concurrency groups and the SSM commands take a host
+  `flock` *before* the checkout (the scripts inherit it via `ECORESTORE_HOST_LOCK`),
+  and `guardian.yml` no longer moves the application checkout at all — only a deploy
+  does; the smoke test fails when `DEMO_URL` is unset; ECR repositories set
   `EmptyOnDelete`; the instance gets a launch-time public IP so user-data has a route
   out before the EIP attaches; the `demo` environment is restricted to protected
   branches because an environment-bound job presents the environment OIDC subject,
