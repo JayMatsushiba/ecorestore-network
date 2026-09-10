@@ -1,0 +1,1651 @@
+{
+  "scenario": "trend-failure",
+  "description": "REAL Tier 0 under a plan variant whose parallel-trend criterion cannot pass → INSUFFICIENT_EVIDENCE, no settlement.",
+  "tier0Provenance": {
+    "provenance": "REAL",
+    "catalog": "https://earth-search.aws.element84.com/v1",
+    "collection": "sentinel-2-l2a",
+    "snapshotHash": "0x5be25dd2046d1719eaf23d413ef7f17df3762c0196363f105a1219141d26d63d"
+  },
+  "trajectory": {
+    "window": {
+      "label": "verification",
+      "start": "2023-06-01",
+      "end": "2025-09-30"
+    },
+    "tier0Provenance": "REAL",
+    "points": [
+      {
+        "sceneId": "S2A_11UNQ_20230608_0_L2A",
+        "date": "2023-06-08",
+        "parcel": 0.5386,
+        "far": {
+          "mean": 0.746,
+          "sd": 0.1984,
+          "n": 29
+        },
+        "near": {
+          "mean": 0.7239,
+          "sd": 0.227,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230623_0_L2A",
+        "date": "2023-06-23",
+        "parcel": 0.7176,
+        "far": {
+          "mean": 0.8006,
+          "sd": 0.1087,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.7435,
+          "sd": 0.1576,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230628_0_L2A",
+        "date": "2023-06-28",
+        "parcel": 0.6822,
+        "far": {
+          "mean": 0.7735,
+          "sd": 0.1187,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.7191,
+          "sd": 0.1544,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230630_0_L2A",
+        "date": "2023-06-30",
+        "parcel": 0.7256,
+        "far": {
+          "mean": 0.6962,
+          "sd": 0.1214,
+          "n": 27
+        },
+        "near": {
+          "mean": 0.6933,
+          "sd": 0.1402,
+          "n": 29
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230703_0_L2A",
+        "date": "2023-07-03",
+        "parcel": 0.6662,
+        "far": {
+          "mean": 0.6441,
+          "sd": 0.1459,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6034,
+          "sd": 0.1135,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230708_0_L2A",
+        "date": "2023-07-08",
+        "parcel": 0.5299,
+        "far": {
+          "mean": 0.5421,
+          "sd": 0.1684,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5511,
+          "sd": 0.1153,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230715_0_L2A",
+        "date": "2023-07-15",
+        "parcel": 0.5238,
+        "far": {
+          "mean": 0.5491,
+          "sd": 0.1168,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5745,
+          "sd": 0.093,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230718_0_L2A",
+        "date": "2023-07-18",
+        "parcel": 0.5941,
+        "far": {
+          "mean": 0.5893,
+          "sd": 0.1119,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6154,
+          "sd": 0.103,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230720_0_L2A",
+        "date": "2023-07-20",
+        "parcel": 0.6045,
+        "far": {
+          "mean": 0.5775,
+          "sd": 0.104,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6239,
+          "sd": 0.1143,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230723_0_L2A",
+        "date": "2023-07-23",
+        "parcel": 0.6635,
+        "far": {
+          "mean": 0.597,
+          "sd": 0.0973,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6318,
+          "sd": 0.1044,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230730_0_L2A",
+        "date": "2023-07-30",
+        "parcel": null,
+        "far": {
+          "mean": 0.615,
+          "sd": 0,
+          "n": 1
+        },
+        "near": null
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230802_0_L2A",
+        "date": "2023-08-02",
+        "parcel": 0.6786,
+        "far": {
+          "mean": 0.6153,
+          "sd": 0.09,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6268,
+          "sd": 0.1028,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230804_0_L2A",
+        "date": "2023-08-04",
+        "parcel": 0.6409,
+        "far": {
+          "mean": 0.5788,
+          "sd": 0.0818,
+          "n": 29
+        },
+        "near": {
+          "mean": 0.5727,
+          "sd": 0.0918,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230814_1_L2A",
+        "date": "2023-08-14",
+        "parcel": 0.6746,
+        "far": {
+          "mean": 0.5912,
+          "sd": 0.096,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5967,
+          "sd": 0.1279,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230814_0_L2A",
+        "date": "2023-08-14",
+        "parcel": 0.6762,
+        "far": {
+          "mean": 0.5915,
+          "sd": 0.095,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.598,
+          "sd": 0.1266,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230817_0_L2A",
+        "date": "2023-08-17",
+        "parcel": null,
+        "far": null,
+        "near": null
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230827_0_L2A",
+        "date": "2023-08-27",
+        "parcel": 0.6357,
+        "far": {
+          "mean": 0.5731,
+          "sd": 0.0903,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6044,
+          "sd": 0.0952,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230829_0_L2A",
+        "date": "2023-08-29",
+        "parcel": 0.6248,
+        "far": {
+          "mean": 0.5867,
+          "sd": 0.082,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5981,
+          "sd": 0.0941,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230901_1_L2A",
+        "date": "2023-09-01",
+        "parcel": null,
+        "far": null,
+        "near": null
+      },
+      {
+        "sceneId": "S2A_11UNQ_20230916_0_L2A",
+        "date": "2023-09-16",
+        "parcel": 0.6327,
+        "far": {
+          "mean": 0.7178,
+          "sd": 0.1448,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6389,
+          "sd": 0.1007,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230918_0_L2A",
+        "date": "2023-09-18",
+        "parcel": 0.5694,
+        "far": {
+          "mean": 0.6654,
+          "sd": 0.1284,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5743,
+          "sd": 0.0827,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20230921_0_L2A",
+        "date": "2023-09-21",
+        "parcel": 0.6454,
+        "far": {
+          "mean": 0.728,
+          "sd": 0.1385,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6375,
+          "sd": 0.0816,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240607_0_L2A",
+        "date": "2024-06-07",
+        "parcel": 0.7323,
+        "far": {
+          "mean": 0.8061,
+          "sd": 0.1658,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.7494,
+          "sd": 0.2105,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240612_0_L2A",
+        "date": "2024-06-12",
+        "parcel": null,
+        "far": {
+          "mean": 0.6878,
+          "sd": 0.2053,
+          "n": 13
+        },
+        "near": {
+          "mean": 0.6202,
+          "sd": 0.2405,
+          "n": 14
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240624_0_L2A",
+        "date": "2024-06-24",
+        "parcel": null,
+        "far": {
+          "mean": 0.6482,
+          "sd": 0.1939,
+          "n": 27
+        },
+        "near": {
+          "mean": 0.7636,
+          "sd": 0.2471,
+          "n": 2
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240704_0_L2A",
+        "date": "2024-07-04",
+        "parcel": 0.6812,
+        "far": {
+          "mean": 0.6391,
+          "sd": 0.1632,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.7052,
+          "sd": 0.1684,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240707_0_L2A",
+        "date": "2024-07-07",
+        "parcel": 0.7002,
+        "far": {
+          "mean": 0.5991,
+          "sd": 0.139,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6648,
+          "sd": 0.1701,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240709_0_L2A",
+        "date": "2024-07-09",
+        "parcel": 0.6811,
+        "far": {
+          "mean": 0.5617,
+          "sd": 0.1511,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6117,
+          "sd": 0.1789,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240712_0_L2A",
+        "date": "2024-07-12",
+        "parcel": 0.6288,
+        "far": {
+          "mean": 0.5629,
+          "sd": 0.1526,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5185,
+          "sd": 0.119,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240714_0_L2A",
+        "date": "2024-07-14",
+        "parcel": 0.6057,
+        "far": {
+          "mean": 0.5526,
+          "sd": 0.1549,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5078,
+          "sd": 0.1104,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240719_1_L2A",
+        "date": "2024-07-19",
+        "parcel": 0.5505,
+        "far": {
+          "mean": 0.5436,
+          "sd": 0.1427,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5145,
+          "sd": 0.1119,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240724_0_L2A",
+        "date": "2024-07-24",
+        "parcel": 0.4792,
+        "far": {
+          "mean": 0.5424,
+          "sd": 0.0986,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5516,
+          "sd": 0.0999,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240727_0_L2A",
+        "date": "2024-07-27",
+        "parcel": 0.4092,
+        "far": {
+          "mean": 0.4988,
+          "sd": 0.0736,
+          "n": 26
+        },
+        "near": {
+          "mean": 0.4971,
+          "sd": 0.0798,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240801_0_L2A",
+        "date": "2024-08-01",
+        "parcel": 0.5325,
+        "far": {
+          "mean": 0.5607,
+          "sd": 0.1025,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5944,
+          "sd": 0.0996,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240806_0_L2A",
+        "date": "2024-08-06",
+        "parcel": 0.5722,
+        "far": {
+          "mean": 0.5766,
+          "sd": 0.1052,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.599,
+          "sd": 0.1141,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240808_0_L2A",
+        "date": "2024-08-08",
+        "parcel": 0.5984,
+        "far": {
+          "mean": 0.5718,
+          "sd": 0.104,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5718,
+          "sd": 0.1047,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240813_1_L2A",
+        "date": "2024-08-13",
+        "parcel": null,
+        "far": null,
+        "near": null
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240818_0_L2A",
+        "date": "2024-08-18",
+        "parcel": 0.6474,
+        "far": {
+          "mean": 0.6272,
+          "sd": 0.1413,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5906,
+          "sd": 0.1423,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240831_0_L2A",
+        "date": "2024-08-31",
+        "parcel": 0.7303,
+        "far": {
+          "mean": 0.6768,
+          "sd": 0.1387,
+          "n": 29
+        },
+        "near": {
+          "mean": 0.7157,
+          "sd": 0.1321,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240902_0_L2A",
+        "date": "2024-09-02",
+        "parcel": 0.6681,
+        "far": {
+          "mean": 0.646,
+          "sd": 0.1372,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.7144,
+          "sd": 0.1353,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240905_0_L2A",
+        "date": "2024-09-05",
+        "parcel": 0.6912,
+        "far": {
+          "mean": 0.6375,
+          "sd": 0.1196,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6913,
+          "sd": 0.1267,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240907_0_L2A",
+        "date": "2024-09-07",
+        "parcel": 0.6345,
+        "far": {
+          "mean": 0.611,
+          "sd": 0.118,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6443,
+          "sd": 0.1281,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20240925_0_L2A",
+        "date": "2024-09-25",
+        "parcel": null,
+        "far": {
+          "mean": 0.6822,
+          "sd": 0.1238,
+          "n": 25
+        },
+        "near": {
+          "mean": 0.5774,
+          "sd": 0.0812,
+          "n": 19
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240927_0_L2A",
+        "date": "2024-09-27",
+        "parcel": 0.5837,
+        "far": {
+          "mean": 0.7146,
+          "sd": 0.1278,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6308,
+          "sd": 0.0809,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20240930_0_L2A",
+        "date": "2024-09-30",
+        "parcel": 0.6199,
+        "far": {
+          "mean": 0.7255,
+          "sd": 0.1424,
+          "n": 25
+        },
+        "near": {
+          "mean": 0.6308,
+          "sd": 0.0908,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250607_0_L2A",
+        "date": "2025-06-07",
+        "parcel": null,
+        "far": {
+          "mean": 0.726,
+          "sd": 0.1729,
+          "n": 10
+        },
+        "near": {
+          "mean": 0.7141,
+          "sd": 0.1187,
+          "n": 10
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250609_0_L2A",
+        "date": "2025-06-09",
+        "parcel": 0.5627,
+        "far": {
+          "mean": 0.7434,
+          "sd": 0.1867,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.7189,
+          "sd": 0.1961,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20250616_0_L2A",
+        "date": "2025-06-16",
+        "parcel": 0.6371,
+        "far": {
+          "mean": 0.7523,
+          "sd": 0.166,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.724,
+          "sd": 0.1797,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250617_1_L2A",
+        "date": "2025-06-17",
+        "parcel": null,
+        "far": null,
+        "near": null
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250619_0_L2A",
+        "date": "2025-06-19",
+        "parcel": 0.6687,
+        "far": {
+          "mean": 0.7338,
+          "sd": 0.1357,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.7162,
+          "sd": 0.1656,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20250619_1_L2A",
+        "date": "2025-06-19",
+        "parcel": 0.6852,
+        "far": {
+          "mean": 0.6994,
+          "sd": 0.1263,
+          "n": 24
+        },
+        "near": {
+          "mean": 0.697,
+          "sd": 0.157,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250629_0_L2A",
+        "date": "2025-06-29",
+        "parcel": 0.6941,
+        "far": {
+          "mean": 0.734,
+          "sd": 0.0842,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.702,
+          "sd": 0.1242,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250707_0_L2A",
+        "date": "2025-07-07",
+        "parcel": 0.7406,
+        "far": {
+          "mean": 0.6228,
+          "sd": 0.1884,
+          "n": 7
+        },
+        "near": {
+          "mean": 0.5875,
+          "sd": 0.113,
+          "n": 22
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250709_0_L2A",
+        "date": "2025-07-09",
+        "parcel": 0.6508,
+        "far": {
+          "mean": 0.5573,
+          "sd": 0.1326,
+          "n": 28
+        },
+        "near": {
+          "mean": 0.6168,
+          "sd": 0.113,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20250709_1_L2A",
+        "date": "2025-07-09",
+        "parcel": null,
+        "far": null,
+        "near": null
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250712_0_L2A",
+        "date": "2025-07-12",
+        "parcel": 0.6904,
+        "far": {
+          "mean": 0.5638,
+          "sd": 0.1326,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6103,
+          "sd": 0.1148,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250724_0_L2A",
+        "date": "2025-07-24",
+        "parcel": 0.5488,
+        "far": {
+          "mean": 0.6672,
+          "sd": 0.1538,
+          "n": 26
+        },
+        "near": {
+          "mean": 0.6471,
+          "sd": 0.1125,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20250726_0_L2A",
+        "date": "2025-07-26",
+        "parcel": 0.5121,
+        "far": {
+          "mean": 0.6519,
+          "sd": 0.1602,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6219,
+          "sd": 0.1205,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250729_1_L2A",
+        "date": "2025-07-29",
+        "parcel": 0.5178,
+        "far": {
+          "mean": 0.6534,
+          "sd": 0.1691,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6307,
+          "sd": 0.1255,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2A_11UNQ_20250729_0_L2A",
+        "date": "2025-07-29",
+        "parcel": 0.5365,
+        "far": {
+          "mean": 0.6578,
+          "sd": 0.1712,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6308,
+          "sd": 0.1263,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250811_0_L2A",
+        "date": "2025-08-11",
+        "parcel": 0.6671,
+        "far": {
+          "mean": 0.702,
+          "sd": 0.1428,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6906,
+          "sd": 0.116,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250813_0_L2A",
+        "date": "2025-08-13",
+        "parcel": 0.5375,
+        "far": {
+          "mean": 0.5819,
+          "sd": 0.1045,
+          "n": 29
+        },
+        "near": {
+          "mean": 0.555,
+          "sd": 0.0847,
+          "n": 24
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250821_0_L2A",
+        "date": "2025-08-21",
+        "parcel": 0.6405,
+        "far": {
+          "mean": 0.7792,
+          "sd": 0.0059,
+          "n": 2
+        },
+        "near": {
+          "mean": 0.6342,
+          "sd": 0.0767,
+          "n": 17
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250823_0_L2A",
+        "date": "2025-08-23",
+        "parcel": 0.6678,
+        "far": {
+          "mean": 0.6636,
+          "sd": 0.1304,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6602,
+          "sd": 0.1094,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250826_0_L2A",
+        "date": "2025-08-26",
+        "parcel": null,
+        "far": null,
+        "near": null
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250902_0_L2A",
+        "date": "2025-09-02",
+        "parcel": 0.6067,
+        "far": {
+          "mean": 0.5599,
+          "sd": 0.116,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.6031,
+          "sd": 0.1333,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250905_0_L2A",
+        "date": "2025-09-05",
+        "parcel": 0.5328,
+        "far": {
+          "mean": 0.5196,
+          "sd": 0.089,
+          "n": 19
+        },
+        "near": {
+          "mean": 0.5173,
+          "sd": 0.0987,
+          "n": 19
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250910_0_L2A",
+        "date": "2025-09-10",
+        "parcel": 0.6082,
+        "far": {
+          "mean": 0.5692,
+          "sd": 0.0997,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5778,
+          "sd": 0.1001,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250912_0_L2A",
+        "date": "2025-09-12",
+        "parcel": 0.6047,
+        "far": {
+          "mean": 0.5761,
+          "sd": 0.1061,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5679,
+          "sd": 0.1045,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250917_0_L2A",
+        "date": "2025-09-17",
+        "parcel": 0.6229,
+        "far": {
+          "mean": 0.6183,
+          "sd": 0.1094,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.5663,
+          "sd": 0.0922,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2B_11UNQ_20250920_0_L2A",
+        "date": "2025-09-20",
+        "parcel": 0.4045,
+        "far": {
+          "mean": 0.5763,
+          "sd": 0.107,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.4886,
+          "sd": 0.0842,
+          "n": 30
+        }
+      },
+      {
+        "sceneId": "S2C_11UNQ_20250925_0_L2A",
+        "date": "2025-09-25",
+        "parcel": 0.3981,
+        "far": {
+          "mean": 0.5725,
+          "sd": 0.1076,
+          "n": 30
+        },
+        "near": {
+          "mean": 0.4897,
+          "sd": 0.0878,
+          "n": 30
+        }
+      }
+    ]
+  },
+  "simulatedTiersBanner": "SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
+  "assuranceAdjustedComparison": "0 ha defensible vs. 42 ha at risk",
+  "result": {
+    "resultVersion": "1.0.0",
+    "projectId": "kootenay-demo",
+    "parcelId": "kootenay-riparian-001",
+    "parcelH3Root": "0xa0cd52944e28229c4ab03172fd737575fc5089354ab4c68341c65aa5b7783689",
+    "geometryHash": "0xcd9fedfc65e51ccc37b61621415c45c4048b6684392ffe42851fca46d8a1cdd4",
+    "parcelAreaHa": 48.9486,
+    "analysisPlanHash": "0xf3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d6",
+    "runIndex": 2,
+    "methodologyVersion": "ecorestore-did-leakage-lowerbound-1.0.0",
+    "processingGraphVersion": "1.0.0",
+    "stacSceneIds": [
+      "S2A_11UNQ_20230608_0_L2A",
+      "S2A_11UNQ_20230628_0_L2A",
+      "S2A_11UNQ_20230708_0_L2A",
+      "S2A_11UNQ_20230715_0_L2A",
+      "S2A_11UNQ_20230718_0_L2A",
+      "S2A_11UNQ_20230804_0_L2A",
+      "S2A_11UNQ_20230814_0_L2A",
+      "S2A_11UNQ_20230814_1_L2A",
+      "S2A_11UNQ_20230817_0_L2A",
+      "S2A_11UNQ_20230827_0_L2A",
+      "S2A_11UNQ_20230916_0_L2A",
+      "S2A_11UNQ_20240612_0_L2A",
+      "S2A_11UNQ_20240709_0_L2A",
+      "S2A_11UNQ_20240712_0_L2A",
+      "S2A_11UNQ_20240719_1_L2A",
+      "S2A_11UNQ_20240801_0_L2A",
+      "S2A_11UNQ_20240808_0_L2A",
+      "S2A_11UNQ_20240818_0_L2A",
+      "S2A_11UNQ_20240831_0_L2A",
+      "S2A_11UNQ_20240907_0_L2A",
+      "S2A_11UNQ_20240927_0_L2A",
+      "S2A_11UNQ_20240930_0_L2A",
+      "S2A_11UNQ_20250616_0_L2A",
+      "S2A_11UNQ_20250619_1_L2A",
+      "S2A_11UNQ_20250709_1_L2A",
+      "S2A_11UNQ_20250726_0_L2A",
+      "S2A_11UNQ_20250729_0_L2A",
+      "S2B_11UNQ_20230623_0_L2A",
+      "S2B_11UNQ_20230630_0_L2A",
+      "S2B_11UNQ_20230703_0_L2A",
+      "S2B_11UNQ_20230720_0_L2A",
+      "S2B_11UNQ_20230723_0_L2A",
+      "S2B_11UNQ_20230730_0_L2A",
+      "S2B_11UNQ_20230802_0_L2A",
+      "S2B_11UNQ_20230829_0_L2A",
+      "S2B_11UNQ_20230901_1_L2A",
+      "S2B_11UNQ_20230918_0_L2A",
+      "S2B_11UNQ_20230921_0_L2A",
+      "S2B_11UNQ_20240607_0_L2A",
+      "S2B_11UNQ_20240624_0_L2A",
+      "S2B_11UNQ_20240704_0_L2A",
+      "S2B_11UNQ_20240707_0_L2A",
+      "S2B_11UNQ_20240714_0_L2A",
+      "S2B_11UNQ_20240724_0_L2A",
+      "S2B_11UNQ_20240727_0_L2A",
+      "S2B_11UNQ_20240806_0_L2A",
+      "S2B_11UNQ_20240813_1_L2A",
+      "S2B_11UNQ_20240902_0_L2A",
+      "S2B_11UNQ_20240905_0_L2A",
+      "S2B_11UNQ_20240925_0_L2A",
+      "S2B_11UNQ_20250609_0_L2A",
+      "S2B_11UNQ_20250619_0_L2A",
+      "S2B_11UNQ_20250629_0_L2A",
+      "S2B_11UNQ_20250709_0_L2A",
+      "S2B_11UNQ_20250712_0_L2A",
+      "S2B_11UNQ_20250729_1_L2A",
+      "S2B_11UNQ_20250811_0_L2A",
+      "S2B_11UNQ_20250821_0_L2A",
+      "S2B_11UNQ_20250910_0_L2A",
+      "S2B_11UNQ_20250917_0_L2A",
+      "S2B_11UNQ_20250920_0_L2A",
+      "S2C_11UNQ_20250607_0_L2A",
+      "S2C_11UNQ_20250617_1_L2A",
+      "S2C_11UNQ_20250707_0_L2A",
+      "S2C_11UNQ_20250724_0_L2A",
+      "S2C_11UNQ_20250813_0_L2A",
+      "S2C_11UNQ_20250823_0_L2A",
+      "S2C_11UNQ_20250826_0_L2A",
+      "S2C_11UNQ_20250902_0_L2A",
+      "S2C_11UNQ_20250905_0_L2A",
+      "S2C_11UNQ_20250912_0_L2A",
+      "S2C_11UNQ_20250925_0_L2A"
+    ],
+    "tier0Provenance": {
+      "provenance": "REAL",
+      "catalog": "https://earth-search.aws.element84.com/v1",
+      "collection": "sentinel-2-l2a",
+      "snapshotHash": "0x5be25dd2046d1719eaf23d413ef7f17df3762c0196363f105a1219141d26d63d"
+    },
+    "metric": {
+      "id": "riparian_woody_cover_gain_ha",
+      "version": "0.1.0",
+      "unit": "ha"
+    },
+    "window": {
+      "label": "verification",
+      "start": "2023-06-01",
+      "end": "2025-09-30"
+    },
+    "claimedQuantity": 42,
+    "measured": {
+      "parcelChangeIndex": -0.0267,
+      "parcelChangeHa": -1.6306,
+      "controlChangeFarRingIndex": 0.0166,
+      "controlChangeFarRingHa": 1.0144,
+      "controlChangeNearRingIndex": 0.0186,
+      "controlChangeNearRingHa": 1.1374,
+      "leakageIndex": 0,
+      "leakageHa": 0,
+      "didIndex": -0.0432,
+      "additionalBiophysicalIndex": -0.0432,
+      "additionalBiophysicalHa": -2.645
+    },
+    "controlSets": [
+      {
+        "ring": "far",
+        "geometry": {
+          "innerM": 800,
+          "outerM": 1500
+        },
+        "candidates": 520,
+        "excludedWater": 31,
+        "matched": 30,
+        "matchedUnitIds": [
+          "8a12dd791ceffff",
+          "8a12dd791c27fff",
+          "8a12dd791d1ffff",
+          "8a12dd79e907fff",
+          "8a12dd791547fff",
+          "8a12dd7952c7fff",
+          "8a12dd79119ffff",
+          "8a12dd791187fff",
+          "8a12dd79154ffff",
+          "8a12dd7910a7fff",
+          "8a12dd782ae7fff",
+          "8a12dd7911b7fff",
+          "8a12dd79128ffff",
+          "8a12dd79c117fff",
+          "8a12dd7912cffff",
+          "8a12dd791cdffff",
+          "8a12dd782327fff",
+          "8a12dd79c81ffff",
+          "8a12dd7956c7fff",
+          "8a12dd795227fff",
+          "8a12dd782567fff",
+          "8a12dd791197fff",
+          "8a12dd79c577fff",
+          "8a12dd791557fff",
+          "8a12dd782187fff",
+          "8a12dd795267fff",
+          "8a12dd782117fff",
+          "8a12dd791c17fff",
+          "8a12dd791c4ffff",
+          "8a12dd782cd7fff"
+        ],
+        "meanPreLevel": 0.6323,
+        "meanPreSlope": -0.0152,
+        "changeIndex": 0.0166
+      },
+      {
+        "ring": "near",
+        "geometry": {
+          "innerM": 0,
+          "outerM": 300
+        },
+        "candidates": 83,
+        "excludedWater": 17,
+        "matched": 30,
+        "matchedUnitIds": [
+          "8a12dd7826d7fff",
+          "8a12dd7827a7fff",
+          "8a12dd79cd1ffff",
+          "8a12dd782757fff",
+          "8a12dd79cd2ffff",
+          "8a12dd791adffff",
+          "8a12dd791847fff",
+          "8a12dd79cd57fff",
+          "8a12dd791acffff",
+          "8a12dd79cd0ffff",
+          "8a12dd791377fff",
+          "8a12dd7826dffff",
+          "8a12dd79cd47fff",
+          "8a12dd79cd87fff",
+          "8a12dd7824cffff",
+          "8a12dd791ac7fff",
+          "8a12dd791367fff",
+          "8a12dd791aeffff",
+          "8a12dd79cdaffff",
+          "8a12dd782707fff",
+          "8a12dd78271ffff",
+          "8a12dd791b17fff",
+          "8a12dd79cc27fff",
+          "8a12dd782787fff",
+          "8a12dd782797fff",
+          "8a12dd7824d7fff",
+          "8a12dd79cd97fff",
+          "8a12dd79cdb7fff",
+          "8a12dd782637fff",
+          "8a12dd78262ffff"
+        ],
+        "meanPreLevel": 0.6185,
+        "meanPreSlope": -0.0124,
+        "changeIndex": 0.0186
+      }
+    ],
+    "parallelTrend": {
+      "status": "FAIL",
+      "slopeDiffPerYear": 0.012903,
+      "pValue": 0.761591,
+      "nObservations": 1229,
+      "criterion": "interaction p ≥ 0.999 and |Δslope| ≤ 0.000001 NDVI/yr (pre_period_slope_interaction_ols_v1)"
+    },
+    "uncertainty": {
+      "interval": {
+        "lower": -11.6192,
+        "upper": 5.4459,
+        "confidenceLevel": 0.95
+      },
+      "method": "nonparametric bootstrap over matched far/near units and parcel sub-cells, with Gaussian index→cover transfer error",
+      "bootstrapIterations": 2000,
+      "seed": 20260910,
+      "empiricalCoverage": {
+        "nominal": 0.95,
+        "empirical": 0.875,
+        "method": "placebo_in_space_far_ring_v1",
+        "placebos": 40,
+        "basis": "Placebo-in-space over far-ring units on REAL Tier 0 (truth = 0 by construction). Not held-out ground-truth plots."
+      }
+    },
+    "lowerBound": -11.6192,
+    "qualityGate": {
+      "status": "FAIL",
+      "gates": [
+        {
+          "name": "scenes:season-2023",
+          "status": "PASS",
+          "detail": "19 usable scenes (min 3)",
+          "provenance": "REAL"
+        },
+        {
+          "name": "scenes:season-2024",
+          "status": "PASS",
+          "detail": "19 usable scenes (min 3)",
+          "provenance": "REAL"
+        },
+        {
+          "name": "scenes:season-2025",
+          "status": "PASS",
+          "detail": "23 usable scenes (min 3)",
+          "provenance": "REAL"
+        },
+        {
+          "name": "controls:far_ring",
+          "status": "PASS",
+          "detail": "30 matched of 520 candidates (min 10)",
+          "provenance": "REAL"
+        },
+        {
+          "name": "parallel_trend",
+          "status": "FAIL",
+          "detail": "Δslope 0.0129 NDVI/yr, p 0.7616, n 1229",
+          "provenance": "REAL"
+        },
+        {
+          "name": "no_net_habitat_loss",
+          "status": "PASS",
+          "detail": "0.8% of parcel area dropped below ΔNDVI -0.15 (max 5%)",
+          "provenance": "REAL"
+        },
+        {
+          "name": "native_species_fraction",
+          "status": "PASS",
+          "detail": "0.886 (min 0.8) — SIMULATED Tier 1/3",
+          "provenance": "SIMULATED"
+        },
+        {
+          "name": "condition_floor",
+          "status": "PASS",
+          "detail": "post-window parcel NDVI 0.6082 (min 0.3)",
+          "provenance": "REAL"
+        }
+      ]
+    },
+    "tierCorroboration": [
+      {
+        "tier": 0,
+        "label": "Sentinel-2 L2A (REAL)",
+        "provenance": "REAL",
+        "score": 0.8472,
+        "note": "61 of 72 scenes usable over the parcel after SCL masking"
+      },
+      {
+        "tier": 1,
+        "label": "Drone plots (SIMULATED)",
+        "provenance": "SIMULATED",
+        "score": 0,
+        "note": "mean plot canopy gain 0.209 vs Tier 0 implied cover change -0.033"
+      },
+      {
+        "tier": 2,
+        "label": "IoT soil moisture (SIMULATED)",
+        "provenance": "SIMULATED",
+        "score": 0.75,
+        "note": "node-3 flatlined through recorded rainfall — excluded"
+      },
+      {
+        "tier": 3,
+        "label": "Ground report (SIMULATED)",
+        "provenance": "SIMULATED",
+        "score": 0,
+        "note": "claim cannot be compared: no measured gross gain"
+      }
+    ],
+    "obligationStatus": "voluntary_additional",
+    "verificationStatus": "INSUFFICIENT_EVIDENCE",
+    "statusReason": "parallel-trend diagnostic failed",
+    "settledQuantity": 0,
+    "settlementBasis": "lower_bound_95",
+    "evidenceHash": "0xaf4dc13e2e87adcb739c112d3242b4886798af46b017f4702ef3e06c365c855f",
+    "evidenceCid": "bafkreidaqirusvmdkhtkp7iin2qpb3zmva2g6e3otfh7qr24cd3rcw6vne",
+    "evidenceCidNote": "CIDv1 raw/sha2-256 computed locally over the canonical evidence commitment; not pinned to IPFS by this prototype.",
+    "simulatedTiersBanner": "SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
+    "computedAt": "2026-09-10T00:00:00Z",
+    "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50"
+  },
+  "verdictCredential": {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://ecorestore.network/contexts/verification/v1"
+    ],
+    "id": "urn:ecorestore:verdict:0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
+    "type": [
+      "VerifiableCredential",
+      "EcorestoreVerificationResult"
+    ],
+    "issuer": "did:key:z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43",
+    "issuanceDate": "2026-09-10T00:00:00Z",
+    "credentialSubject": [
+      {
+        "type": "#ecorestore-verification-result-1.0.0",
+        "resultVersion": "1.0.0",
+        "projectId": "kootenay-demo",
+        "parcelId": "kootenay-riparian-001",
+        "parcelH3Root": "0xa0cd52944e28229c4ab03172fd737575fc5089354ab4c68341c65aa5b7783689",
+        "geometryHash": "0xcd9fedfc65e51ccc37b61621415c45c4048b6684392ffe42851fca46d8a1cdd4",
+        "parcelAreaHa": 48.9486,
+        "analysisPlanHash": "0xf3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d6",
+        "runIndex": 2,
+        "methodologyVersion": "ecorestore-did-leakage-lowerbound-1.0.0",
+        "processingGraphVersion": "1.0.0",
+        "tier0Provenance": "REAL",
+        "stacSceneIds": [
+          "S2A_11UNQ_20230608_0_L2A",
+          "S2A_11UNQ_20230628_0_L2A",
+          "S2A_11UNQ_20230708_0_L2A",
+          "S2A_11UNQ_20230715_0_L2A",
+          "S2A_11UNQ_20230718_0_L2A",
+          "S2A_11UNQ_20230804_0_L2A",
+          "S2A_11UNQ_20230814_0_L2A",
+          "S2A_11UNQ_20230814_1_L2A",
+          "S2A_11UNQ_20230817_0_L2A",
+          "S2A_11UNQ_20230827_0_L2A",
+          "S2A_11UNQ_20230916_0_L2A",
+          "S2A_11UNQ_20240612_0_L2A",
+          "S2A_11UNQ_20240709_0_L2A",
+          "S2A_11UNQ_20240712_0_L2A",
+          "S2A_11UNQ_20240719_1_L2A",
+          "S2A_11UNQ_20240801_0_L2A",
+          "S2A_11UNQ_20240808_0_L2A",
+          "S2A_11UNQ_20240818_0_L2A",
+          "S2A_11UNQ_20240831_0_L2A",
+          "S2A_11UNQ_20240907_0_L2A",
+          "S2A_11UNQ_20240927_0_L2A",
+          "S2A_11UNQ_20240930_0_L2A",
+          "S2A_11UNQ_20250616_0_L2A",
+          "S2A_11UNQ_20250619_1_L2A",
+          "S2A_11UNQ_20250709_1_L2A",
+          "S2A_11UNQ_20250726_0_L2A",
+          "S2A_11UNQ_20250729_0_L2A",
+          "S2B_11UNQ_20230623_0_L2A",
+          "S2B_11UNQ_20230630_0_L2A",
+          "S2B_11UNQ_20230703_0_L2A",
+          "S2B_11UNQ_20230720_0_L2A",
+          "S2B_11UNQ_20230723_0_L2A",
+          "S2B_11UNQ_20230730_0_L2A",
+          "S2B_11UNQ_20230802_0_L2A",
+          "S2B_11UNQ_20230829_0_L2A",
+          "S2B_11UNQ_20230901_1_L2A",
+          "S2B_11UNQ_20230918_0_L2A",
+          "S2B_11UNQ_20230921_0_L2A",
+          "S2B_11UNQ_20240607_0_L2A",
+          "S2B_11UNQ_20240624_0_L2A",
+          "S2B_11UNQ_20240704_0_L2A",
+          "S2B_11UNQ_20240707_0_L2A",
+          "S2B_11UNQ_20240714_0_L2A",
+          "S2B_11UNQ_20240724_0_L2A",
+          "S2B_11UNQ_20240727_0_L2A",
+          "S2B_11UNQ_20240806_0_L2A",
+          "S2B_11UNQ_20240813_1_L2A",
+          "S2B_11UNQ_20240902_0_L2A",
+          "S2B_11UNQ_20240905_0_L2A",
+          "S2B_11UNQ_20240925_0_L2A",
+          "S2B_11UNQ_20250609_0_L2A",
+          "S2B_11UNQ_20250619_0_L2A",
+          "S2B_11UNQ_20250629_0_L2A",
+          "S2B_11UNQ_20250709_0_L2A",
+          "S2B_11UNQ_20250712_0_L2A",
+          "S2B_11UNQ_20250729_1_L2A",
+          "S2B_11UNQ_20250811_0_L2A",
+          "S2B_11UNQ_20250821_0_L2A",
+          "S2B_11UNQ_20250910_0_L2A",
+          "S2B_11UNQ_20250917_0_L2A",
+          "S2B_11UNQ_20250920_0_L2A",
+          "S2C_11UNQ_20250607_0_L2A",
+          "S2C_11UNQ_20250617_1_L2A",
+          "S2C_11UNQ_20250707_0_L2A",
+          "S2C_11UNQ_20250724_0_L2A",
+          "S2C_11UNQ_20250813_0_L2A",
+          "S2C_11UNQ_20250823_0_L2A",
+          "S2C_11UNQ_20250826_0_L2A",
+          "S2C_11UNQ_20250902_0_L2A",
+          "S2C_11UNQ_20250905_0_L2A",
+          "S2C_11UNQ_20250912_0_L2A",
+          "S2C_11UNQ_20250925_0_L2A"
+        ],
+        "metricId": "riparian_woody_cover_gain_ha",
+        "metricVersion": "0.1.0",
+        "metricUnit": "ha",
+        "windowStart": "2023-06-01",
+        "windowEnd": "2025-09-30",
+        "claimedQuantity": 42,
+        "parcelChangeHa": -1.6306,
+        "controlChangeFarRingHa": 1.0144,
+        "controlChangeNearRingHa": 1.1374,
+        "leakageHa": 0,
+        "additionalBiophysicalHa": -2.645,
+        "confidenceLevel": 0.95,
+        "intervalLower": -11.6192,
+        "intervalUpper": 5.4459,
+        "empiricalCoverage": 0.875,
+        "parallelTrendStatus": "FAIL",
+        "parallelTrendPValue": 0.761591,
+        "qualityGateStatus": "FAIL",
+        "obligationStatus": "voluntary_additional",
+        "verificationStatus": "INSUFFICIENT_EVIDENCE",
+        "settledQuantity": 0,
+        "settlementBasis": "lower_bound_95",
+        "evidenceHash": "0xaf4dc13e2e87adcb739c112d3242b4886798af46b017f4702ef3e06c365c855f",
+        "evidenceCid": "bafkreidaqirusvmdkhtkp7iin2qpb3zmva2g6e3otfh7qr24cd3rcw6vne",
+        "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
+        "simulatedTiersBanner": "SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT."
+      }
+    ],
+    "proof": {
+      "type": "Ed25519Signature2020",
+      "created": "2026-09-10T00:00:00Z",
+      "verificationMethod": "did:key:z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43#z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43",
+      "proofPurpose": "assertionMethod",
+      "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ZpiuVHEnqqjqXumiZCMx2fI1SeTuY7-pSffoQkOE9kXEpLis3sfigN6Hde4V9Xe_kKLX0mNQLgHK_D_8OOr5AA"
+    }
+  },
+  "credentialCheck": {
+    "signatureValid": true,
+    "schemaValid": true,
+    "resultHashMatches": true,
+    "errors": []
+  },
+  "presentation": {
+    "presentationHash": "0x1e262aea3161e11c9fcd4f2c845b51ef95a94d30a8bd86e886d99b4bff622da3",
+    "guardian": {
+      "stoodUp": false,
+      "note": "Guardian is not stood up for this prototype (Idea 0.3 §4.4.2). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.",
+      "dropInPoint": {
+        "externalDataBlock": "POST /api/v1/external/{policyId}/{blockTag} with this VC as `document` — see buildExternalDataRequest()",
+        "vvbReviewScope": [
+          "pipeline configuration",
+          "pre-registered analysis plan honoured (analysisPlanHash, runIndex)",
+          "parallel-trend diagnostic passing"
+        ],
+        "timerBlock": "persistence re-verification at 12 / 24 / 36 months",
+        "mintDocumentBlock": "settledQuantity → token amount; partition = keccak256(parcelH3Root, windowStart, windowEnd)"
+      }
+    }
+  },
+  "guardianSubmission": {
+    "request": {
+      "method": "POST",
+      "path": "/api/v1/external/ecorestore-policy-not-deployed/ecorestore_verdict_ingest",
+      "url": null
+    },
+    "outcome": {
+      "mode": "outbox",
+      "outboxPath": "/home/jay/Programming_Projects/ecorestore-network/.claude/worktrees/spatial-pipeline-prototype/guardian/outbox/external-fa05f977a199a2cd.json",
+      "detail": "GUARDIAN_URL not set; request written to outbox and NOT submitted"
+    }
+  },
+  "issuance": {
+    "prepared": false,
+    "reason": "no issuance for status INSUFFICIENT_EVIDENCE"
+  },
+  "contract": {
+    "broadcast": true,
+    "chain": {
+      "deedId": "3",
+      "runIndex": 2,
+      "txs": [
+        {
+          "step": "createProject",
+          "hash": "0x7eff4ec29d94ef7d348e3b7b1655f9a275f154336352ed324d4419154dd5716c"
+        },
+        {
+          "step": "createDeed",
+          "hash": "0xb36ef6f900a24ca98669c2d5fd99820d056482517826e0c645aa617628f80aa3"
+        },
+        {
+          "step": "fundDeed",
+          "hash": "0x6c06d660d6943065742d2d47bfe7da8826643ccbff5bae966fb92a0db7e04c30"
+        },
+        {
+          "step": "submitEvidence(tier0 REAL)",
+          "hash": "0x7c6f757206c27710bbb0e094cd7382750aff0970107e222b98f9022be4de7db2"
+        },
+        {
+          "step": "submitEvidence(tier3 SIMULATED)",
+          "hash": "0x370d037bdb5d3587328a22c51cdaedaaae8a6b27f555dc630d29f913ef591cc3"
+        },
+        {
+          "step": "recordVerificationRun(effort)",
+          "hash": "0xc7a978222aecc3c9137bb2b493377260b7d7777133f7b9552e97000ce833a63b"
+        },
+        {
+          "step": "verifyMilestone(mobilisation)",
+          "hash": "0x06d001bdea0946e49f0281c223096a73d3e256177bb3866e08ca24dc13af4e70"
+        },
+        {
+          "step": "drawMobilisation",
+          "hash": "0x77feedce01d0ec6449d59bb2b3e3650831262b1b6bfaf92fbd8af879670c1ec7"
+        },
+        {
+          "step": "recordVerificationRun(outcome)",
+          "hash": "0x47c1cd2e5042f1de1603a002bb81dc7ba206c1ecc8f706a57d07d59a8b1efd35"
+        },
+        {
+          "step": "verifyMilestone(establishment)",
+          "hash": "0xdcf8a1a27b3c2533c59c6d0bc38253942cbd7a5e3fd4e46bc8e981fe04c62207"
+        }
+      ],
+      "balances": {
+        "restorerReceived": "18000.00 USDC",
+        "stewardReceived": "2000.00 USDC",
+        "retained": "0.00 USDC",
+        "escrowAvailable": "180000.00 USDC"
+      },
+      "milestoneState": "INSUFFICIENT"
+    },
+    "verifyMilestone": {
+      "deedId": "3",
+      "milestoneId": 1,
+      "runIndex": 2,
+      "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
+      "analysisPlanHash": "0xf3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d6",
+      "status": 3,
+      "lowerBoundQuantity": "0",
+      "claimedQuantity": "420000",
+      "calldata": "0x0b095352000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002fa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50f3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d60000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000668a0"
+    }
+  },
+  "auditorReport": {
+    "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
+    "verificationStatus": "INSUFFICIENT_EVIDENCE",
+    "settledQuantity": 0,
+    "anomalies": [
+      {
+        "code": "RUN_COUNT",
+        "severity": "info",
+        "detail": "1 recorded run(s) without a submitted result"
+      },
+      {
+        "code": "COVERAGE_BELOW_NOMINAL",
+        "severity": "warning",
+        "detail": "empirical coverage 0.875 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric"
+      },
+      {
+        "code": "IOT_FLATLINE",
+        "severity": "info",
+        "detail": "node-3 flatlined through recorded rainfall (SIMULATED Tier 2) — excluded from corroboration"
+      },
+      {
+        "code": "GATE_PARALLEL_TREND",
+        "severity": "critical",
+        "detail": "Δslope 0.0129 NDVI/yr, p 0.7616, n 1229"
+      }
+    ],
+    "narrative": "Claim: 42 ha of riparian_woody_cover_gain_ha over 2023-06-01 → 2025-09-30 (run 2, plan 0xf3e25efe…).\nTier 0 (REAL): 72 Sentinel-2 scenes, processing graph 1.0.0.\nGross parcel change: -1.63 ha (ΔNDVI -0.0267). Far-ring controls, drawn by the committed rule: 1.01 ha. Near ring: 1.14 ha.\nParallel-trend diagnostic: FAIL (p = 0.761591, n = 1229).\nDifference-in-differences: -2.64 ha; leakage deducted: 0.00 ha; biophysical additionality: -2.65 ha.\n95% interval [-11.62, 5.45] ha; empirical coverage 0.875 over 40 placebos.\nResult: INSUFFICIENT_EVIDENCE — parallel-trend diagnostic failed. Settled quantity: 0 ha (lower_bound_95).\nAnomalies: [info] RUN_COUNT: 1 recorded run(s) without a submitted result | [warning] COVERAGE_BELOW_NOMINAL: empirical coverage 0.875 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric | [info] IOT_FLATLINE: node-3 flatlined through recorded rainfall (SIMULATED Tier 2) — excluded from corroboration | [critical] GATE_PARALLEL_TREND: Δslope 0.0129 NDVI/yr, p 0.7616, n 1229\nSIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
+    "boundary": {
+      "llmUsed": false,
+      "note": "Narrative is a deterministic template. An LLM narrator (M5) would implement AuditorNarrator and could only rephrase; every number above is copied from the canonical result."
+    }
+  }
+}

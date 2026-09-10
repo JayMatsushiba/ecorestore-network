@@ -154,3 +154,22 @@ architecture with a credible path.
 
 Implementation decisions must be checked against the current Guardian documentation
 before integration.
+
+## 10. Implementation state (2026-09-10)
+
+Steps 1–3 of §9 exist in `guardian/`:
+
+- `schema/verification-result.vc.schema.json` — the verdict schema (draft-07).
+- `adapter.ts` — Ed25519 `did:key` verifier identity; the verdict wrapped as a W3C VC
+  with a detached-JWS proof; `verifyVerdictCredential()` for anyone holding the VC;
+  a Verifiable Presentation carrying the full result; and `buildExternalDataRequest()`
+  producing the documented `POST /api/v1/external/{policyId}/{blockTag}` body
+  (`owner`, `policyTag`, `document`). With `GUARDIAN_URL` unset the request is written
+  to `guardian/outbox/` and reported as **not submitted**.
+- `issuance.ts` — ERC-1643 `setDocument` and ERC-1410 `issueByPartition` calldata for
+  the vintage partition, returned with `broadcast: false`. No Hedera account or ATS
+  deployment is configured; nothing is minted.
+
+The Guardian drop-in point is recorded in every presentation: `externalDataBlock` for
+ingest, the VVB review scope, `timerBlock` for persistence, `mintDocumentBlock` for the
+amount.

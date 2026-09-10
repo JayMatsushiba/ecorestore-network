@@ -4,6 +4,202 @@ Newest first. One entry per milestone, per `CLAUDE.md`.
 
 ---
 
+## 2026-09-10 — Spatial pipeline → Guardian seam → Arc deed prototype (M1–M4 vertical slice)
+
+### Objective
+
+A working prototype of the loop Idea 0.3 §1 describes: real remotely-sensed evidence →
+deterministic, pre-registered verification → signed verdict credential in the shape
+Guardian ingests → programmable settlement on the Restoration Deed → outcome-token
+issuance seam. Built on the direction given on 2026-09-10 to link the spatial pipeline
+to Guardian for token minting, which spans M1 (contract), M2 (engine), M3 (vertical
+slice) and the M4 seam rather than M1 alone. The M1 scope in `CLAUDE.md` is delivered
+in full inside it.
+
+### Implementation
+
+**Real Tier 0 acquisition** (`verification/stac.ts`, `cog.ts`, `frame.ts`, `acquire.ts`)
+
+- STAC search against Earth Search (AWS Open Data) for Sentinel-2 L2A over the parcel,
+  for the three pre-registered growing-season windows, cloud cover < 30%.
+- Windowed HTTP range reads of the red, NIR and SCL Cloud-Optimized GeoTIFFs via
+  `geotiff`; SCL masking (classes 4, 5, 6 valid); per-unit mean NDVI.
+- **72 real scenes** (19 in 2023, 22 in 2024, 31 in 2025) committed as
+  `verification/fixtures/tier0-kootenay-riparian-001.json` with scene IDs, asset URLs,
+  the STAC-advertised reflectance scale/offset, and a snapshot hash. Engine tests run
+  offline against this snapshot; `npm run acquire` re-derives it.
+- Sampling frame: parcel (48.95 ha, geodesic), 253 sub-parcel H3 r11 cells, 83 near-ring
+  and 520 far-ring H3 r10 candidate control units, each with a pixel mask on the
+  402 × 382 px UTM 11N grid.
+
+**Deterministic engine** (`verification/engine.ts`, ~500 lines, pure function of
+`(plan, evidence, runIndex)`)
+
+- Seasonal median composites per unit; pre-level and pre-slope covariates.
+- Controls **drawn by the committed rule**: caliper on standardised pre-level and
+  pre-slope, k nearest, water-fraction exclusion, near ring and far ring separately.
+- Parallel-trend diagnostic: OLS `ndvi ~ t + treated + t·treated + annual harmonics`
+  over 1,229 scene-level pre-period observations; interaction p-value and slope
+  difference tested against the plan's criterion.
+- DiD against the far ring; leakage = far − near divergence (floored at zero); biophysical
+  additionality = DiD − leakage. Hectares via the versioned index→cover transfer.
+- Bootstrap interval over matched far units, matched near units, parcel sub-cells, the
+  transfer coefficient, and a far-ring residual draw (control-matching shock).
+- **Empirical coverage by placebo-in-space**: 40 far-ring units treated in turn as
+  pseudo-parcels with truth = 0 under the same rule; fraction of intervals containing 0.
+- Evidence gates (scenes per window, matched-control count, parallel trend), validity
+  gate, issuance gates (no net habitat loss from Tier 0, native species fraction from
+  simulated Tier 1, condition floor), status resolution, lower-bound settlement.
+- Canonical `VerificationResult` with `resultHash`, `analysisPlanHash`, `runIndex`,
+  `stacSceneIds`, `processingGraphVersion`, tier corroboration with REAL/SIMULATED
+  labels, and a locally-computed CIDv1 for the evidence commitment.
+
+**Simulated Tiers 1–3** (`verification/simulate.ts`): seeded, labelled with the banner,
+parameterised by realistic values rather than by the Tier 0 outcome.
+
+**Guardian seam** (`guardian/`)
+
+- `schema/verification-result.vc.schema.json` — the Guardian-compatible verdict schema.
+- `adapter.ts` — Ed25519 `did:key` verifier identity; W3C VC with detached-JWS proof;
+  schema validation (Ajv); public verification of signature and result-hash binding;
+  Verifiable Presentation; the exact `POST /api/v1/external/{policyId}/{blockTag}`
+  body Guardian's `externalDataBlock` accepts; outbox when `GUARDIAN_URL` is unset.
+- `issuance.ts` — ERC-1643 `setDocument` and ERC-1410 `issueByPartition` calldata with
+  the vintage partition `keccak256(h3Root, windowStart, windowEnd)`; `broadcast: false`.
+
+**Arc Restoration Deed** (`contracts/`, Foundry)
+
+- `RestorationDeed.sol`: `createProject` (tenure attestation required, encumbrance hash),
+  `createDeed` (analysis plan hash, verifier, confidence, benefit share, retention,
+  buffer pool, milestone schedule), `fundDeed`, `submitEvidence` (tier + simulated flag),
+  `recordVerificationRun`, `verifyMilestone` (verifier-only, plan-hash-bound, run-index
+  cited, global result-hash replay protection, `notBefore`/`deadline`), `drawMobilisation`,
+  `releaseTranche` (proportional to lower bound / threshold, capped by milestone amount
+  and escrow, retention withheld, benefit share routed, assignee paid), `assignTranche`,
+  `withholdRetention`, `releaseRetention`, `reclaim`.
+- 31 Foundry tests. `contracts/client.ts` is the only path from a result to calldata
+  and refuses a result whose plan hash or content hash disagree.
+
+**Auditor boundary** (`auditor/agent.ts`): rule-based anomaly detection (run count
+behind submitted results, prior reversals, over-claim, regional greening, leakage,
+coverage below nominal, IoT flatline, synthetic Tier 0, gate failures) and a
+deterministic narrator behind an `AuditorNarrator` interface. No LLM, no keys.
+
+**Demo** (`scripts/demo.ts`): three scenarios, optional on-chain execution.
+
+### Tests / validation
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 9 files) | 54 passed |
+| `forge test` | 31 passed |
+| `npm run typecheck` | clean |
+| `npm run demo` | 3 scenarios, offline |
+| `DEMO_RPC_URL=… npm run demo` on anvil | 11 transactions per scenario, all succeed |
+
+Engine results on the **real** snapshot (run 1, fixed time):
+
+| Quantity | Value |
+|---|---|
+| Parcel ΔNDVI (2025 vs 2023–24) | −0.0267 (−1.63 ha) |
+| Far-ring control ΔNDVI | +0.0166 (+1.01 ha) |
+| Near-ring control ΔNDVI | +0.0186 |
+| Leakage | 0 (near ring did not degrade relative to far) |
+| Biophysical additionality | −0.0432 (−2.65 ha) |
+| 95% interval | [−11.62, +5.45] ha |
+| Parallel trend | PASS, Δslope 0.013 NDVI/yr, p = 0.76, n = 1,229 |
+| Empirical coverage (40 placebos) | 0.875 vs nominal 0.95 |
+| Status | `NOT_ADDITIONAL`, settled 0 ha |
+
+No intervention took place on this ground, so this is the correct answer. The
+contract's establishment milestone ends `FAILED` and releases nothing; mobilisation
+(effort-attested, 20,000 USDC) releases 18,000 to the restorer and 2,000 to the steward.
+
+**Synthetic scenario** (+0.25 NDVI injected, labelled SIMULATED at Tier 0):
+`PARTIAL`, additional 12.0 ha point estimate, interval [2.23, 21.63] ha, settled
+**2.2271 ha** of 42 claimed. On chain: gross release 5,302.62 USDC of the 100,000 USDC
+establishment tranche; 795.39 retained; 450.72 to the steward; 4,056.50 to the restorer.
+
+**Trend-failure scenario**: `INSUFFICIENT_EVIDENCE`, milestone `INSUFFICIENT`,
+re-verifiable, escrow intact.
+
+Validation that a third party can perform: re-run `npm run acquire` and compare
+`snapshotHash`; re-run `verify()` and compare `resultHash`; verify the VC signature
+from the issuer `did:key` alone; re-hash the presentation and compare with the
+`setDocument` document hash.
+
+### Architectural, scientific and security decisions
+
+Made within the implementation mandate:
+
+1. **DN → reflectance.** Earth Search v1 `sentinel-2-l2a` COGs are BOA-offset-harmonised
+   (verified: vegetation red p50 ≈ 0.036, NIR p50 ≈ 0.37). The STAC-advertised −0.1
+   offset is recorded per scene but not applied; applying it produced NDVI > 1. The
+   rule is versioned in the plan (`index.dnToReflectance`).
+2. **Verification status set.** `docs/VERIFICATION.md` §12 listed examples only. The
+   engine and the contract share six statuses: `VERIFIED`, `PARTIAL`,
+   `NOT_ADDITIONAL` (evidence sufficient, lower bound ≤ 0), `INSUFFICIENT_EVIDENCE`,
+   `GATE_FAILED` (issuance gate), `INVALID_RESULT`. The contract maps the last four to
+   no release; `INSUFFICIENT_EVIDENCE`/`INVALID_RESULT` leave the milestone
+   re-verifiable, `NOT_ADDITIONAL`/`GATE_FAILED` fail it.
+3. **Replay protection** is a global `resultHashUsed` set plus per-deed run indices;
+   a result cannot be resubmitted under any deed.
+4. **Mobilisation** is an effort attestation by the verifier role (status `VERIFIED`,
+   no quantity) rather than an outcome verdict, per §4.5.
+5. **Reclaim.** Not in the M1 list, added so escrow can never be stranded: after a
+   milestone deadline the sponsor recovers the unreleased balance.
+6. **Guardian request shape** follows the documented `externalDataBlock` push API
+   (`owner`, `policyTag`, `document`), verified against the current Guardian docs.
+
+Awaiting explicit approval (recorded in the plan's `provisional` list so the plan hash
+commits to that state; none of these is treated as settled):
+
+- **Uncertainty method.** The bootstrap adds a far-ring residual draw per iteration as
+  the representation of control-matching error (Idea 0.3 §3.8 term 1). Without it,
+  placebo coverage on this snapshot was **0.33**; with it, **0.875**. The interval is
+  reported with that coverage figure, not hidden behind the nominal 95%.
+- **Placebo-in-space coverage** stands in for held-out ground-truth plots, which do
+  not exist for a simulated intervention. It tests calibration under the null on real
+  data and is labelled as such in every result.
+- Metric, confidence level, ring radii, parallel-trend criterion, transfer coefficient
+  and gate thresholds (Idea 0.3 §13.6) are provisional defaults.
+- Leakage floored at zero (conservative; a negative divergence would otherwise add).
+
+### Deviations from Idea 0.3
+
+- **Scope.** M2, M3 and the M4 seam are prototyped alongside M1 on the owner's
+  instruction; ATS issuance is prepared as calldata, not executed, and Guardian is not
+  stood up (§4.4.2 honoured).
+- **Sentinel-1, Landsat, ICESat-2** are not ingested. Reversal detection (backscatter
+  change + dNBR) is therefore not built; the no-net-habitat-loss gate uses NDVI drop.
+- **Control matching** uses pre-level and pre-slope only; land cover, terrain, soil and
+  climate covariates (§3.7) are not yet joined.
+- **H3 non-overlap / polygon intersection check** at issuance is not implemented.
+- **Not built:** Arc Testnet deployment (no deployer key in this environment; the
+  Foundry script is ready), The Graph subgraph, x402, Privy, the app UI beyond a
+  minimal additionality view.
+
+### Unresolved risks
+
+- Coverage 0.875 < 0.95: the settlement rule is not yet calibrated for this metric.
+- The synthetic scenario's interval is wide (≈ ±10 ha on a 49 ha parcel) because the
+  residual shock is applied unscaled; a spatial covariance model would narrow it.
+- Real Tier 0 for one tile and three seasons only; a second parcel or a different
+  MGRS tile would exercise the grid-mismatch path.
+- Guardian schema field naming assumes a custom-imported schema; a policy authored in
+  the Guardian UI may expect `field0…N` names.
+- 20 days to the Arc deadline; the contract has not been deployed to Arc Testnet.
+
+### Next steps
+
+1. Deploy to Arc Testnet with `forge script script/Deploy.s.sol` and record the address.
+2. Approve or replace the provisional plan parameters; re-run and re-commit the plan hash.
+3. Sentinel-1 ingest for the reversal detector; covariate join for control matching.
+4. Subgraph over the contract events (entity set is emitted already).
+5. Additionality view and assurance export in `app/`.
+
+---
+
 ## 2026-09-10 — Proposal reconciliation (Idea 0.3)
 
 ### Objective

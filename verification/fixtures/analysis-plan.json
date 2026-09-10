@@ -1,0 +1,86 @@
+{
+  "planVersion": "1.0.0",
+  "metric": {
+    "id": "riparian_woody_cover_gain_ha",
+    "version": "0.1.0",
+    "unit": "ha",
+    "description": "Hectares of additional woody cover inside the parcel, derived from ΔNDVI through a versioned index→cover transfer, difference-in-differences against the far control ring, leakage-deducted, reported at the lower confidence bound."
+  },
+  "index": {
+    "name": "NDVI",
+    "version": "s2-l2a-ndvi-1.0.0",
+    "sclClassesValid": [4, 5, 6],
+    "maxSceneCloudCoverPct": 30,
+    "minValidPixelFraction": 0.8,
+    "compositing": "median",
+    "dnToReflectance": {
+      "scale": 0.0001,
+      "offset": 0,
+      "note": "Earth Search v1 sentinel-2-l2a COGs are BOA-offset-harmonised (verified empirically 2026-09-10: red p50 ≈ 0.036, NIR p50 ≈ 0.37 over vegetation). The STAC raster:bands offset of -0.1 is recorded per scene but not applied."
+    }
+  },
+  "windows": {
+    "pre": [
+      { "label": "season-2023", "start": "2023-06-01", "end": "2023-09-30" },
+      { "label": "season-2024", "start": "2024-06-01", "end": "2024-09-30" }
+    ],
+    "post": [
+      { "label": "season-2025", "start": "2025-06-01", "end": "2025-09-30" }
+    ],
+    "treatmentDate": "2024-10-15"
+  },
+  "minScenesPerWindow": 3,
+  "controlRule": {
+    "unitResolution": 10,
+    "parcelCellResolution": 11,
+    "nearRing": { "innerM": 0, "outerM": 300 },
+    "farRing": { "innerM": 800, "outerM": 1500 },
+    "matching": {
+      "covariates": ["pre_level", "pre_slope"],
+      "caliperSd": 1.0,
+      "k": 30,
+      "minMatched": 10
+    },
+    "maxWaterFraction": 0.2
+  },
+  "parallelTrend": {
+    "test": "pre_period_slope_interaction_ols_v1",
+    "alpha": 0.1,
+    "maxAbsSlopeDiffPerYear": 0.03
+  },
+  "leakage": {
+    "method": "near_far_divergence_v1",
+    "floorAtZero": true
+  },
+  "uncertainty": {
+    "confidenceLevel": 0.95,
+    "bootstrapIterations": 2000,
+    "seed": 20260910,
+    "modelTransfer": {
+      "coefficient": 1.25,
+      "sd": 0.25,
+      "source": "Provisional linear NDVI→fractional woody cover transfer for temperate riparian vegetation; to be calibrated against Tier 1 crown detections in production. Value and sd are placeholders pending approval."
+    },
+    "controlMatchingShock": { "method": "far_ring_residual_v1" },
+    "coverage": {
+      "method": "placebo_in_space_far_ring_v1",
+      "maxPlacebos": 40,
+      "bootstrapIterations": 300
+    }
+  },
+  "gates": {
+    "noNetHabitatLoss": { "ndviDropThreshold": -0.15, "maxLossCellFraction": 0.05 },
+    "nativeSpeciesFraction": { "min": 0.8 },
+    "conditionFloor": { "minPostNdvi": 0.3 }
+  },
+  "processingGraphVersion": "1.0.0",
+  "provisional": [
+    { "field": "metric.id", "openItem": "Idea 0.3 §13.6.1", "note": "Recommended metric implemented as the default; settled metric awaits approval." },
+    { "field": "uncertainty.confidenceLevel", "openItem": "Idea 0.3 §13.6.2", "note": "Recommended 95% used pending approval." },
+    { "field": "controlRule.nearRing / controlRule.farRing", "openItem": "Idea 0.3 §13.6.3", "note": "300 m near ring and 800–1500 m far ring are placeholders; displacement distance for this landscape not yet approved." },
+    { "field": "parallelTrend", "openItem": "Idea 0.3 §13.6.4", "note": "Slope-interaction OLS with alpha 0.10 and 0.03 NDVI/yr is a placeholder criterion." },
+    { "field": "uncertainty.modelTransfer", "openItem": "Idea 0.3 §3.8 item 2", "note": "Index→cover transfer coefficient is a placeholder and dominates hectare-scale uncertainty." },
+    { "field": "uncertainty.controlMatchingShock", "openItem": "Idea 0.3 §3.8 item 1", "note": "Adding a far-ring residual draw per bootstrap iteration is the prototype's representation of control-matching error. Without it, placebo coverage on the Kootenay snapshot was 0.33 against a nominal 0.95. Method awaits approval." },
+    { "field": "gates.*", "openItem": "Idea 0.3 §3.11", "note": "Gate thresholds are placeholders." }
+  ]
+}

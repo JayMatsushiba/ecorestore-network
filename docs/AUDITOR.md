@@ -85,17 +85,15 @@ The Auditor explains the result rather than becoming the result.
 
 ---
 
-## 6. M0
+## 6. Implementation state (2026-09-10)
 
-Create only the interface boundary.
+`auditor/agent.ts` holds the boundary: rule-based `detectAnomalies()` (run count behind
+submitted results, prior reversals, over-claim, regional greening, leakage, coverage
+below nominal, IoT flatline, synthetic Tier 0, gate failures) and a deterministic
+`templateNarrator` behind the `AuditorNarrator` interface an LLM would implement at M5.
 
-Do not implement an LLM agent.
-
-Do not connect API keys.
-
-Do not connect wallets.
-
-Do not connect payment systems.
+No LLM agent, no API keys, no wallets, no payment systems. Every number in the
+narrative is copied from the canonical result.
 
 ---
 

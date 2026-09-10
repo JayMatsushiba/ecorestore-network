@@ -314,14 +314,22 @@ AI may not:
 
 ---
 
-## 15. Milestone
+## 15. Implementation state (2026-09-10)
 
-The verification engine is **M2**, not M1. M1 is the Arc Restoration Deed, ordered
-first against the September 30, 2026 mainnet-readiness deadline (Idea 0.3 §9).
+`verification/engine.ts` implements §2–§13 as a pure function of
+`(plan, evidence, runIndex)` against the committed REAL Sentinel-2 snapshot
+(`verification/fixtures/tier0-kootenay-riparian-001.json`, 72 scenes) and simulated
+Tiers 1–3. Its status set is `VERIFIED | PARTIAL | NOT_ADDITIONAL |
+INSUFFICIENT_EVIDENCE | GATE_FAILED | INVALID_RESULT`, mirrored by the contract.
 
-M2 implements the complete deterministic verification pipeline against real Tier 0 and
-simulated Tiers 1-3, and tests its failure modes — including `INSUFFICIENT_EVIDENCE` on
-parallel-trend failure.
+Two points where the implementation goes beyond this document, both recorded as
+provisional in the analysis plan and in `docs/DEVELOPMENT_LOG.md`:
 
-No blockchain integration is required to consider M2 complete; M3 is the vertical
-slice that joins them.
+- **Control-matching error** (§10 item 1) is represented by a far-ring residual draw
+  in each bootstrap iteration. Without it, placebo coverage was 0.33.
+- **Empirical coverage** (§10.1) is estimated by placebo-in-space over far-ring units
+  on real data, because no held-out ground-truth plots exist for a simulated
+  intervention. The result labels the basis.
+
+Not yet implemented: Sentinel-1 / Landsat / ICESat-2 ingest, covariate matching beyond
+pre-level and pre-slope, the polygon intersection check at issuance.

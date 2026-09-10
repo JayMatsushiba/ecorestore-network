@@ -1,0 +1,13 @@
+node_modules/
+dist/
+out/
+*.log
+.env
+.env.*
+!.env.example
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+verification/cache/
+guardian/outbox/
+*.tmp.*
