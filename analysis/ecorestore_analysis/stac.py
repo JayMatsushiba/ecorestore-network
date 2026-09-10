@@ -39,6 +39,37 @@ def _scene_record(item: Any) -> dict[str, Any] | None:
     }
 
 
+def mgrs_tile(scene_id: str) -> str:
+    """The MGRS tile in an Earth Search id such as ``S2A_10TEM_20230721_0_L2A``."""
+    return scene_id.split("_")[1]
+
+
+def _baseline_key(baseline: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in baseline.split(".") if part.isdigit())
+
+
+def drop_reprocessed(scenes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep one item per acquisition when the catalogue holds reprocessings of it.
+
+    Earth Search publishes some acquisitions twice — the original processing and
+    the Collection-1 reprocessing (baseline 05.00) — as separate items a few
+    minutes apart. Both describe the same ground on the same day, and counting
+    them twice double-weights that day in every composite and in the
+    parallel-trend regression. Within a (tile, platform, date) group, only the
+    highest processing baseline survives. Items with equal baselines are all
+    kept: two granules of one datatake, or the same tile seen from adjacent
+    orbits on one day, are different observations.
+    """
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for s in scenes:
+        groups.setdefault((mgrs_tile(s["sceneId"]), s["platform"], s["datetime"][:10]), []).append(s)
+    kept: list[dict[str, Any]] = []
+    for group in groups.values():
+        best = max(_baseline_key(s["processingBaseline"]) for s in group)
+        kept.extend(s for s in group if _baseline_key(s["processingBaseline"]) == best)
+    return kept
+
+
 def search_sentinel2(bbox: tuple[float, float, float, float], windows: list[dict[str, Any]], max_cloud_cover_pct: float) -> list[dict[str, Any]]:
     client = Client.open(EARTH_SEARCH_URL)
     scenes: dict[str, dict[str, Any]] = {}
@@ -58,4 +89,4 @@ def search_sentinel2(bbox: tuple[float, float, float, float], windows: list[dict
     # acquisition datetime; without the tie-break the order is the STAC API's
     # iteration order across windows, and this array is canonicalised into
     # `snapshotHash`. Must match `verification/stac.ts`.
-    return sorted(scenes.values(), key=lambda s: (s["datetime"], s["sceneId"]))
+    return sorted(drop_reprocessed(list(scenes.values())), key=lambda s: (s["datetime"], s["sceneId"]))
