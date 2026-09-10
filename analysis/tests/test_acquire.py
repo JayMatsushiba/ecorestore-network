@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from ecorestore_analysis.acquire import observe_scene
+from ecorestore_analysis.acquire import choose_tile, observe_scene, spread_limit
 from ecorestore_analysis.cog import CogWindowRead
 from ecorestore_analysis.geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame, polygon_area_ha, utm_epsg_for
 from shapely.geometry import shape
@@ -136,3 +136,36 @@ def test_frame_in_another_zone_has_the_same_shape(plan):
     assert parcel_unit.unit_id == "parcel"
     assert parcel_unit.pixel_count * 0.01 == pytest.approx(parcel_unit.area_ha, rel=0.03)
     assert {u.zone for u in units} == {"parcel", "parcel_cell", "near", "far"}
+
+
+def _scene(scene_id: str, datetime: str) -> dict:
+    return {"sceneId": scene_id, "datetime": datetime}
+
+
+def test_choose_tile_takes_the_tile_with_most_scenes_not_the_first():
+    scenes = [
+        _scene("S2A_10TFM_20230601_0_L2A", "2023-06-01T19:00:00Z"),
+        _scene("S2A_10TEM_20230603_0_L2A", "2023-06-03T19:00:00Z"),
+        _scene("S2B_10TEM_20230608_0_L2A", "2023-06-08T19:00:00Z"),
+        _scene("S2B_10TFM_20230610_0_L2A", "2023-06-10T19:00:00Z"),
+        _scene("S2A_10TEM_20230613_0_L2A", "2023-06-13T19:00:00Z"),
+    ]
+    tile, kept, dropped = choose_tile(scenes)
+    assert tile == "10TEM"
+    assert [s["sceneId"] for s in kept] == ["S2A_10TEM_20230603_0_L2A", "S2B_10TEM_20230608_0_L2A", "S2A_10TEM_20230613_0_L2A"]
+    assert len(dropped) == 2
+
+
+def test_choose_tile_breaks_ties_deterministically():
+    scenes = [_scene("S2A_10TFM_20230601_0_L2A", "2023-06-01T19:00:00Z"), _scene("S2A_10TEM_20230603_0_L2A", "2023-06-03T19:00:00Z")]
+    assert choose_tile(scenes)[0] == "10TEM"
+    assert choose_tile(list(reversed(scenes)))[0] == "10TEM"
+
+
+def test_spread_limit_touches_every_window(plan):
+    windows = [*plan["windows"]["pre"], *plan["windows"]["post"]]  # 2023, 2024, 2025 seasons
+    scenes = [_scene(f"S2A_11UNQ_{y}0{m}05_0_L2A", f"{y}-0{m}-05T18:50:00Z") for y in (2023, 2024, 2025) for m in (6, 7, 8, 9)]
+    chosen = spread_limit(scenes, windows, 5)
+    assert [s["datetime"][:7] for s in chosen] == ["2023-06", "2023-07", "2024-06", "2024-07", "2025-06"]
+    assert spread_limit(scenes, windows, 100) == scenes
+    assert spread_limit(scenes, windows, 0) == []
