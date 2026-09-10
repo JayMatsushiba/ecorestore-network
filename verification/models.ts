@@ -233,7 +233,12 @@ export interface Tier0Snapshot {
   geometryHash: Hex;
   h3Root: Hex;
   crs: string;
-  window: { bbox: [number, number, number, number]; pixelWindow: [number, number, number, number] };
+  window: {
+    bbox: [number, number, number, number];
+    pixelWindow: [number, number, number, number];
+    /** The pixel-snapped read grid; recorded by processing graph 2.0.0 (Python), absent in 1.0.0. */
+    grid?: { originX: number; originY: number; resolution: number; width: number; height: number };
+  };
   scenes: SceneRecord[];
   units: SpatialUnit[];
   observations: Record<string, SceneObservation>;

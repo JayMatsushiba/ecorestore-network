@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import './App.css';
 import { CounterfactualChart, TrajectoryChart } from './charts';
-import type { AssuranceBundle } from './types';
+import type { AssuranceBundle, BundleSource } from './types';
 
 const SCENARIOS: Array<{ id: AssuranceBundle['scenario']; label: string }> = [
   { id: 'real', label: 'Real Tier 0' },
@@ -10,6 +10,8 @@ const SCENARIOS: Array<{ id: AssuranceBundle['scenario']; label: string }> = [
 ];
 
 const TREATMENT_DATE = '2024-10-15';
+/** The verify service, proxied by nginx in the container and by Vite in development. */
+const API = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api`;
 
 function Badge({ p }: { p: 'REAL' | 'SIMULATED' }) {
   return <span className={`badge ${p === 'REAL' ? 'real' : 'simulated'}`}>{p}</span>;
@@ -19,22 +21,54 @@ function fmt(x: number, d = 2): string {
   return x.toFixed(d);
 }
 
+/**
+ * Presentation only. The page asks the verify service to run the scenario
+ * now; if the service is unreachable it falls back to the committed bundle
+ * shipped with the page and says so. Nothing is recomputed here.
+ */
+async function loadBundle(scenario: AssuranceBundle['scenario'], signal: AbortSignal): Promise<{ bundle: AssuranceBundle; source: BundleSource }> {
+  const started = performance.now();
+  let liveError: string;
+  try {
+    const res = await fetch(`${API}/verify/${scenario}`, { method: 'POST', signal });
+    if (res.ok) return { bundle: (await res.json()) as AssuranceBundle, source: { kind: 'live', elapsedMs: Math.round(performance.now() - started) } };
+    liveError = `verify service responded ${res.status}`;
+  } catch (e) {
+    if (signal.aborted) throw e;
+    liveError = `verify service unreachable (${(e as Error).message})`;
+  }
+  const res = await fetch(`${import.meta.env.BASE_URL}demo/${scenario}/assurance-bundle.json`, { signal });
+  if (!res.ok) throw new Error(`${liveError}; committed bundle also unavailable (${res.status}). Start the stack with \`docker compose up\`, or run \`npm run demo\` and copy out/demo into app/public/demo.`);
+  return { bundle: (await res.json()) as AssuranceBundle, source: { kind: 'static', reason: liveError } };
+}
+
 export default function App() {
   const [scenario, setScenario] = useState<AssuranceBundle['scenario']>('real');
   const [bundle, setBundle] = useState<AssuranceBundle | null>(null);
+  const [source, setSource] = useState<BundleSource | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [runId, setRunId] = useState(0);
+  const rerun = useCallback(() => setRunId((n) => n + 1), []);
 
   useEffect(() => {
+    const ctrl = new AbortController();
     setBundle(null);
+    setSource(null);
     setError(null);
-    fetch(`${import.meta.env.BASE_URL}demo/${scenario}/assurance-bundle.json`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
-      .then((b: AssuranceBundle) => setBundle(b))
-      .catch((e: Error) => setError(`Could not load demo bundle (${e.message}). Run \`npm run demo\` and copy out/demo into app/public/demo.`));
-  }, [scenario]);
+    loadBundle(scenario, ctrl.signal)
+      .then(({ bundle: b, source: s }) => {
+        setBundle(b);
+        setSource(s);
+      })
+      .catch((e: Error) => {
+        if (!ctrl.signal.aborted) setError(e.message);
+      });
+    return () => ctrl.abort();
+  }, [scenario, runId]);
 
   const r = bundle?.result;
   const ci = r?.uncertainty.interval;
+  const engine = r?.analysisEngine ?? bundle?.runtime?.analysisEngine;
 
   const exportBundle = () => {
     if (!bundle) return;
@@ -58,7 +92,7 @@ export default function App() {
       </header>
 
       {error && <p className="banner">{error}</p>}
-      {!bundle && !error && <p className="muted">Loading…</p>}
+      {!bundle && !error && <p className="muted">Verifying {scenario} — controls, parallel trend, DiD, leakage, 2000-draw bootstrap, placebo coverage…</p>}
 
       {bundle && r && ci && (
         <>
@@ -67,9 +101,19 @@ export default function App() {
             {' '}<Badge p="SIMULATED" /> Tiers 1–3 — {bundle.simulatedTiersBanner}
           </p>
 
+          <p className="muted runtime">
+            {source?.kind === 'live'
+              ? <>Verified just now by the verify service in {(source.elapsedMs / 1000).toFixed(1)} s · analysis: <span className="mono">{engine?.name ?? 'unknown'} {engine?.version ?? ''}</span> · result <span className="mono">{r.resultHash.slice(0, 14)}…</span></>
+              : <>Showing the committed demonstration bundle — {source?.reason ?? 'live verification unavailable'} · analysis: <span className="mono">{engine?.name ?? 'ecorestore-analysis-ts'} {engine?.version ?? ''}</span></>}
+            {' '}<button className="linklike" onClick={rerun}>Re-run verification</button>
+          </p>
+
           <div className="grid">
             <section className="card span-8">
               <h2>Assurance-adjusted comparison</h2>
+              {bundle.tier0Provenance.provenance !== 'REAL' && (
+                <p className="banner inset"><Badge p="SIMULATED" /> {bundle.simulatedTiersBanner} This settlement is driven by a synthetic treatment effect injected into the real series.</p>
+              )}
               <div className="hero">
                 <div>
                   <div className="big">{fmt(r.settledQuantity)}<small>ha defensible</small></div>
@@ -153,8 +197,15 @@ export default function App() {
             <section className="card span-4">
               <h2>Guardian &amp; outcome token</h2>
               <dl className="kv">
-                <dt>Guardian</dt><dd>{bundle.presentation.guardian.stoodUp ? 'stood up' : 'not stood up'} · {bundle.guardianSubmission.outcome.mode === 'sent' ? 'submitted' : 'request staged, NOT submitted'}</dd>
-                <dt>Endpoint</dt><dd className="mono">{bundle.guardianSubmission.request.method} {bundle.guardianSubmission.request.path}</dd>
+                <dt>Guardian</dt>
+                <dd>
+                  {bundle.guardianSubmission.outcome.mode === 'sent'
+                    ? <><span className={bundle.guardianSubmission.outcome.httpStatus && bundle.guardianSubmission.outcome.httpStatus < 300 ? 'gate-pass' : 'gate-fail'}>submitted · HTTP {bundle.guardianSubmission.outcome.httpStatus}</span> — gateway acknowledgement only; a policy run is confirmed inside Guardian</>
+                    : bundle.guardianSubmission.outcome.mode === 'failed'
+                      ? <span className="gate-fail">Guardian unreachable — request staged, NOT submitted</span>
+                      : 'not configured — request staged, NOT submitted'}
+                </dd>
+                <dt>Endpoint</dt><dd className="mono">{bundle.guardianSubmission.request.method} {bundle.guardianSubmission.request.url ?? bundle.guardianSubmission.request.path}</dd>
                 <dt>Issuance</dt>
                 <dd>{bundle.issuance.partition ? <>{bundle.issuance.valueHa} ha into partition <span className="mono">{bundle.issuance.partition.slice(0, 14)}…</span> — calldata prepared, <strong>not broadcast</strong></> : <span className="muted">{bundle.issuance.reason}</span>}</dd>
                 <dt>Obligation status</dt><dd className="mono">{r.obligationStatus}</dd>
@@ -165,7 +216,7 @@ export default function App() {
               <h2>Restoration Deed (Arc)</h2>
               {bundle.contract.chain ? (
                 <dl className="kv">
-                  <dt>Chain</dt><dd>local demo chain · deed {bundle.contract.chain.deedId} · run {bundle.contract.chain.runIndex}</dd>
+                  <dt>Chain</dt><dd>local demo chain (anvil, not Arc Testnet) · deed {bundle.contract.chain.deedId} · run {bundle.contract.chain.runIndex}</dd>
                   <dt>Milestone</dt><dd className="mono">{bundle.contract.chain.milestoneState}</dd>
                   <dt>Restorer</dt><dd>+{bundle.contract.chain.balances['restorerReceived']}</dd>
                   <dt>Steward share</dt><dd>+{bundle.contract.chain.balances['stewardReceived']}</dd>

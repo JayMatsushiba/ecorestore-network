@@ -5,6 +5,8 @@
 # contracts are compiled in a Foundry stage so the image can drive a local
 # anvil when DEMO_RPC_URL is set; no scientific dependency is installed here.
 FROM ghcr.io/foundry-rs/foundry:latest AS contracts
+# The foundry image runs as an unprivileged user; the build stage is discarded, so build as root.
+USER root
 WORKDIR /src
 COPY contracts/foundry.toml ./contracts/
 COPY contracts/src ./contracts/src
@@ -13,7 +15,6 @@ COPY contracts/lib ./contracts/lib
 RUN forge build --root contracts
 
 FROM node:22-slim AS runtime
-ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package.json package-lock.json tsconfig.json ./
@@ -30,6 +31,7 @@ COPY verify ./verify
 
 RUN npx tsc --noEmit -p tsconfig.json \
  && mkdir -p guardian/outbox && chown -R node:node /app
+ENV NODE_ENV=production
 USER node
 
 EXPOSE 8080

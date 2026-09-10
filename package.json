@@ -13,6 +13,9 @@
     "test:contracts": "forge test --root contracts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "acquire": "tsx verification/acquire.ts",
+    "acquire:finalize": "tsx scripts/finalize-acquisition.ts",
+    "verify:serve": "tsx verify/server.ts",
+    "test:analysis": "cd analysis && python -m pytest -q",
     "demo": "tsx scripts/demo.ts",
     "build:contracts": "forge build --root contracts"
   },
