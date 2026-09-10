@@ -152,6 +152,16 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
         "scenes": kept,
         "units": [u.to_dict() for u in units],
         "observations": observations,
+        # Handoff only — `scripts/finalize-acquisition.ts` verifies this against
+        # the repository parcel before attaching `geometryHash` and `h3Root`,
+        # then strips it. It is never part of the hashed document. Without it
+        # finalize could bind a snapshot acquired from a different `--fixtures`
+        # geometry to the repository parcel's identity on a matching id alone.
+        "sourceParcel": {
+            "parcelId": parcel["parcelId"],
+            "geometry": parcel["geometry"],
+            "h3Resolution": parcel["h3Resolution"],
+        },
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"tier0-{parcel['parcelId']}.unhashed.json"

@@ -18,6 +18,13 @@ export interface RemoteAnalysisOptions {
 export interface AnalysisServiceInfo {
   engine: AnalysisEngineId;
   status: 'ok';
+  /**
+   * Resolved versions of the libraries the service's floats come from. The
+   * engine identity is a declaration; this is what is actually installed, so a
+   * stack that has drifted from `analysis/constraints.txt` is visible from
+   * `/health` rather than only when the parity suite is next run.
+   */
+  numericStack?: Record<string, string>;
 }
 
 export async function analysisServiceInfo(opts: RemoteAnalysisOptions): Promise<AnalysisServiceInfo> {

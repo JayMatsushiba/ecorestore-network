@@ -1,9 +1,9 @@
 from fastapi.testclient import TestClient
 
-from ecorestore_analysis import ENGINE
+from ecorestore_analysis import ENGINE, numeric_stack
 from ecorestore_analysis.server import app
 
-from conftest import load_case
+from conftest import diff_paths, load_case
 
 client = TestClient(app)
 
@@ -11,7 +11,7 @@ client = TestClient(app)
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "engine": ENGINE}
+    assert r.json() == {"status": "ok", "engine": ENGINE, "numericStack": numeric_stack()}
 
 
 def test_analyse_real_case_matches_reference():
@@ -39,3 +39,32 @@ def test_tampered_snapshot_is_rejected():
     req["tier0Canonical"] = req["tier0Canonical"].replace('"provenance":"REAL"', '"provenance":"SIMULATED"', 1)
     r = client.post("/analyse", json=req)
     assert r.status_code == 422
+
+
+def test_analyse_body_is_exactly_the_contract_output():
+    """The HTTP body carries the AnalysisOutput and nothing else.
+
+    `test_parity` calls `analyse()` directly, so it cannot see fields the
+    endpoint adds. Anything extra here — a timing, a hostname, a request id —
+    would be an undeclared field on a boundary whose whole purpose is that
+    `verify` can assemble a hashed document from what it receives.
+    """
+    req, expected = load_case("real")
+    r = client.post("/analyse", json=req)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert set(body) == set(expected), f"body keys differ from the reference output: {set(body) ^ set(expected)}"
+    # The engine identity is the one field that legitimately differs from a
+    # reference dumped by the TypeScript engine.
+    assert list(diff_paths(body, {**expected, "engine": ENGINE})) == []
+
+
+def test_identical_requests_get_identical_bodies():
+    """No wall clock in the response: the service is a pure function of the request."""
+    req, _ = load_case("real")
+    first = client.post("/analyse", json=req)
+    second = client.post("/analyse", json=req)
+    assert first.status_code == second.status_code == 200
+    assert first.content == second.content
+    # Timing is reported, just not in the body.
+    assert "x-analysis-elapsed-seconds" in first.headers

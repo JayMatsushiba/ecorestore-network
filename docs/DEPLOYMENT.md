@@ -261,7 +261,7 @@ parses it once, and never re-encodes anything.
   "estimate":      { "parcelChange": -0.0267, "farChange": 0.0166, "nearChange": 0.0186, "leakage": 0, "did": -0.0432, "additional": -0.0432 },
   "interval":      { "lower": -11.6192, "upper": 5.4459 },
   "coverage":      { "empirical": 0.875, "placebos": 40 },
-  "tier0Usable":   { "usableScenes": 72, "totalScenes": 72 }
+  "tier0Usable":   { "usableScenes": 61, "totalScenes": 72 }
 }
 ```
 
@@ -271,6 +271,11 @@ given, echoed so `verify` can assert it received the analysis of what it sent. `
 resolves status, applies the Tier 1–3 gates, assembles the `VerificationResult`, attaches
 the plan hash **it** computed and committed at `createDeed()`, canonicalises once, and
 hashes. A receipt that does not match is a `422` and the run fails loudly.
+
+Those fields are the whole body. Nothing wall-clock-dependent appears in it — two
+identical requests get byte-identical responses — because `verify` builds a hashed
+document out of what comes back. Elapsed time is reported in the
+`x-analysis-elapsed-seconds` header instead.
 
 The snapshot travels **inline** rather than through a shared volume, which the proposal
 suggested. The synthetic scenario's snapshot — the real series with a labelled treatment
@@ -318,7 +323,7 @@ networks:
 |---|---|
 | `docker compose up --build` | Full stack, attached to the running Guardian. Fails to start if Guardian's network does not exist. |
 | `docker compose -f docker-compose.yml up --build` | Standalone; the override is not merged; Guardian requests go to `guardian/outbox/` and are reported as not submitted. |
-| `DEMO_RPC_URL=http://anvil:8545 docker compose --profile chain up --build` | Adds `anvil`; each verification also runs the deed lifecycle and settles on it. |
+| `DEMO_RPC_URL=http://anvil:8545 docker compose --profile chain up --build` | Adds `anvil`; each verification also runs the deed lifecycle and settles on it. Chain-backed runs are serialised — every scenario deploys and settles from the same deterministic accounts, so two at once would collide on a nonce. Chain setup happens once, behind a memoised promise. Analysis-only runs stay concurrent. |
 | `docker compose --profile acquire run --rm acquire --limit 5` | Batch job: re-acquire REAL Tier 0 into `./out/acquire/` (§7.2). |
 | `docker compose -f docker-compose.yml config` | Validate. |
 
@@ -377,7 +382,13 @@ Recorded so the reasons are not lost.
 * **`acquire` writes an unhashed document.** The proposal had the Python job producing
   the committed fixture directly; that would have made Python a second canonicaliser.
   `npm run acquire:finalize` attaches the three hashes and compares against the current
-  fixture before writing it.
+  fixture before writing it. The document carries a `sourceParcel` handoff — the
+  geometry and H3 resolution the job read — which finalize verifies against the
+  repository parcel and then strips, so the identity attached is always the identity of
+  what was observed.
+* **The analysis image installs against pinned constraints.** `analysis/constraints.txt`
+  fixes the whole resolved set including NumPy and SciPy; the engine identity is a claim
+  about numbers, and open-ended ranges would let a rebuild change them silently.
 * **`verify` runs TypeScript directly** (`tsx`) rather than a compiled build; the image
   carries development dependencies. A compile step is an optimisation for later.
 * **The analysis engine is named in the result.** Not in the proposal; follows from §5.

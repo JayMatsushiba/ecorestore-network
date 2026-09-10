@@ -54,4 +54,8 @@ def search_sentinel2(bbox: tuple[float, float, float, float], windows: list[dict
             rec = _scene_record(item)
             if rec is not None:
                 scenes[rec["sceneId"]] = rec
-    return sorted(scenes.values(), key=lambda s: s["datetime"])
+    # `sceneId` breaks datetime ties. Two granules of the same pass share an
+    # acquisition datetime; without the tie-break the order is the STAC API's
+    # iteration order across windows, and this array is canonicalised into
+    # `snapshotHash`. Must match `verification/stac.ts`.
+    return sorted(scenes.values(), key=lambda s: (s["datetime"], s["sceneId"]))

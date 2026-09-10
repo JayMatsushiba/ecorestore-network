@@ -5,8 +5,10 @@
  * snapshot minus `geometryHash`, `h3Root` and `snapshotHash`. Python must
  * not compute those — exactly one canonicaliser exists (`canonical.ts`).
  * This script attaches them from the parcel fixture and the canonical
- * hashing rule, validates the document, compares it against the currently
- * committed fixture, and writes the fixture (or `--out <path>`).
+ * hashing rule, validates the document — including that the parcel the
+ * acquisition actually read hashes to the fixture's identity, not merely
+ * that the ids match — compares it against the currently committed
+ * fixture, and writes the fixture (or `--out <path>`).
  *
  *   npm run acquire:finalize -- out/acquire/tier0-kootenay-riparian-001.unhashed.json
  *   npm run acquire:finalize -- out/acquire/tier0-kootenay-riparian-001.unhashed.json --out /tmp/preview.json
@@ -21,6 +23,17 @@ import type { Tier0Snapshot } from '../verification/models.js';
 
 type Unhashed = Omit<Tier0Snapshot, 'geometryHash' | 'h3Root' | 'snapshotHash'>;
 
+/**
+ * The acquisition job's handoff: the parcel geometry and H3 resolution it
+ * actually read. Verified against the repository parcel below and then
+ * stripped — it is never part of the hashed document.
+ */
+interface SourceParcel {
+  parcelId: string;
+  geometry: unknown;
+  h3Resolution: number;
+}
+
 function fail(msg: string): never {
   console.error(`finalize: ${msg}`);
   process.exit(1);
@@ -30,13 +43,29 @@ const args = process.argv.slice(2);
 const input = args.find((a) => !a.startsWith('--'));
 if (!input) fail('usage: finalize-acquisition <tier0-<parcelId>.unhashed.json> [--out <path>]');
 const outIdx = args.indexOf('--out');
-const doc = JSON.parse(readFileSync(resolve(input), 'utf8')) as Unhashed & Partial<Pick<Tier0Snapshot, 'geometryHash' | 'h3Root' | 'snapshotHash'>>;
+const doc = JSON.parse(readFileSync(resolve(input), 'utf8')) as Unhashed &
+  Partial<Pick<Tier0Snapshot, 'geometryHash' | 'h3Root' | 'snapshotHash'>> & { sourceParcel?: SourceParcel };
 
 if (doc.provenance !== 'REAL') fail(`provenance is ${String(doc.provenance)}, expected REAL`);
 if (doc.tier !== 0) fail('tier must be 0');
 if ('snapshotHash' in doc || 'geometryHash' in doc || 'h3Root' in doc) fail('input already carries hashes; refusing to re-hash');
 const parcel = loadParcel();
 if (doc.parcelId !== parcel.parcelId) fail(`parcelId ${doc.parcelId} does not match the parcel fixture ${parcel.parcelId}`);
+
+// A matching `parcelId` is not a matching parcel. `ecorestore-acquire --fixtures`
+// can read any parcel it is pointed at, so the identity attached below has to be
+// the identity of the geometry that was actually observed — otherwise a snapshot
+// derived from different coordinates or a different H3 resolution would be
+// committed under the repository parcel's `geometryHash` and `h3Root`, and the
+// provenance binding would assert something untrue.
+const { sourceParcel } = doc;
+if (!sourceParcel) {
+  fail('input carries no sourceParcel handoff; re-run `ecorestore-acquire` (processing graph 2.0.0 or later) so the acquired geometry can be verified');
+}
+delete doc.sourceParcel;
+if (sourceParcel.parcelId !== parcel.parcelId) fail(`acquisition read parcel ${sourceParcel.parcelId}, fixture is ${parcel.parcelId}`);
+if (sourceParcel.h3Resolution !== parcel.h3Resolution) fail(`acquisition used H3 resolution ${sourceParcel.h3Resolution}, fixture is ${parcel.h3Resolution}`);
+const sourceIdentity = parcelIdentity(sourceParcel.parcelId, sourceParcel.geometry as typeof parcel.geometry, sourceParcel.h3Resolution);
 if (!Array.isArray(doc.scenes) || doc.scenes.length === 0) fail('no scenes');
 if (!Array.isArray(doc.units) || doc.units[0]?.zone !== 'parcel') fail('units[0] must be the parcel');
 for (const s of doc.scenes) {
@@ -46,6 +75,8 @@ for (const s of doc.scenes) {
 }
 
 const identity = parcelIdentity(parcel.parcelId, parcel.geometry, parcel.h3Resolution);
+if (sourceIdentity.geometryHash !== identity.geometryHash) fail(`acquisition read a different geometry: ${sourceIdentity.geometryHash} vs fixture ${identity.geometryHash}`);
+if (sourceIdentity.h3Root !== identity.h3Root) fail(`acquisition H3 root ${sourceIdentity.h3Root} does not match the fixture ${identity.h3Root}`);
 const snapshot = finalizeSnapshot({ ...doc, geometryHash: identity.geometryHash, h3Root: identity.h3Root });
 
 const current = join(FIXTURES_DIR, `tier0-${parcel.parcelId}.json`);

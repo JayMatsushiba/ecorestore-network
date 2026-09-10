@@ -9,6 +9,118 @@ as written rather than rewritten, because a log records what was true at the tim
 
 ---
 
+## 2026-09-10 — Review pass on the container stack: determinism, provenance binding, chain concurrency
+
+### Objective
+
+Act on the seven findings of an automated review of PR #3. Each was checked against the
+code before anything was changed; all seven held. Nothing here alters methodology or
+numerics — the changes close ways the *same* numbers could end up bound to the wrong
+thing, or the same inputs could stop producing the same numbers.
+
+### Implementation
+
+**Scene ordering is `(datetime, sceneId)`** in both acquisition implementations
+(`analysis/ecorestore_analysis/stac.py`, `verification/stac.ts`). Sorting by datetime
+alone is stable, so ties fell back to the catalogue's paging order — and granules of one
+pass share an acquisition datetime. The scene array is canonicalised into
+`snapshotHash`, so the commitment was dependent on the order Earth Search happened to
+page. The committed fixture has 72 distinct datetimes, so nothing moved; the hazard was
+latent, not realised.
+
+**The acquisition handoff carries its own geometry.** `acquire.py` writes
+`sourceParcel` — the `parcelId`, geometry and H3 resolution it actually read — into the
+unhashed document. `scripts/finalize-acquisition.ts` verifies that geometry hashes to the
+repository parcel's `geometryHash` and `h3Root` before attaching them, then strips the
+field. Previously it checked only `parcelId`, and `ecorestore-acquire --fixtures` will
+read any parcel it is pointed at: a snapshot derived from different coordinates would
+have been committed under the repository parcel's identity, with the provenance binding
+asserting something untrue.
+
+**Chain-backed runs are serialised** (`verify/server.ts`). Deduplication was per
+scenario, but the collision is across scenarios: every scenario deploys and settles from
+the same deterministic accounts, and two concurrent runs read the same
+`eth_getTransactionCount` and produce a replacement or a failure. `chain()` now memoises
+the setup *promise* rather than its resolved value — two concurrent first callers both
+saw `undefined` and would both have deployed — and does not cache a failure. Runs with a
+chain context queue behind one another; analysis-only runs stay concurrent.
+
+**The analysis response body is the contract's `AnalysisOutput` and nothing else.**
+`elapsedSeconds` was an undeclared, wall-clock-dependent field on a boundary whose
+output `verify` assembles into a hashed document. It moved to the
+`x-analysis-elapsed-seconds` header.
+
+**The analysis image installs against pinned constraints.** `analysis/constraints.txt`
+pins the entire resolved set. `pyproject.toml` declared `numpy>=1.26`, and the drift was
+not hypothetical: the built image carries NumPy 2.5.3 / SciPy 1.18.1 while the
+development host had 1.26.4 / 1.11.4 — two numeric stacks under one `analysisEngine
+1.0.0`, which is exactly what the identity exists to rule out. `GET /health` now reports
+the versions actually loaded (`numericStack`), surfaced through `verify`'s `/health`, so
+drift is visible without waiting for a parity run. `ENGINE` carries the rule that its
+version bumps when a pin moves.
+
+**Documentation.** `DEPLOYMENT.md` §7.4's example reported 72 usable scenes against 72
+total; the reference outputs say 61 of 72. `DECISIONS.md` carried the same error in a
+sentence that contradicted itself. `GUARDIAN.md` §10 stated that a Guardian instance
+runs alongside the stack, which contradicted §9 and the roadmap's unbuilt list; nothing
+in this repository starts Guardian, so it is now a dated validation result against a
+quickstart the operator runs separately, and §9 says what the delivered stack does and
+does not contain.
+
+### Tests / validation
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 9 files) | 54 passed |
+| `npm run typecheck` | clean |
+| pytest, run **inside** `ecorestore/analysis:latest` | 33 passed (was 29): parity still bit-exact on the image's NumPy 2.5.3 / SciPy 1.18.1 |
+| New: `test_analyse_body_is_exactly_the_contract_output` | HTTP body keys and values equal the reference — the gap that let `elapsedSeconds` through, since `test_parity` calls `analyse()` directly |
+| New: `test_identical_requests_get_identical_bodies` | two POSTs of one request return identical bytes |
+| New: `analysis/tests/test_constraints.py` | every declared dependency is pinned; no pin below its declared minimum |
+| `finalize-acquisition` on the committed fixture with a `sourceParcel` handoff | reproduces `snapshotHash 0x5be25dd2…` exactly — the handoff is stripped and does not perturb the hash |
+| Same, geometry shifted 0.01° under the correct `parcelId` | refused: `acquisition read a different geometry` |
+| Same, H3 resolution 9 instead of 10 | refused |
+| Same, no handoff at all | refused, with the instruction to re-acquire |
+
+### Architectural, scientific and security decisions
+
+1. **A matching id is not a matching parcel.** The identity attached to a snapshot must
+   be the identity of the geometry that produced it, verified, not inferred from a
+   string equal on both sides.
+2. **A named runtime is worth what its environment is worth.** `analysisEngine` is a
+   claim about which numbers come back; an unpinned NumPy makes that claim unfalsifiable.
+   The pins are part of the identity, and the rule for moving one is written where the
+   pins are.
+3. **Nothing wall-clock-dependent crosses the analysis boundary.** The receiving side
+   builds a hashed document; convenience fields are a hazard there.
+4. **Serialise on the shared resource, not on the request.** Per-scenario deduplication
+   was the wrong axis — the contention is the account, not the scenario.
+
+### Deviations from the documented design
+
+None. Every change enforces a rule the documents already stated.
+
+### Unresolved risks
+
+- Parity is verified against whatever stack is installed. The pins make the *image*
+  reproducible; a developer host installed outside `constraints.txt` still runs a
+  different NumPy, and only the parity suite would catch it. Running the parity suite as
+  a build stage in the image would close this.
+- `resultHash` is still not reproducible across service runs — `computedAt` is the wall
+  clock and the service does not yet accept a fixed time. Unchanged by this pass.
+- Chain-backed runs are now serialised, which bounds throughput to one settlement at a
+  time. Correct for a demonstration; a real deployment needs per-role nonce management.
+- The engine version was **not** bumped, because the pins record the stack the committed
+  bundles were produced on rather than changing it. The next pin move must bump it and
+  regenerate the bundles.
+
+### Next steps
+
+Unchanged from the previous entry: AWS deployment, a real Guardian policy, and Arc
+Testnet deployment of `RestorationDeed` — still the open M1 deliverable.
+
+---
+
 ## 2026-09-10 — Containerised prototype: Python analysis, TypeScript verify, frontend, Guardian attached
 
 ### Objective

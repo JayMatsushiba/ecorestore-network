@@ -137,7 +137,9 @@ diagnostic passing?" That is a role a registry would accept.
 
 Guardian is ~10 microservices plus MongoDB, IPFS, a vault and a Standard Registry
 testnet account: realistically 1-3 days to stand up and 2-4 days to author a minimal
-real policy. **Guardian is not stood up for the hackathon.**
+real policy. **The delivered stack does not run Guardian, and no policy exists.** §10
+records what the seam has been exercised against: a quickstart instance the operator
+starts separately, which acknowledged delivery but ran nothing.
 
 Instead, at M4:
 
@@ -174,14 +176,21 @@ The Guardian drop-in point is recorded in every presentation: `externalDataBlock
 ingest, the VVB review scope, `timerBlock` for persistence, `mintDocumentBlock` for the
 amount.
 
-### Guardian running locally (2026-09-10)
+### Attachment to a locally run Guardian — validated 2026-09-10
 
-A Guardian 3.7.0 quickstart instance runs alongside the container stack, and the
-`verify` service is attached to its Docker network (`DEPLOYMENT.md` §7.6). Each verdict
-is POSTed to `/api/v1/external/{policyId}/{blockTag}` through Guardian's web proxy — the
-same server exposed on `localhost:3000` — and the gateway answers `200`.
+Nothing in this repository starts Guardian. `docker-compose.override.yml` attaches
+`verify` — and only `verify` — to the Docker network of a Guardian quickstart that the
+operator runs separately (`DEPLOYMENT.md` §7.6); if that network does not exist, the
+stack is brought up with `-f docker-compose.yml` alone and Guardian requests are staged
+to the outbox.
 
-Two things that `200` does not mean, stated so the seam is not overstated:
+That attachment was exercised on 2026-09-10 against a Guardian 3.7.0 quickstart. Each
+verdict was POSTed to `/api/v1/external/{policyId}/{blockTag}` through Guardian's web
+proxy — the same server exposed on `localhost:3000` — and the gateway answered `200` on
+all three scenarios. That is a validation result, not a component of the delivered
+system.
+
+Two things that `200` did not mean, stated so the seam is not overstated:
 
 - **No policy exists.** The policy ID is the placeholder `ecorestore-policy-not-deployed`.
   Guardian's external endpoint queues the document and acknowledges before the policy

@@ -431,9 +431,37 @@ agree on every scientific quantity still differ in `resultHash` if different run
 computed them. That is deliberate: the determinism guarantee is per runtime
 (`DEPLOYMENT.md` §5), and the runtime is therefore part of the commitment.
 
+A named runtime is only worth as much as the environment behind the name, so
+`analysis/constraints.txt` pins the whole resolved dependency set — NumPy and SciPy
+included — and the image installs against it. Without the pins two rebuilds could
+resolve different numeric libraries and return different floats under an unchanged
+`analysisEngine`, which is the one thing the identity is there to prevent. Moving a pin
+means re-running the parity suite inside the image and bumping the engine version; the
+service reports the versions it actually loaded at `GET /health` (`numericStack`), so
+drift is visible without waiting for the next parity run.
+
+The analysis response body is the `AnalysisOutput` of the contract and nothing else —
+no timing, no host, no request id. Two identical requests get byte-identical bodies,
+because the caller assembles a hashed document out of what it receives and an
+undeclared field on that boundary is a hazard rather than a convenience. Elapsed time
+is reported in the `x-analysis-elapsed-seconds` header.
+
 Tier 0 acquisition also has a second implementation, processing graph `2.0.0`
 (`analysis/ecorestore_analysis/acquire.py`: pystac-client, rasterio, h3, shapely,
 pyproj). On the same grid it reproduces the committed 1.0.0 fixture's parcel and
 parcel-cell pixel masks exactly and parcel NDVI to 4 dp; ring candidates at the buffer
 edge and unit areas (ellipsoidal rather than spherical) differ slightly, which is why it
 carries a new graph version. The committed fixture is still 1.0.0.
+
+The acquisition job emits the parcel geometry and H3 resolution it actually read
+alongside the unhashed snapshot, and `acquire:finalize` refuses to attach the
+repository parcel's `geometryHash` and `h3Root` unless that geometry hashes to the same
+identity. A matching `parcelId` is not a matching parcel — the job can be pointed at any
+fixture directory — and binding a snapshot to an identity it was not derived from would
+make the provenance commitment assert something untrue. The handoff field is stripped
+before canonicalisation and never enters the hash.
+
+Scene order is `(datetime, sceneId)` in both acquisition implementations. Granules of
+one pass share an acquisition datetime, and the scene array is canonicalised into
+`snapshotHash`, so datetime alone would leave the commitment dependent on the
+catalogue's paging order.

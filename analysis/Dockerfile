@@ -21,8 +21,15 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install dependencies first so source edits do not invalidate the wheel layer.
-COPY pyproject.toml ./
-RUN pip install $(python -c "import tomllib; print(' '.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
+#
+# `constraints.txt` pins the whole resolved set, NumPy and SciPy included. The
+# acceptance test for this engine is bit-exact parity with the TypeScript
+# reference, and floating-point results belong to the build that produced them:
+# without the pins a rebuild could resolve a different numeric stack and return
+# different numbers under an unchanged `analysisEngine` identity. See the header
+# of `constraints.txt` before changing a pin.
+COPY pyproject.toml constraints.txt ./
+RUN pip install -c constraints.txt $(python -c "import tomllib; print(' '.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
 
 COPY ecorestore_analysis ./ecorestore_analysis
 RUN pip install --no-deps .

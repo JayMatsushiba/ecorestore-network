@@ -37,7 +37,16 @@ const log = (s: string) => console.log(`[verify] ${s}`);
 const { parcel, list: scenarios } = buildScenarios();
 const results = new Map<ScenarioId, AssuranceBundle>();
 const inflight = new Map<ScenarioId, Promise<AssuranceBundle>>();
-let chainCtx: ChainContext | null | undefined;
+let chainSetup: Promise<ChainContext | null> | undefined;
+/**
+ * Chain-backed runs are serialised. Every scenario deploys and settles from the
+ * same deterministic accounts, so two running at once share a nonce: viem reads
+ * `eth_getTransactionCount` per send, both get the same value, and one
+ * transaction replaces or invalidates the other. Per-scenario deduplication is
+ * not enough because the collision is *across* scenarios. Analysis-only runs
+ * touch no account and stay concurrent.
+ */
+let chainQueue: Promise<unknown> = Promise.resolve();
 
 async function backend(): Promise<AnalysisBackend> {
   if (!ANALYSIS_URL) return localBackend;
@@ -45,11 +54,26 @@ async function backend(): Promise<AnalysisBackend> {
   return remoteBackend({ baseUrl: ANALYSIS_URL }, info.engine);
 }
 
-async function chain(): Promise<ChainContext | null> {
-  if (chainCtx !== undefined) return chainCtx;
-  if (!DEMO_RPC_URL) return (chainCtx = null);
-  chainCtx = await setupChain(DEMO_RPC_URL, log, process.env['DEMO_MNEMONIC']);
-  return chainCtx;
+/**
+ * The setup promise is memoised, not its resolved value: two concurrent first
+ * callers would otherwise both see `undefined` and both deploy, from one
+ * deployer account. A failed setup is not cached, so the next request retries.
+ */
+function chain(): Promise<ChainContext | null> {
+  if (!DEMO_RPC_URL) return Promise.resolve(null);
+  if (chainSetup) return chainSetup;
+  chainSetup = setupChain(DEMO_RPC_URL, log, process.env['DEMO_MNEMONIC']).catch((e: unknown) => {
+    chainSetup = undefined;
+    throw e;
+  });
+  return chainSetup;
+}
+
+/** Run `fn` after every chain-backed run already queued, whether or not they succeed. */
+function onChainQueue<T>(fn: () => Promise<T>): Promise<T> {
+  const run = chainQueue.then(fn, fn);
+  chainQueue = run.catch(() => undefined);
+  return run;
 }
 
 async function probe(url: string | undefined, path: string): Promise<{ url: string | null; reachable: boolean; status?: number; detail?: string }> {
@@ -64,7 +88,7 @@ async function probe(url: string | undefined, path: string): Promise<{ url: stri
 
 async function health() {
   const analysis = ANALYSIS_URL
-    ? await analysisServiceInfo({ baseUrl: ANALYSIS_URL }).then((i) => ({ url: ANALYSIS_URL, reachable: true, engine: i.engine })).catch((e: Error) => ({ url: ANALYSIS_URL, reachable: false, error: e.message }))
+    ? await analysisServiceInfo({ baseUrl: ANALYSIS_URL }).then((i) => ({ url: ANALYSIS_URL, reachable: true, engine: i.engine, numericStack: i.numericStack })).catch((e: Error) => ({ url: ANALYSIS_URL, reachable: false, error: e.message }))
     : { url: null, reachable: true, engine: localBackend.engine, note: 'ANALYSIS_URL unset: in-process TypeScript reference' };
   // Any HTTP response from Guardian's gateway, including 401, proves reachability.
   const g = await probe(guardian.baseUrl, '/api/v1/settings/environment');
@@ -89,19 +113,23 @@ async function verifyScenario(id: ScenarioId): Promise<AssuranceBundle> {
   if (pending) return pending;
   const run = (async () => {
     const sc = scenarios.find((s) => s.name === id)!;
-    const t0 = Date.now();
-    const bundle = await runScenario(sc, parcel, {
-      backend: await backend(),
-      identity,
-      guardian,
-      outboxDir: OUTBOX,
-      chain: await chain(),
-      log,
-      guardianDisplayUrl: process.env['GUARDIAN_PUBLIC_URL'] || undefined,
-    });
-    results.set(id, bundle);
-    log(`${id}: ${bundle.result.verificationStatus} settled ${bundle.result.settledQuantity} ha via ${bundle.result.analysisEngine.name} ${bundle.result.analysisEngine.version}; Guardian ${bundle.guardianSubmission.outcome.mode}; ${Date.now() - t0} ms`);
-    return bundle;
+    const ctx = await chain();
+    const execute = async () => {
+      const t0 = Date.now();
+      const bundle = await runScenario(sc, parcel, {
+        backend: await backend(),
+        identity,
+        guardian,
+        outboxDir: OUTBOX,
+        chain: ctx,
+        log,
+        guardianDisplayUrl: process.env['GUARDIAN_PUBLIC_URL'] || undefined,
+      });
+      results.set(id, bundle);
+      log(`${id}: ${bundle.result.verificationStatus} settled ${bundle.result.settledQuantity} ha via ${bundle.result.analysisEngine.name} ${bundle.result.analysisEngine.version}; Guardian ${bundle.guardianSubmission.outcome.mode}; ${Date.now() - t0} ms`);
+      return bundle;
+    };
+    return ctx ? onChainQueue(execute) : execute();
   })();
   inflight.set(id, run);
   try {
