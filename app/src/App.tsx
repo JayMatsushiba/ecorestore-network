@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 import { CounterfactualChart, TrajectoryChart } from './charts';
 import type { AssuranceBundle, BundleSource } from './types';
@@ -53,13 +53,25 @@ export default function App() {
   const [source, setSource] = useState<BundleSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState(0);
-  const rerun = useCallback(() => setRunId((n) => n + 1), []);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
+  // A new load clears the previous result at the event that starts it, not inside the
+  // effect (react-hooks/set-state-in-effect).
+  const clear = () => {
     setBundle(null);
     setSource(null);
     setError(null);
+  };
+  const select = (s: AssuranceBundle['scenario']) => {
+    if (s === scenario) return;
+    clear();
+    setScenario(s);
+  };
+  const rerun = () => {
+    clear();
+    setRunId((n) => n + 1);
+  };
+
+  useEffect(() => {
+    const ctrl = new AbortController();
     loadBundle(scenario, ctrl.signal)
       .then(({ bundle: b, source: s }) => {
         setBundle(b);
@@ -91,7 +103,7 @@ export default function App() {
         <h1>Ecorestore Network <span>/ Kootenay Riparian Restoration · prototype verification</span></h1>
         <nav className="tabs" aria-label="scenario">
           {SCENARIOS.map((s) => (
-            <button key={s.id} aria-pressed={scenario === s.id} onClick={() => setScenario(s.id)}>{s.label}</button>
+            <button key={s.id} aria-pressed={scenario === s.id} onClick={() => select(s.id)}>{s.label}</button>
           ))}
         </nav>
       </header>

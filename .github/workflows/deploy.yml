@@ -1,0 +1,163 @@
+# Continuous deployment — main → the AWS demonstration host.
+#
+#   push to main ─► CI (ci.yml) ─► build + push images to ECR ─► SSM Run Command on the
+#   EC2 host: check out the deployed commit, pull the images, docker compose up ─► smoke
+#   test the public URL.
+#
+# The host is provisioned once from deploy/cloudformation/demo-host.yml; see
+# deploy/README.md. GitHub authenticates to AWS with OIDC (no long-lived AWS keys in
+# GitHub), and reaches the host through SSM (no SSH port, no key pair).
+#
+# Repository configuration this workflow reads:
+#   secrets.AWS_DEPLOY_ROLE_ARN   IAM role assumed via OIDC (stack output DeployRoleArn)
+#   vars.AWS_REGION               region of the stack
+#   vars.EC2_INSTANCE_ID          stack output InstanceId
+#   vars.DEMO_URL                 public URL of the demonstration (stack output DemoUrl,
+#                                 or https://<domain> once DNS points at the host)
+#
+# Application secrets never pass through GitHub. The host reads them from SSM
+# Parameter Store at deploy time (deploy/host/deploy.sh).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# One deployment at a time, in order. A queued deploy is never cancelled: every
+# commit on main is deployed, so the host always reflects the branch tip.
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build and push ${{ matrix.image.name }}
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: demo
+    strategy:
+      fail-fast: true
+      matrix:
+        image:
+          - name: analysis
+            context: ./analysis
+            dockerfile: ./analysis/Dockerfile
+          - name: verify
+            context: .
+            dockerfile: ./verify/Dockerfile
+          - name: frontend
+            context: ./app
+            dockerfile: ./app/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assume the deploy role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/ecorestore/${{ matrix.image.name }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/ecorestore/${{ matrix.image.name }}:latest
+          cache-from: type=registry,ref=${{ steps.ecr.outputs.registry }}/ecorestore/${{ matrix.image.name }}:buildcache
+          cache-to: type=registry,ref=${{ steps.ecr.outputs.registry }}/ecorestore/${{ matrix.image.name }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+
+  deploy:
+    name: Deploy to the demonstration host
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: demo
+      url: ${{ vars.DEMO_URL }}
+    steps:
+      - name: Assume the deploy role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run deploy/host/deploy.sh on the host via SSM
+        id: ssm
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The host's checkout is advanced to the deployed commit first, so the
+          # script that runs is the one committed alongside these images.
+          script="set -euo pipefail
+          cd /opt/ecorestore/app
+          git fetch --quiet origin
+          git checkout --quiet --detach $SHA
+          exec deploy/host/deploy.sh $SHA"
+          params=$(jq -cn --arg s "$script" '{commands: [$s], executionTimeout: ["1500"]}')
+          command_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "ecorestore deploy $SHA" \
+            --parameters "$params" \
+            --query 'Command.CommandId' --output text)
+          echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
+          echo "SSM command $command_id sent to $INSTANCE_ID"
+
+          # `wait command-executed` gives up after ~20 polls; loop on the status instead.
+          for _ in $(seq 1 150); do
+            status=$(aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 10
+          done
+
+          echo "::group::host output"
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+            --query StandardOutputContent --output text
+          echo "::endgroup::"
+          echo "::group::host stderr"
+          aws ssm get-command-invocation --command-id "$command_id" --instance-id "$INSTANCE_ID" \
+            --query StandardErrorContent --output text
+          echo "::endgroup::"
+          echo "status: $status"
+          [ "$status" = Success ]
+
+      - name: Smoke test the public URL
+        if: vars.DEMO_URL != ''
+        env:
+          DEMO_URL: ${{ vars.DEMO_URL }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 12); do
+            if curl -fsS --max-time 15 "$DEMO_URL/health" -o health.json; then break; fi
+            sleep 5
+          done
+          jq . health.json
+          jq -e '.ok == true and .service == "ecorestore-verify" and .analysis.reachable == true' health.json >/dev/null
+          curl -fsS --max-time 15 "$DEMO_URL/" | grep -qi '<div id="root">'
+          echo "deployed ${{ github.sha }} to $DEMO_URL"
