@@ -5,7 +5,7 @@
 This document describes how the demonstration is intended to run on AWS as a live,
 publicly reachable deployment, alongside a Hedera Guardian instance.
 
-Nothing described here is deployed. This is a plan, not a record. §11 states the actual
+Nothing described here is deployed. This is a plan, not a record. §12 states the actual
 implementation state.
 
 The deployment is deliberately layered so that the expensive and security-sensitive
@@ -135,7 +135,160 @@ window.
 
 ---
 
-## 7. Secrets and key custody
+## 7. Container architecture (split pipeline)
+
+This section describes a **proposed** architecture, not the current one. The pipeline is
+today a single TypeScript process. Splitting the spatial analysis into Python is an
+architectural change and requires explicit approval before it is built (`CLAUDE.md`).
+
+It is recorded here because the deployment topology differs materially under it, and
+because the boundary between the two runtimes has one constraint that is easy to get
+wrong and silent when violated.
+
+### 7.1 The constraint
+
+A hash commits to **bytes**, not to data. Exactly one implementation may turn a result
+into bytes; every other participant treats the resulting hash as opaque.
+
+`RestorationDeed.sol` already demonstrates the pattern. It contains no `keccak256` call
+and no `abi.encode`: it compares `bytes32` values it was handed and never re-derives
+them. The EVM is therefore a second runtime in the trust chain and is entirely safe,
+because it never re-serialises a document.
+
+Python may own everything upstream of canonicalisation and nothing downstream of it.
+
+### 7.2 Containers
+
+```text
+┌─ this repository's compose project ───────────────┐
+│                                                   │
+│  analysis (Python)          verify (TypeScript)   │
+│  scipy, statsmodels         canonicalise, keccak  │
+│  no keys                    sign VC, ABI-encode   │
+│  no chain access            holds VERIFIER_SEED   │
+│  no Guardian access                 │             │
+│        ▲                            │             │
+│        └──── plan bytes ────────────┘             │
+│              ◄─── numbers ───                     │
+└─────────────────────────────────────┼─────────────┘
+                                      │
+             ┌────────────────────────┴──────────┐
+             ▼                                   ▼
+     guardian_default                      Arc Testnet RPC
+     (external network)
+     api-gateway, policy, MongoDB,   ← separate compose project
+     NATS, Valkey, IPFS
+```
+
+| Container | Owns | Must not have |
+|---|---|---|
+| `analysis` | Estimation, control matching, bootstrap, diagnostics | Keys, chain access, Guardian access |
+| `verify` | Canonicalisation, hashing, credential signing, calldata, submission | The scientific stack, GDAL |
+| Guardian | Policy, workflow, credentials, its own Hedera operator key | Any key material of this project's |
+
+`acquire` (Python with `rasterio`/`pystac-client`) is not part of the runtime stack. It is
+a batch job run occasionally to regenerate the Tier 0 snapshot, and its output is a
+committed fixture. `loadTier0()` reads that file and checks one field, so the acquisition
+step is already a clean seam — it is the lowest-risk place to introduce Python, being
+entirely upstream of the first hash.
+
+### 7.3 Direction of control
+
+`verify` calls `analysis`. Never the reverse.
+
+`analysis` is a pure function service: stateless, no database, identical inputs give
+identical numbers. That is what allows it to hold no credentials and require no egress.
+Enforce this in the network topology rather than by convention — a container that cannot
+reach Guardian or the RPC cannot be induced to submit anything to either.
+
+### 7.4 Request contract
+
+The plan and the evidence both cross the boundary as **raw bytes with a hash receipt**.
+
+```jsonc
+// verify → analysis
+{
+  "planCanonical": "<the canonical plan string, 3371 bytes for the current plan>",
+  "planHash":      "0xf9b5265f…",   // analysis verifies by keccak over the raw bytes
+  "parcelId":      "kootenay-riparian-001",
+  "evidenceHash":  "0x…"            // keccak over the raw Tier 0 snapshot file bytes
+}
+
+// analysis → verify
+{
+  "measured":      { "parcelChangeIndex": -0.0267, "…": "…" },
+  "controlSets":   [ "…" ],
+  "parallelTrend": { "…": "…" },
+  "uncertainty":   { "…": "…" }
+}
+```
+
+`analysis` returns numbers. It returns no hashes, no canonical documents and no signed
+material. `verify` assembles the `VerificationResult`, attaches the plan hash **it**
+computed and committed at `createDeed()`, canonicalises once, and hashes.
+
+Verifying a receipt by hashing an opaque byte string is not serialisation, so `analysis`
+can confirm it received the committed plan without ever re-encoding it. This is the same
+discipline the contract follows.
+
+The Tier 0 snapshot is 860 KB. Mount `verification/fixtures/` read-only into both
+containers rather than shipping it in every request; `analysis` loads it from the volume
+and confirms the raw file bytes hash to the `evidenceHash` it was given. If the two
+containers ever see different bytes the run fails loudly, rather than producing a result
+bound to evidence that was not the evidence analysed.
+
+### 7.5 Compose skeleton
+
+```yaml
+services:
+  analysis:
+    build: ./analysis
+    networks: [internal]
+    volumes:
+      - ./verification/fixtures:/fixtures:ro
+
+  verify:
+    build: ./verify
+    networks: [internal, guardian_default]   # the only service that touches Guardian
+    volumes:
+      - ./verification/fixtures:/fixtures:ro
+    environment:
+      ANALYSIS_URL: http://analysis:8000
+      GUARDIAN_URL: http://api-gateway:3002  # container name, not localhost
+      ARC_TESTNET_RPC_URL: ${ARC_TESTNET_RPC_URL}
+    secrets: [verifier_seed]
+
+networks:
+  internal:
+  guardian_default:
+    external: true
+```
+
+Joining Guardian by an external network rather than by publishing ports means Guardian's
+gateway need not be exposed on the host at all, and only one of this project's containers
+can reach it. Confirm the network name with `docker network ls` once Guardian's compose is
+running — it is `<project>_default` — and take the gateway's internal port from Guardian's
+compose file rather than assuming the port the web UI uses.
+
+### 7.6 Local and deployed
+
+The same two containers run in both places. Locally, add an `anvil` service and point
+`verify` at it. Deployed, the least complicated honest arrangement is one EC2 host running
+both compose projects side by side: the instance is already sized for Guardian (§6), and
+these two containers add little to it. Splitting them across separate ECS services buys
+nothing at this scale and costs the shared network.
+
+### 7.7 Anti-patterns
+
+* Merging Guardian's services into this project's compose file.
+* Giving `analysis` an RPC URL or Guardian credentials.
+* Letting `verify` acquire a scientific dependency.
+* Passing documents across the boundary where a hash would do.
+* Running the React application as a runtime container; it is a build-time artefact.
+
+---
+
+## 8. Secrets and key custody
 
 Three categories of key material are involved:
 
@@ -162,7 +315,7 @@ that can address the contract are therefore the assets worth protecting.
 
 ---
 
-## 8. Data provenance in public
+## 9. Data provenance in public
 
 `CLAUDE.md` and `DEMO.md` require real and simulated evidence to be visually
 distinguishable at all times. A public deployment raises the stakes of that requirement
@@ -186,7 +339,7 @@ The honest scenario is the more interesting one. It should be the default view.
 
 ---
 
-## 9. Cost
+## 10. Cost
 
 Guardian dominates. At on-demand pricing a `t3.xlarge` running continuously is on the
 order of $120/month; S3, CloudFront and Lambda for a demonstration of this size are
@@ -198,7 +351,7 @@ thing to economise on and the cheapest to keep.
 
 ---
 
-## 10. Build order
+## 11. Build order
 
 1. Deploy `RestorationDeed` to Arc Testnet and record the address. (M1.)
 2. Set `base` in the Vite config, wire the `out/demo/` → `app/public/demo/` copy, build
@@ -211,7 +364,7 @@ Steps 1 and 2 produce a complete, honest demonstration. Steps 3 and 4 are additi
 
 ---
 
-## 11. Implementation state (2026-09-10)
+## 12. Implementation state (2026-09-10)
 
 Nothing in this document is deployed.
 
@@ -222,6 +375,10 @@ Nothing in this document is deployed.
   the lower bound, benefit share and retention.
 * No AWS resources exist. No infrastructure-as-code has been written, and no tool has
   been chosen between Terraform and CDK.
+* The split pipeline in §7 is a proposal. The verification pipeline is a single
+  TypeScript process; no Python service exists, no `analysis` or `verify` container has
+  been built, and the split has not been approved. The compose skeleton and request
+  contract in §7.4 and §7.5 are illustrative.
 * No Guardian instance has been stood up. Every Guardian request produced so far has been
   staged to `guardian/outbox/` and reported as not submitted.
 * The measurements in §5 (1.4 s, 153 MB) and §3 (144 KB) were taken on the development
