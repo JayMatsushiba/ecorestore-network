@@ -63,7 +63,7 @@ npm run acquire
 | `proposals/idea-0.3.md` | **Canonical product baseline** |
 | `proposals/idea-0.2.md` | Historical — the text reviewed in `proposal_review.md` |
 | `proposal_review.md` | Incentive, scientific and landscape review (2026-09-09) |
-| `docs/` | Architecture, verification, Guardian, Arc, Graph, Auditor, demo, development log |
+| `docs/` | Architecture, verification, Guardian, Arc, Graph, Auditor, demo, deployment, development log |
 | `verification/` | Deterministic verification engine, REAL Tier 0 acquisition, simulated Tiers 1-3, fixtures |
 | `contracts/` | Arc Restoration Deed (Solidity, Foundry) and its TypeScript client |
 | `guardian/` | Verdict VC schema, DID-signed credential, externalDataBlock request, ATS seam |
