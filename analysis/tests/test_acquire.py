@@ -15,7 +15,7 @@ import pytest
 
 from ecorestore_analysis.acquire import observe_scene
 from ecorestore_analysis.cog import CogWindowRead
-from ecorestore_analysis.geometry import FrameUnit, PixelGrid, build_sampling_frame, polygon_area_ha
+from ecorestore_analysis.geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame, polygon_area_ha, utm_epsg_for
 from shapely.geometry import shape
 
 REFERENCE = Path(__file__).parent / "reference"
@@ -80,7 +80,7 @@ def test_frame_parcel_and_cells_match_committed_snapshot(plan, parcel):
     # The 1.0.0 snapshot records the requested bbox; the read window snaps outward to
     # whole 10 m pixels of the tile grid (Sentinel-2 tile origins sit on a 60 m lattice).
     grid = PixelGrid(np.floor(bbox[0] / 10) * 10, np.ceil(bbox[3] / 10) * 10, 10.0, w, h)
-    units = build_sampling_frame(parcel["geometry"], plan, grid)
+    units = build_sampling_frame(parcel["geometry"], plan, grid, 32611)
     by_id = {u.unit_id: u for u in units}
     ref = {u["unitId"]: u for u in snap["units"]}
 
@@ -101,3 +101,38 @@ def test_frame_parcel_and_cells_match_committed_snapshot(plan, parcel):
 def test_area_is_geodesic_not_cell_count(parcel):
     ha = polygon_area_ha(shape(parcel["geometry"]))
     assert ha == pytest.approx(48.95, abs=0.2)  # turf (sphere) gave 48.9486; the ellipsoid differs slightly
+
+
+def test_utm_zone_follows_the_parcel():
+    assert utm_epsg_for(-116.575, 49.129) == 32611  # Creston Valley, BC
+    assert utm_epsg_for(-122.30, 41.98) == 32610  # Copco Lake, CA
+    assert utm_epsg_for(-123.60, 47.97) == 32610  # Elwha, WA
+    assert utm_epsg_for(5.37, 52.55) == 32631  # Marker Wadden, NL
+    assert utm_epsg_for(147.3, -42.9) == 32755  # Tasmania: southern hemisphere
+    assert utm_epsg_for(179.99, 0.0) == 32660 and utm_epsg_for(-179.99, 0.0) == 32601
+
+
+def test_acquisition_bbox_is_in_the_given_zone(plan):
+    # A square around Copco Lake. In zone 10 its easting sits near 558 km; the old
+    # fixed zone 11 put the same ground at a meaningless easting west of the zone.
+    lng, lat = -122.30, 41.98
+    square = {"type": "Polygon", "coordinates": [[[lng - 0.01, lat - 0.01], [lng + 0.01, lat - 0.01], [lng + 0.01, lat + 0.01], [lng - 0.01, lat + 0.01], [lng - 0.01, lat - 0.01]]]}
+    min_x, min_y, max_x, max_y = acquisition_bbox_utm(square, plan, 32610)
+    assert 555_000 < min_x < max_x < 562_000
+    assert 4_645_000 < min_y < max_y < 4_651_000
+    pad = plan["controlRule"]["farRing"]["outerM"] + 100
+    assert max_x - min_x == pytest.approx(2 * pad + 1_660, abs=60)
+
+
+def test_frame_in_another_zone_has_the_same_shape(plan):
+    """The frame builder is zone-agnostic: a parcel in zone 10 on a zone-10 grid yields
+    a parcel unit whose pixel count matches its area at 10 m."""
+    lng, lat = -122.30, 41.98
+    square = {"type": "Polygon", "coordinates": [[[lng - 0.003, lat - 0.002], [lng + 0.003, lat - 0.002], [lng + 0.003, lat + 0.002], [lng - 0.003, lat + 0.002], [lng - 0.003, lat - 0.002]]]}
+    min_x, min_y, max_x, max_y = acquisition_bbox_utm(square, plan, 32610)
+    grid = PixelGrid(np.floor(min_x / 10) * 10, np.ceil(max_y / 10) * 10, 10.0, int((max_x - min_x) / 10) + 2, int((max_y - min_y) / 10) + 2)
+    units = build_sampling_frame(square, plan, grid, 32610)
+    parcel_unit = units[0]
+    assert parcel_unit.unit_id == "parcel"
+    assert parcel_unit.pixel_count * 0.01 == pytest.approx(parcel_unit.area_ha, rel=0.03)
+    assert {u.zone for u in units} == {"parcel", "parcel_cell", "near", "far"}

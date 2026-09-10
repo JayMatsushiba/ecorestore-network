@@ -32,7 +32,7 @@ import numpy as np
 
 from . import PROCESSING_GRAPH_VERSION
 from .cog import CogWindowRead, read_cog_window
-from .geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame
+from .geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame, utm_epsg_for
 from .jsnum import round4
 from .stac import ASSET_HOST, EARTH_SEARCH_URL, S2_L2A_COLLECTION, search_sentinel2
 
@@ -93,12 +93,10 @@ def load_fixture(fixtures: Path, name: str) -> dict[str, Any]:
 def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | None, concurrency: int, log=print) -> Path:
     parcel = load_fixture(fixtures, "kootenay-parcel.json")
     plan = load_fixture(fixtures, "analysis-plan.json")
-    bbox_utm = acquisition_bbox_utm(parcel["geometry"], plan)
     ring = parcel["geometry"]["coordinates"][0]
     lngs = [p[0] for p in ring]
     lats = [p[1] for p in ring]
     bbox = (min(lngs), min(lats), max(lngs), max(lats))
-    log(f"parcel {parcel['parcelId']}: acquisition bbox UTM {tuple(round(v, 1) for v in bbox_utm)}")
 
     scenes = search_sentinel2(bbox, [*plan["windows"]["pre"], *plan["windows"]["post"]], plan["index"]["maxSceneCloudCoverPct"])
     if limit:
@@ -107,6 +105,13 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
     if not scenes:
         raise SystemExit("no scenes found")
 
+    # The frame is built in the UTM zone of the tile being read. The first scene
+    # defines the grid, so its zone defines the frame; a scene from another zone
+    # can never share the grid and is skipped before any band is downloaded.
+    epsg = scenes[0]["epsg"] or utm_epsg_for((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+    bbox_utm = acquisition_bbox_utm(parcel["geometry"], plan, epsg)
+    log(f"parcel {parcel['parcelId']}: EPSG:{epsg}, acquisition bbox {tuple(round(v, 1) for v in bbox_utm)}")
+
     def read_bands(scene: dict[str, Any]) -> tuple[CogWindowRead, CogWindowRead, CogWindowRead]:
         a = scene["assets"]
         return (read_cog_window(a["red"], bbox_utm, cache_dir), read_cog_window(a["nir"], bbox_utm, cache_dir), read_cog_window(a["scl"], bbox_utm, cache_dir))
@@ -114,7 +119,7 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
     # First scene defines the grid; every other scene must match it (same MGRS tile).
     first = read_bands(scenes[0])
     grid: PixelGrid = first[0].grid
-    units = build_sampling_frame(parcel["geometry"], plan, grid)
+    units = build_sampling_frame(parcel["geometry"], plan, grid, epsg)
     counts = {z: sum(1 for u in units if u.zone == z) for z in ("parcel_cell", "near", "far")}
     log(f"frame: {len(units)} units ({counts['parcel_cell']} parcel cells, {counts['near']} near, {counts['far']} far) on a {grid.width}x{grid.height} px grid")
 
@@ -123,6 +128,9 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
 
     def work(i_scene: tuple[int, dict[str, Any]]):
         i, scene = i_scene
+        if scene["epsg"] and scene["epsg"] != epsg:
+            log(f"  skip {scene['sceneId']}: EPSG:{scene['epsg']}, frame is EPSG:{epsg}")
+            return None
         bands = first if i == 0 else read_bands(scene)
         g = bands[0].grid
         if (g.origin_x, g.origin_y, g.width, g.height) != (grid.origin_x, grid.origin_y, grid.width, grid.height):
@@ -147,7 +155,7 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
         "processingGraphVersion": PROCESSING_GRAPH_VERSION,
         "acquiredAt": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         "parcelId": parcel["parcelId"],
-        "crs": "EPSG:32611",
+        "crs": f"EPSG:{epsg}",
         "window": {"bbox": list(bbox_utm), "pixelWindow": [0, 0, grid.width, grid.height], "grid": grid.to_dict()},
         "scenes": kept,
         "units": [u.to_dict() for u in units],
