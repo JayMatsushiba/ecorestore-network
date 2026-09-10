@@ -1,4 +1,4 @@
-"""REAL Tier 0 acquisition — the batch job (processing graph 2.0.0).
+"""REAL Tier 0 acquisition — the batch job (processing graph 2.1.0).
 
 Searches Earth Search for Sentinel-2 L2A scenes over the parcel for every
 pre-registered window, reads the red, NIR and SCL bands over the sampling
@@ -220,7 +220,7 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="REAL Tier 0 acquisition (processing graph 2.0.0)")
+    ap = argparse.ArgumentParser(description="REAL Tier 0 acquisition (processing graph 2.1.0)")
     ap.add_argument("--fixtures", default=None, help="directory holding the parcel file and analysis-plan.json (default: /fixtures, else ../verification/fixtures)")
     ap.add_argument("--parcel", default="kootenay-parcel.json", help="parcel file inside --fixtures (default: kootenay-parcel.json)")
     ap.add_argument("--out", default=os.environ.get("ACQUIRE_OUT", "./out/acquire"), help="output directory (env ACQUIRE_OUT)")

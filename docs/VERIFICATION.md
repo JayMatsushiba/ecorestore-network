@@ -458,12 +458,28 @@ because the caller assembles a hashed document out of what it receives and an
 undeclared field on that boundary is a hazard rather than a convenience. Elapsed time
 is reported in the `x-analysis-elapsed-seconds` header.
 
-Tier 0 acquisition also has a second implementation, processing graph `2.0.0`
+Tier 0 acquisition also has a second implementation, processing graph `2.1.0`
 (`analysis/ecorestore_analysis/acquire.py`: pystac-client, rasterio, h3, shapely,
 pyproj). On the same grid it reproduces the committed 1.0.0 fixture's parcel and
 parcel-cell pixel masks exactly and parcel NDVI to 4 dp; ring candidates at the buffer
 edge and unit areas (ellipsoidal rather than spherical) differ slightly, which is why it
 carries a new graph version. The committed fixture is still 1.0.0.
+
+Graph 2.1.0 differs from 2.0.0 in three rules, each recorded in
+`docs/DEVELOPMENT_LOG.md` (2026-09-11):
+
+- The sampling frame is built in the UTM zone of the Sentinel-2 tile being read. Graph
+  2.0.0 and the TypeScript graph fix zone 11N, which is right for the Kootenay parcel and
+  silently wrong anywhere else.
+- When Earth Search holds two processings of one acquisition (the original and the
+  Collection-1 reprocessing), only the highest processing baseline is kept. The
+  TypeScript graph keeps both; the committed fixture contains no such pair.
+- The job reads the MGRS tile with the most scenes and drops the others before
+  downloading, instead of taking the grid from whichever scene the catalogue returned
+  first.
+
+The job has run on four parcels outside zone 11 (Klamath ×3, Elwha). What those runs
+say about the methodology is in issues #22–#27; none of it changes the Kootenay result.
 
 The acquisition job emits the parcel geometry and H3 resolution it actually read
 alongside the unhashed snapshot, and `acquire:finalize` refuses to attach the
