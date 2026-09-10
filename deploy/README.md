@@ -55,16 +55,31 @@ roles, EC2, ECR and SSM parameters, and `gh` logged in to the repository.
 
 ### 1. Create the stack
 
+Find the default VPC and one of its public subnets, then create the stack with those
+real IDs (the placeholders below will fail parameter validation and leave the stack in
+`ROLLBACK_COMPLETE`, which must be deleted with `aws cloudformation delete-stack`
+before trying again):
+
 ```bash
+aws ec2 describe-vpcs --filters Name=is-default,Values=true --query 'Vpcs[].VpcId' --output text
+aws ec2 describe-subnets --filters Name=default-for-az,Values=true \
+  --query 'Subnets[].[SubnetId,AvailabilityZone,MapPublicIpOnLaunch]' --output text
+
 aws cloudformation deploy \
   --stack-name ecorestore-demo \
   --template-file deploy/cloudformation/demo-host.yml \
   --capabilities CAPABILITY_NAMED_IAM \
-  --parameter-overrides VpcId=vpc-xxxxxxxx SubnetId=subnet-xxxxxxxx
-# Optional overrides: InstanceType=t3.2xlarge  GuardianUiCidr=""  CreateGitHubOidcProvider=false
+  --parameter-overrides VpcId=<vpc id> SubnetId=<subnet id>
+# Optional overrides: InstanceType=t3.2xlarge  GuardianUiCidr=203.0.113.4/32  CreateGitHubOidcProvider=false
 aws cloudformation describe-stacks --stack-name ecorestore-demo \
   --query 'Stacks[0].Outputs' --output table
 ```
+
+The Guardian UI port (3000) is **closed by default**. `docs/DEPLOYMENT.md` §8 requires
+Guardian's gateway not be open to the internet, and the quickstart ships with default
+credentials. For a judging window, re-run the same `deploy` command with
+`GuardianUiCidr=<their address>/32` (or your own, to screen-share), and run it again
+with `GuardianUiCidr=""` afterwards. The rest of the stack is untouched by that update.
 
 The user-data installs Docker and the compose plugin, clones this repository to
 `/opt/ecorestore/app` and Guardian at tag `3.7.0` to `/opt/ecorestore/guardian`. Give it a
@@ -113,9 +128,21 @@ gh variable set DEMO_URL        --body "$(aws cloudformation describe-stacks --s
   --query 'Stacks[0].Outputs[?OutputKey==`DemoUrl`].OutputValue' --output text)"
 ```
 
-Then create the `demo` environment in the repository settings (Settings → Environments)
-so the deploy role's trust policy, which accepts jobs bound to `environment:demo`, is
-satisfied. Add required reviewers there if a human gate before each deploy is wanted.
+Then create the `demo` environment **restricted to protected branches**. A job bound
+to an environment presents `repo:…:environment:demo` as its OIDC subject rather than
+the branch, so the environment's deployment-branch policy is what stops a workflow run
+on some other branch from assuming the deploy role. `main` is the only protected
+branch (step 4), so this pins deploys to `main`:
+
+```bash
+gh api -X PUT repos/JayMatsushiba/ecorestore-network/environments/demo \
+  --input - <<'JSON'
+{"deployment_branch_policy": {"protected_branches": true, "custom_branch_policies": false}}
+JSON
+```
+
+Add required reviewers to the environment (Settings → Environments → demo) if a human
+gate before each deploy is wanted.
 
 ### 4. Branch protection
 
@@ -159,8 +186,9 @@ published, so nothing consumes the verdict yet (`docs/DEPLOYMENT.md` §7.6).
 The stack is the only thing that describes the host. Change the template and re-run
 `aws cloudformation deploy`. Changing `InstanceType` restarts the instance; the
 checkouts and Docker volumes on the root disk survive. Deleting the stack deletes the
-host and the EIP; the ECR repositories are deleted with it, so pull anything you want
-to keep first.
+host, the EIP and the ECR repositories **including every image in them**
+(`EmptyOnDelete` is set so the delete does not fail on non-empty repositories); pull
+anything you want to keep first.
 
 ## Cost
 

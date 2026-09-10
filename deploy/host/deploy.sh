@@ -22,6 +22,10 @@ APP_DIR="${APP_DIR:-/opt/ecorestore/app}"
 PARAM_PATH="${PARAM_PATH:-/ecorestore/demo}"
 GUARDIAN_NETWORK="${GUARDIAN_NETWORK:-guardian-quickstart_default}"
 
+# One operation on the host at a time; guardian.sh takes the same lock.
+exec 9>/var/lock/ecorestore-host.lock
+flock -w 900 9 || { echo "another deploy or Guardian operation holds the host lock" >&2; exit 1; }
+
 cd "$APP_DIR"
 if [ "$(git rev-parse HEAD)" != "$SHA" ]; then
   echo "checkout is $(git rev-parse --short HEAD), expected $SHA" >&2
@@ -49,6 +53,20 @@ done < <(aws ssm get-parameters-by-path --path "$PARAM_PATH" --with-decryption \
           --query 'Parameters[].[Name,Value]' --output text)
 
 : "${ECR_REGISTRY:?parameter $PARAM_PATH/ECR_REGISTRY is required}"
+# The verifier identity is the root of every credential the deployment signs. Without
+# the parameter, compose would fall back to the public demonstration default and anyone
+# could reproduce the deployed DID; refuse rather than deploy a forgeable identity.
+: "${VERIFIER_SEED:?parameter $PARAM_PATH/VERIFIER_SEED (SecureString) is required}"
+if [ "$VERIFIER_SEED" = "ecorestore-demo-verifier" ]; then
+  echo "VERIFIER_SEED is the public demonstration default; set a fresh value" >&2
+  exit 1
+fi
+# No chain on AWS (docs/DEPLOYMENT.md §4): verify would deploy contracts and broadcast
+# on any RPC it is given. A stale parameter must not switch that on.
+if [ -n "${DEMO_RPC_URL:-}" ] || [ -n "${DEMO_MNEMONIC:-}" ]; then
+  echo "DEMO_RPC_URL / DEMO_MNEMONIC are set under $PARAM_PATH; this host prepares calldata and never broadcasts — remove them" >&2
+  exit 1
+fi
 export IMAGE_TAG="$SHA"
 # The Guardian address shown in the interface: the parameter if set, else this host.
 export GUARDIAN_PUBLIC_URL="${GUARDIAN_PUBLIC_URL:-http://${DOMAIN:-$public_ip}:${GUARDIAN_PUBLIC_PORT:-3000}}"
@@ -56,15 +74,19 @@ export GUARDIAN_PUBLIC_URL="${GUARDIAN_PUBLIC_URL:-http://${DOMAIN:-$public_ip}:
 echo "deploying $SHA"
 echo "  registry:  $ECR_REGISTRY"
 echo "  domain:    ${DOMAIN:-<none — plain HTTP on the public IP>}"
-echo "  chain:     ${DEMO_RPC_URL:-<unset — calldata prepared, not broadcast>}"
+echo "  chain:     none — calldata prepared, not broadcast"
 
 # --- 2. images --------------------------------------------------------------------
 aws ecr get-login-password | docker login --username AWS --password-stdin "$ECR_REGISTRY" >/dev/null
 
 # --- 3. Guardian attachment -------------------------------------------------------
 compose=(docker compose -f docker-compose.yml -f deploy/docker-compose.aws.yml)
-if docker network inspect "$GUARDIAN_NETWORK" >/dev/null 2>&1; then
-  echo "  guardian:  attached ($GUARDIAN_NETWORK)"
+# The network alone is not proof Guardian is up — it outlives a crashed or half-stopped
+# quickstart. Attach only when a running web-proxy container sits on it.
+guardian_proxy="$(docker ps --filter "network=$GUARDIAN_NETWORK" --filter status=running \
+                    --filter label=com.docker.compose.service=web-proxy --format '{{.Names}}' 2>/dev/null | head -1)"
+if [ -n "$guardian_proxy" ]; then
+  echo "  guardian:  attached ($GUARDIAN_NETWORK via $guardian_proxy)"
   compose+=(-f docker-compose.override.yml)
   export GUARDIAN_NETWORK
 else
@@ -78,6 +100,12 @@ mkdir -p guardian/outbox
 # --- 4. up ------------------------------------------------------------------------
 "${compose[@]}" pull --quiet
 "${compose[@]}" up -d --remove-orphans --wait --wait-timeout 300
+# Each deploy pulls three new SHA-tagged images; without this the root disk fills.
+# Remove this project's images that are not the deployed tag (Guardian's and Caddy's
+# images are left alone), then dangling layers.
+docker images --format '{{.Repository}}:{{.Tag}}' \
+  | grep -F "$ECR_REGISTRY/ecorestore/" | grep -v -e ":$SHA\$" -e ':buildcache$' \
+  | xargs -r docker rmi >/dev/null 2>&1 || true
 docker image prune -f >/dev/null
 
 # The edge proxy forwards /health to verify through the frontend's nginx.

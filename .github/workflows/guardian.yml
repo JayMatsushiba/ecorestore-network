@@ -26,8 +26,10 @@ permissions:
   contents: read
   id-token: write
 
+# Its own group: a pending Guardian action must not be displaced by a push to main
+# (deploy.yml). Both host scripts take the same file lock, so they never overlap.
 concurrency:
-  group: deploy-demo
+  group: guardian-host
   cancel-in-progress: false
 
 jobs:

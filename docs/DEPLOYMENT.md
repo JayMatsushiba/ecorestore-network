@@ -567,9 +567,10 @@ Decisions:
   is public; the host clones it anonymously and holds no repository credential.
 * **Images are tagged with the commit SHA**, and `IMAGE_TAG` is the SHA, so what is
   running is always attributable to a commit. `latest` is a convenience tag only.
-* **Guardian attachment is decided on the host at deploy time** by whether
-  `guardian-quickstart_default` exists (§7.6), exactly as the local stack decides it
-  by which compose files are given. Running Guardian is a separate, manual workflow
+* **Guardian attachment is decided on the host at deploy time** by whether a running
+  Guardian web-proxy sits on `guardian-quickstart_default` (§7.6), exactly as the local
+  stack decides it by which compose files are given. The Guardian UI port is closed by
+  default and opened per judging window with a /32 (§8). Running Guardian is a separate, manual workflow
   because it is a cost decision (§6, §10), not a build step.
 * **No demonstration chain on AWS** (§4). `DEMO_RPC_URL` is deliberately absent from
   the host's parameters; the deployed stack prepares settlement calldata and says so.

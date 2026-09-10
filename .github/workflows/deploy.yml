@@ -13,7 +13,8 @@
 #   vars.AWS_REGION               region of the stack
 #   vars.EC2_INSTANCE_ID          stack output InstanceId
 #   vars.DEMO_URL                 public URL of the demonstration (stack output DemoUrl,
-#                                 or https://<domain> once DNS points at the host)
+#                                 or https://<domain> once DNS points at the host);
+#                                 required — the run fails rather than skip the smoke test
 #
 # Application secrets never pass through GitHub. The host reads them from SSM
 # Parameter Store at deploy time (deploy/host/deploy.sh).
@@ -28,10 +29,13 @@ permissions:
   contents: read
   id-token: write
 
-# One deployment at a time, in order. A queued deploy is never cancelled: every
-# commit on main is deployed, so the host always reflects the branch tip.
+# One deployment at a time. GitHub keeps one running and one pending run per group
+# and replaces the pending one with a newer run, so intermediate commits may be skipped
+# but the newest is always deployed and a running deploy is never cancelled. The group
+# is not shared with guardian.yml — a push must not displace a queued Guardian `down`;
+# on the host the two scripts serialise with a file lock instead.
 concurrency:
-  group: deploy-demo
+  group: deploy-app
   cancel-in-progress: false
 
 env:
@@ -148,11 +152,14 @@ jobs:
           [ "$status" = Success ]
 
       - name: Smoke test the public URL
-        if: vars.DEMO_URL != ''
         env:
           DEMO_URL: ${{ vars.DEMO_URL }}
         run: |
           set -euo pipefail
+          if [ -z "$DEMO_URL" ]; then
+            echo "::error::repository variable DEMO_URL is not set; the deployment cannot be verified" >&2
+            exit 1
+          fi
           for _ in $(seq 1 12); do
             if curl -fsS --max-time 15 "$DEMO_URL/health" -o health.json; then break; fi
             sleep 5

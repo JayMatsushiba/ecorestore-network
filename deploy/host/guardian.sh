@@ -37,6 +37,10 @@ export GUARDIAN_PUBLIC_PORT="${GUARDIAN_PUBLIC_PORT:-3000}"
 # Leave GUARDIAN_ENV empty: the quickstart's env file is configs/.env.quickstart.guardian.system.
 export GUARDIAN_ENV=""
 
+# One operation on the host at a time; deploy.sh takes the same lock.
+exec 9>/var/lock/ecorestore-host.lock
+flock -w 900 9 || { echo "another deploy or Guardian operation holds the host lock" >&2; exit 1; }
+
 cd "$GUARDIAN_DIR"
 compose=(docker compose -f docker-compose-quickstart.yml -f "$APP_DIR/deploy/guardian/docker-compose.public.yml")
 
@@ -73,6 +77,15 @@ case "$ACTION" in
     exit 1
     ;;
   down)
+    # If the application's verify container is attached, compose cannot remove the
+    # network ("has active endpoints") and `down` fails. Detach it first; it keeps its
+    # GUARDIAN_URL until the next deploy, which re-evaluates the attachment.
+    for ep in $(docker network inspect guardian-quickstart_default -f '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null); do
+      case "$ep" in
+        guardian-quickstart-*) ;;
+        *) echo "detaching $ep from guardian-quickstart_default"; docker network disconnect -f guardian-quickstart_default "$ep" || true ;;
+      esac
+    done
     # Volumes (MongoDB, IPFS) are kept so a later `up` resumes the same Guardian state.
     "${compose[@]}" down --remove-orphans
     echo "Guardian stopped; run the Deploy workflow so verify falls back to the outbox"

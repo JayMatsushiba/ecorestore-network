@@ -116,15 +116,26 @@ and no workflow has run. The first real run is the validation this entry lacks.
 
 ### Unresolved risks
 
-* **Unexecuted.** Every AWS-facing step is untested against AWS. Likely first-run
-  friction: the `demo` environment must exist in GitHub before the OIDC subject
-  matches; `!reset`/`!override` need compose ≥ 2.24 on the host (user-data installs the
+* **Unexecuted pipeline.** No workflow has run against AWS. Likely first-run
+  friction: `!reset`/`!override` need compose ≥ 2.24 on the host (user-data installs the
   latest release, unpinned); ECR repository names are account-global.
+* **Copilot review (PR #5) fixes, applied the same day:** Guardian UI port closed by
+  default; `deploy.sh` refuses a missing or default `VERIFIER_SEED` and any
+  `DEMO_RPC_URL`/`DEMO_MNEMONIC`; attachment requires a *running* Guardian web-proxy
+  on the network, not just the network; old SHA-tagged images are removed after each
+  deploy; `guardian.sh down` detaches foreign endpoints first; `deploy.yml` and
+  `guardian.yml` use separate concurrency groups and the host scripts serialise with
+  `flock`; the smoke test fails when `DEMO_URL` is unset; ECR repositories set
+  `EmptyOnDelete`; the instance gets a launch-time public IP so user-data has a route
+  out before the EIP attaches; the `demo` environment is restricted to protected
+  branches because an environment-bound job presents the environment OIDC subject,
+  not the branch.
 * **Root on the host.** SSM Run Command runs as root and so do the compose projects. A
   dedicated user would be better hygiene; not done.
-* **Public Guardian UI.** Port 3000 is open to `0.0.0.0/0` by default so judges can see
-  Guardian; the Standard Registry password in the quickstart env is the upstream demo
-  default. Narrow `GuardianUiCidr` or change the password before a judging window.
+* **Guardian UI exposure.** Port 3000 is closed by default (`GuardianUiCidr=""`);
+  opening it for a judging window is a stack update with a /32. The Standard Registry
+  password in the quickstart env is the upstream demo default — change it before
+  opening the port.
 * **Plain HTTP by default.** Without a domain the site is served over HTTP on the EIP.
   Setting `/ecorestore/demo/DOMAIN` to a record pointing at the EIP gives HTTPS via
   Caddy with no other change.
