@@ -81,9 +81,24 @@ reallocates existing restoration rather than increasing it.
 The deed already holds committed USDC against machine-evaluable conditions, which is a
 better credit instrument than a small restorer's balance sheet. `drawMobilisation()`
 and `assignTranche()` are what turn that into working capital, and MRV cost is paid
-from escrow rather than the restorer's pocket. See Idea 0.3 §4.5.
+from escrow rather than the restorer's pocket.
 
 The exact interface is designed during M1.
+
+### Cohort verification — specified, not built
+
+A Tier 1 drone sortie is roughly £1–5k and a sensor array £2–10k installed. On a 40 ha
+planting at $1–3k/ha, MRV is plausibly 10–30% of project cost; on the 1–10 ha parcels
+that dominate BNG and community restoration it is prohibitive. Cheap MRV being
+self-penalising therefore cuts hardest against exactly the projects that most need to
+participate.
+
+**Cohort verification:** many small parcels aggregate into a cohort sharing one control
+set, one drone sortie and one calibration transfer function; verification runs at cohort
+level and allocates to parcels. This amortises Tier 1 across parcels and is a natural
+extension of pooled deeds.
+
+Specified in the design; not built for the hackathon (`ROADMAP.md` §4).
 
 ---
 

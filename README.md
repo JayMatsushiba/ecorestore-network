@@ -6,8 +6,10 @@ Capital for ecological restoration is released against spatially verified,
 uncertainty-bounded, additionality-adjusted evidence of ecological change. The verified
 outcome becomes an auditable asset a corporate buyer can hold, audit, and retire.
 
-**Canonical baseline: [`proposals/idea-0.3.md`](proposals/idea-0.3.md).** Start with its
-§1 one-page summary; §13 is the decision log.
+**`docs/` is the source of truth.** Start with
+[`docs/PRODUCT.md`](docs/PRODUCT.md) for what this is and who it is for;
+[`docs/DECISIONS.md`](docs/DECISIONS.md) records why the design is what it is, what is
+still open, and the risks being carried knowingly.
 
 ## What runs today
 
@@ -60,9 +62,9 @@ npm run acquire
 
 | Path | Contents |
 |---|---|
-| `proposals/idea-0.3.md` | **Canonical product baseline** |
-| `proposals/idea-0.2.md` | Historical — the text reviewed in `proposal_review.md` |
-| `proposal_review.md` | Incentive, scientific and landscape review (2026-09-09) |
+| `docs/PRODUCT.md` | **What this is, who buys it, and why** |
+| `docs/DECISIONS.md` | Decisions and their reasons, open approvals, risks carried |
+| `docs/ROADMAP.md` | Build sequence, milestones, cut order |
 | `docs/` | Architecture, verification, Guardian, Arc, Graph, Auditor, demo, deployment, x402, development log |
 | `verification/` | Deterministic verification engine, REAL Tier 0 acquisition, simulated Tiers 1-3, fixtures |
 | `contracts/` | Arc Restoration Deed (Solidity, Foundry) and its TypeScript client |
@@ -70,7 +72,6 @@ npm run acquire
 | `auditor/` | Orchestration and explanation boundary (no LLM) |
 | `scripts/demo.ts` | End-to-end demonstration |
 | `app/` | React application |
-| `ideation/` | Historical brainstorming and superseded drafts |
 
 ## Authority model
 
@@ -96,6 +97,6 @@ is labelled SIMULATED at Tier 0 in every artefact it produces.
 
 ## Status
 
-Prototype of the M1–M4 vertical slice. See `docs/DEVELOPMENT_LOG.md` for what is built,
-what is deferred, and which methodology parameters remain provisional pending approval
-(Idea 0.3 §13.6).
+Prototype of the M1–M4 vertical slice. See `docs/DEVELOPMENT_LOG.md` for what is built
+and what is deferred, and `docs/DECISIONS.md` §3 for the methodology parameters that
+remain provisional pending approval.

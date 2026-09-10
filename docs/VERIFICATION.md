@@ -58,7 +58,25 @@ recorded in every result.
 **Tiers 1-3 are simulated** from realistic parameters and must be explicitly marked as
 simulated wherever they appear.
 
-*(This amends the earlier all-synthetic framing. See Idea 0.3 §3.2 and §13.5.)*
+*(This amends an earlier all-synthetic framing; the reason is recorded in
+`DECISIONS.md` §2.)*
+
+### Datasets
+
+| Dataset | Use | Source | Status |
+|---|---|---|---|
+| Sentinel-2 L2A | Optical indices, 10 m | Copernicus / AWS Open Data (STAC) | **REAL** |
+| Sentinel-1 GRD (+SLC) | SAR backscatter; coherence only where interpretable | Copernicus Data Space / AWS Open Data | **REAL** |
+| Landsat 5/7/8/9 | Long baseline, 1984– | USGS / AWS Open Data | **REAL** |
+| ICESat-2 | Canopy structure (GEDI unusable at this latitude) | NASA | **REAL** |
+| ESA WorldCover | Land cover transitions | ESA | **REAL** |
+| Dynamic World | Near-real-time land cover context | Google / WRI | **REAL** |
+| SRTM / Copernicus DEM | Terrain covariates for control matching | ESA / NASA | **REAL** |
+| WorldClim / ERA5 | Climate covariates for control matching | WorldClim / ECMWF | **REAL** |
+| Biodiversity Intactness 100 m v1.1 | Ecological value prior for parcel scoring | source.coop / vizzuality | **REAL** |
+| Drone orthomosaic, crown detections | Tier 1 calibration | — | **SIMULATED, LABELLED** |
+| Soil moisture, water table, acoustic | Tier 2 condition signal | — | **SIMULATED, LABELLED** |
+| Plot surveys, planting records, geotagged photos | Tier 3 claims | — | **SIMULATED, LABELLED** |
 
 ---
 
@@ -181,7 +199,7 @@ leakage deduction. *This is what the engine measures.*
 
 **Financial additionality** — would this have happened without the payment? *This is
 not measurable from imagery.* It is addressed procedurally by the encumbrance registry
-(Idea 0.3 §4.6), which records legal obligations, public subsidy and existing claims at
+(`ARC.md`), which records legal obligations, public subsidy and existing claims at
 parcel registration and attaches an `obligation_status` to the outcome.
 
 Conflating the two is the criticism levelled hardest at credit markets. The vocabulary

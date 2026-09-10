@@ -95,8 +95,8 @@ acquisitions for the parcel, the near control ring and the far control ring. The
 satellite layer is the core scientific claim of the project and is not fabricated.
 Real Tier 0 displays its STAC scene IDs and processing graph version.
 
-*(This amends the all-synthetic rule this section previously carried. See Idea 0.3
-§3.2 and §13.5.)*
+*(This amends an all-synthetic rule this section previously carried. The reason is
+recorded in `DECISIONS.md` §2.)*
 
 **Tiers 1-3 are simulated** from realistic parameters and must be explicitly labeled:
 
@@ -118,8 +118,8 @@ are never derived from cell counts. H3 non-overlap also does not prove parcel
 non-overlap: adjacent parcels can legitimately share a boundary cell. Both problems
 disappear when the intersection test runs on real geometry.
 
-*(This replaces the earlier framing in which H3 proved non-overlap. See Idea 0.3
-§3.10 and §13.5. The result is strictly simpler.)*
+*(This replaces an earlier framing in which H3 proved non-overlap. The reason is
+recorded in `DECISIONS.md` §2. The result is strictly simpler.)*
 
 The prototype uses:
 
@@ -131,7 +131,7 @@ The prototype uses:
   dependency — the Astral oracle is a research preview and is not on the critical path);
 * evidence hash / CID.
 
-The on-chain parcel record also carries `analysis_plan_hash` (Idea 0.3 §3.7.1),
+The on-chain parcel record also carries `analysis_plan_hash` (`VERIFICATION.md`),
 `tenure_attestation` (§4.5) and `encumbrances` (§4.6).
 
 ---
@@ -185,7 +185,7 @@ Does not own:
 **Guardian is the issuance authority; ATS is the instrument.** Guardian decides whether
 and how much to issue and carries the provenance; ATS is what the buyer holds and
 transfers. Guardian never touches money. For the hackathon Guardian is *not stood up* —
-the seam is built and the drop-in point specified (Idea 0.3 §4.4.2).
+the seam is built and the drop-in point specified (`GUARDIAN.md`).
 
 Owns:
 
@@ -262,7 +262,7 @@ x402 pays for compute on Hedera. Settlement is USDC on Arc. The two are differen
 networks, different assets and different accounts, and the separation is structural
 rather than conventional.
 
-x402 is optional and demoted (Idea 0.3 §4.8). Metering verification per request
+x402 is optional and demoted (`DECISIONS.md` §2). Metering verification per request
 recreates the specification-search incentive §3.7.1 closes, so it ships only coupled to
 plan commitment and on-chain run-count recording. See `docs/X402.md` §5.
 
@@ -274,7 +274,7 @@ plan commitment and on-chain run-count recording. See `docs/X402.md` §5.
 directory structure, but `verification/{engine,models,fixtures}.ts`,
 `auditor/agent.ts`, `guardian/adapter.ts` and `contracts/RestorationDeed.sol` are empty
 files, `app/src/App.tsx` is the unmodified Vite template, and the development log was
-never written. Those gaps carry into M1 rather than being backdated. See Idea 0.3 §9.1.
+never written. Those gaps carry into M1 rather than being backdated. See `ROADMAP.md` §3.
 
 **M1 is the Arc Restoration Deed**, ordered first against the September 30, 2026
 mainnet-readiness deadline. The pipeline builds against a deployed contract, not the

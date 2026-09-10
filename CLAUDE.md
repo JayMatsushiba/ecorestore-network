@@ -4,18 +4,22 @@
 
 Ecorestore Network is a spatially-verified restoration finance protocol.
 
-The canonical product baseline is:
+**`docs/` is the source of truth.** There is no separate proposal document. The original
+proposals and ideation drafts were starting points; they were removed once their
+load-bearing content moved into `docs/`, and they remain in git history.
 
-`proposals/idea-0.3.md`
+Start here:
 
-Idea 0.3 reconciles Idea 0.2, `ideation/ecorestore_network_proposal_v2.md`, and
-`proposal_review.md` into one approach. Its §13 decision log records every accepted,
-rejected and deferred change, and its §13.6 lists the methodology decisions still
-awaiting explicit approval.
+- `docs/PRODUCT.md` — what this is, who buys it, and why
+- `docs/DECISIONS.md` — why the design is what it is, what is still open, risks carried
+- `docs/ARCHITECTURE.md` — component boundaries and the authority model
+- `docs/ROADMAP.md` — build sequence and milestones
 
-`proposals/idea-0.2.md` and everything in `ideation/` are historical.
+`docs/DECISIONS.md` §3 lists the methodology decisions still awaiting explicit approval,
+and §5 the constraints that are not open to revision.
 
-Do not modify the proposal unless explicitly instructed.
+Update these documents as the design changes. They are working documents, not a fixed
+baseline — but §5 of `DECISIONS.md` changes only with explicit approval.
 
 ## Development Role
 
@@ -90,7 +94,7 @@ Every milestone must have:
 - tests
 - validation
 - architectural/scientific/security decisions
-- deviations from Idea 0.3
+- deviations from the documented design
 - unresolved risks
 - next steps
 
@@ -101,20 +105,20 @@ Do not fabricate implementation history.
 M1 — Arc Restoration Deed.
 
 The build sequence is ordered against the **September 30, 2026 Arc mainnet-readiness
-deadline** (Idea 0.3 §9). Contracts come first; the pipeline builds against a deployed
-contract, not the reverse.
+deadline** (`docs/ROADMAP.md`). Contracts come first; the pipeline builds against a
+deployed contract, not the reverse.
 
 M1 implements:
 
 - RestorationDeed escrow and milestone state
-- `analysis_plan_hash` committed at `createDeed()` (Idea 0.3 §3.7.1)
+- `analysis_plan_hash` committed at `createDeed()` (`docs/VERIFICATION.md`)
 - authorized verification with replay protection
 - lower-bound settlement bounded by contract state
-- mobilisation draw, `assignTranche()`, benefit-share routing (§4.5)
+- mobilisation draw, `assignTranche()`, benefit-share routing (`docs/ARC.md`)
 - retention withholding
 - Arc Testnet deployment and a full contract test suite
 
-M1 also closes the M0 gaps recorded in Idea 0.3 §9.1: the TypeScript interface
+M1 also closes the M0 gaps recorded in `docs/ROADMAP.md` §3: the TypeScript interface
 definitions the empty stubs are supposed to hold, a running test framework, and a
 development log entry.
 

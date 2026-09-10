@@ -95,7 +95,7 @@ mandatory**, because selling access to a verification commits the project to ope
 the service that performs it. The payment layer is edge middleware in front of this tier,
 documented in `X402.md`.
 
-x402 is optional and demoted (Idea 0.3 §4.8), and it carries a condition that is not a
+x402 is optional and demoted (`DECISIONS.md` §2), and it carries a condition that is not a
 deployment detail: metered per-request verification recreates the specification-search
 incentive pre-registration exists to close, so it may only ship coupled to plan
 commitment and on-chain run-count recording, and **every verification sold must be a

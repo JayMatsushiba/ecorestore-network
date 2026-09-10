@@ -2,6 +2,89 @@
 
 Newest first. One entry per milestone, per `CLAUDE.md`.
 
+Entries written before the documentation consolidation (below) cite `proposals/idea-0.3.md`
+and its section numbers. Those documents were removed from the repository once their
+load-bearing content moved into `docs/`; they remain in git history. Past entries are left
+as written rather than rewritten, because a log records what was true at the time.
+
+---
+
+## 2026-09-10 — Documentation consolidation: `docs/` becomes the source of truth
+
+### Objective
+
+Move the load-bearing content out of `proposals/` and `ideation/` into `docs/`, then
+remove both directories, on the owner's instruction that the proposal and ideation
+documents are starting points rather than binding rules and that further updates are made
+against `docs/`. No code changed.
+
+### Implementation
+
+Three documents created to carry content that existed nowhere in `docs/`:
+
+- `docs/PRODUCT.md` — one-page summary, positioning, the honest market figures, the
+  corporate buyer and the regulatory drivers, the restatement-risk framing, supply-side
+  design constraint, sponsor stack, treasury controls and pooled deeds, and the central
+  rule.
+- `docs/ROADMAP.md` — build sequence ordered against September 30, the M0–M7 table, M0's
+  honest state, out-of-scope list and cut order.
+- `docs/DECISIONS.md` — decisions and the reasons behind them, the six methodology
+  decisions still requiring approval, open questions and risks, and the constraints not
+  open to revision.
+
+Existing documents absorbed the rest: the dataset table into `VERIFICATION.md` §3, cohort
+verification into `ARC.md`. Every reference to the removed documents was rewritten to
+point at `docs/` — 28 sites across `ARCHITECTURE.md`, `VERIFICATION.md`, `ARC.md`,
+`X402.md`, `DEPLOYMENT.md`, `README.md` and `CLAUDE.md`.
+
+`CLAUDE.md` no longer names a canonical proposal. It points at `docs/` and states that
+these are working documents, with the exception of the constraints in `DECISIONS.md` §5.
+
+`ideation/` and `proposals/` removed — 4777 lines across eight files.
+
+### Tests / validation
+
+No code changed. Validation was documentary:
+
+- No reference to `idea-0.3`, `idea-0.2`, `proposals/`, `ideation/` or `proposal_review`
+  remains anywhere in `docs/`, `README.md` or `CLAUDE.md`, except in the historical log
+  entries below, which are deliberately preserved.
+- Every claim carried across was taken from the source text rather than paraphrased from
+  memory: the BNG and VCM figures, the regulatory drivers, the milestone table, the risk
+  assessments and the six open approvals.
+
+### Architectural, scientific and security decisions
+
+- **`docs/` is the source of truth.** A single baseline document that must not be
+  modified, sitting alongside documentation that must be, produced two sources of truth
+  and a rule against updating the more authoritative one. Working documents that are
+  expected to change are the more honest arrangement.
+- **Reconciliation provenance was not carried across.** The tables recording which of the
+  four source documents each decision came from are archaeology once those documents are
+  gone; git history holds them. What was carried is the *reason* for each decision, which
+  is what stops a later contributor re-proposing something already rejected for cause.
+- **The non-negotiable constraints are stated as such** in `DECISIONS.md` §5 — the AI
+  settlement boundary, real-versus-simulated labelling, pre-registration, lower-bound
+  settlement, and `INSUFFICIENT_EVIDENCE` as a valid outcome. Loosening the proposal's
+  authority should not loosen those.
+
+### Deviations from the documented design
+
+None. This is a relocation of content, not a revision of it. Where wording was tightened,
+the substance and the figures are unchanged.
+
+### Unresolved risks
+
+- The six methodology decisions in `DECISIONS.md` §3 remain unapproved and still block M2.
+- Historical log entries reference section numbers that no longer resolve to a file in the
+  working tree. The header note above explains this; the alternative was rewriting a dated
+  record, which is worse.
+
+### Next steps
+
+1. Deploy `RestorationDeed` to Arc Testnet — M1 is not closed until it exists.
+2. Settle the six open methodology decisions before M2 work begins.
+
 ---
 
 ## 2026-09-10 — Deployment and x402 documentation
