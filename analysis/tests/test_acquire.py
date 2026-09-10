@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from ecorestore_analysis.acquire import choose_tile, observe_scene, spread_limit
-from ecorestore_analysis.cog import CogWindowRead
+from ecorestore_analysis.cog import CogWindowRead, read_cog_window
 from ecorestore_analysis.geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame, polygon_area_ha, utm_epsg_for
 from shapely.geometry import shape
 
@@ -169,3 +169,27 @@ def test_spread_limit_touches_every_window(plan):
     assert [s["datetime"][:7] for s in chosen] == ["2023-06", "2023-07", "2024-06", "2024-07", "2025-06"]
     assert spread_limit(scenes, windows, 100) == scenes
     assert spread_limit(scenes, windows, 0) == []
+
+
+def _write_tif(path, origin_x=500_000, origin_y=5_440_000, res=10, size=8):
+    import rasterio
+    from rasterio.transform import from_origin
+
+    with rasterio.open(path, "w", driver="GTiff", width=size, height=size, count=1, dtype="uint16", crs="EPSG:32611", transform=from_origin(origin_x, origin_y, res, res)) as dst:
+        dst.write(np.arange(size * size, dtype=np.uint16).reshape(size, size), 1)
+
+
+def test_read_cog_window_snaps_outward_to_whole_pixels(tmp_path):
+    tif = tmp_path / "band.tif"
+    _write_tif(tif)
+    r = read_cog_window(str(tif), (500_012, 5_439_955, 500_037, 5_439_988))
+    assert (r.grid.origin_x, r.grid.origin_y, r.grid.resolution) == (500_010, 5_439_990, 10)
+    assert (r.width, r.height) == (3, 4)
+    assert r.data[0, 0] == 1 * 8 + 1  # row 1, col 1 of the source
+
+
+def test_read_cog_window_names_a_bbox_outside_the_raster(tmp_path):
+    tif = tmp_path / "band.tif"
+    _write_tif(tif)
+    with pytest.raises(ValueError, match="does not intersect"):
+        read_cog_window(str(tif), (600_000, 5_500_000, 600_100, 5_500_100))

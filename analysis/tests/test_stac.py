@@ -1,6 +1,31 @@
 """Scene selection rules that never touch the network."""
 
-from ecorestore_analysis.stac import drop_reprocessed, mgrs_tile
+from ecorestore_analysis.stac import _scene_record, drop_reprocessed, mgrs_tile
+
+
+class _Asset:
+    def __init__(self, href: str):
+        self.href = href
+        self.extra_fields = {"raster:bands": [{"scale": 0.0001, "offset": -0.1}]}
+
+
+class _Item:
+    def __init__(self, item_id: str, properties: dict, assets=("red", "nir", "scl")):
+        self.id = item_id
+        self.properties = properties
+        self.assets = {k: _Asset(f"https://example/{item_id}/{k}.tif") for k in assets}
+
+
+def test_scene_record_reads_the_fields_it_commits_to():
+    rec = _scene_record(_Item("S2A_10TEM_20230721_0_L2A", {"datetime": "2023-07-21T19:03:00Z", "platform": "sentinel-2a", "eo:cloud_cover": 0.5, "s2:processing_baseline": "05.09", "proj:code": "EPSG:32610"}))
+    assert rec["epsg"] == 32610 and rec["cloudCoverPct"] == 0.5 and rec["processingBaseline"] == "05.09"
+    assert rec["stacAdvertisedReflectance"] == {"scale": 0.0001, "offset": -0.1}
+
+
+def test_scene_record_skips_items_it_cannot_filter_or_place():
+    assert _scene_record(_Item("x", {"datetime": "2023-07-21T19:03:00Z"})) is None  # no cloud cover
+    assert _scene_record(_Item("x", {"eo:cloud_cover": 1.0})) is None  # no datetime
+    assert _scene_record(_Item("x", {"datetime": "2023-07-21T19:03:00Z", "eo:cloud_cover": 1.0}, assets=("red", "nir"))) is None  # no SCL
 
 
 def scene(scene_id: str, datetime: str, platform: str, baseline: str) -> dict:

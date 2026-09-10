@@ -24,14 +24,16 @@ def _scene_record(item: Any) -> dict[str, Any] | None:
     bands = (red.extra_fields or {}).get("raster:bands") or [{}]
     band = bands[0] if bands else {}
     p = item.properties
+    if p.get("eo:cloud_cover") is None or p.get("datetime") is None:
+        return None  # cannot be filtered or placed in a window
     epsg = p.get("proj:epsg")
     if epsg is None and isinstance(p.get("proj:code"), str):
         epsg = int(p["proj:code"].replace("EPSG:", ""))
     return {
         "sceneId": item.id,
-        "datetime": str(p.get("datetime")),
+        "datetime": str(p["datetime"]),
         "platform": str(p.get("platform", "")),
-        "cloudCoverPct": float(p.get("eo:cloud_cover")),
+        "cloudCoverPct": float(p["eo:cloud_cover"]),
         "processingBaseline": str(p.get("s2:processing_baseline", "")),
         "epsg": int(epsg or 0),
         "assets": {"red": red.href, "nir": nir.href, "scl": scl.href},
@@ -78,7 +80,9 @@ def search_sentinel2(bbox: tuple[float, float, float, float], windows: list[dict
             collections=[S2_L2A_COLLECTION],
             bbox=list(bbox),
             datetime=f"{w['start']}T00:00:00Z/{w['end']}T23:59:59Z",
-            query={"eo:cloud_cover": {"lt": max_cloud_cover_pct}},
+            # `lte`, because `scenes_in_window()` keeps `cloudCoverPct <= max`;
+            # the two rules must agree on a scene at the threshold.
+            query={"eo:cloud_cover": {"lte": max_cloud_cover_pct}},
             limit=100,
         )
         for item in search.items():
