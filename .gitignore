@@ -11,3 +11,9 @@ contracts/broadcast/
 verification/cache/
 guardian/outbox/
 *.tmp.*
+
+# Python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
