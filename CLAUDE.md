@@ -121,7 +121,9 @@ end-to-end vertical slice; the Guardian verdict-VC and ATS calldata seam; the ru
 Auditor boundary.
 
 **Not done: Arc Testnet deployment** — no deployer key in this environment;
-`contracts/script/Deploy.s.sol` is ready. This gates the public demonstration.
+`contracts/script/Deploy.s.sol` is ready. This gates the settlement claim of the public
+demonstration, which is otherwise live on AWS (`docs/DEPLOYMENT.md` §12) with calldata
+prepared and never broadcast.
 
 Also open, and not M1: Sentinel-1/Landsat/ICESat-2 ingest, Guardian stood up, ATS
 broadcast, The Graph subgraph, the Auditor LLM narrator, x402, production settlement. See

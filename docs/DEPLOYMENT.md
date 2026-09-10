@@ -373,7 +373,7 @@ frontend's host port is replaced by a Caddy container on 80/443 (automatic TLS w
 domain is set), and `docker-compose.override.yml` is added only while Guardian's
 network exists on the host. Guardian runs from its own checkout beside it, with
 `deploy/guardian/docker-compose.public.yml` publishing its web proxy on `:3000` and
-nothing else. Nothing has been deployed yet (§12).
+nothing else. This is what is running (§12).
 
 ### 7.8 Deviations from the proposal
 
@@ -496,7 +496,8 @@ Arc Testnet, the deployed stack prepares calldata and does not broadcast (§4).
 
 ## 12. Implementation state (2026-09-10)
 
-Nothing in this document is deployed to AWS. The container stack in §7 runs locally.
+The container stack in §7 is deployed to AWS and publicly reachable (below). Guardian
+is not running there; no chain is.
 
 * `RestorationDeed` has not been deployed to Arc Testnet; no deployer key exists in the
   build environment. The contract's 31-test Foundry suite passes, run through the
@@ -504,11 +505,17 @@ Nothing in this document is deployed to AWS. The container stack in §7 runs loc
   `anvil` — both from the host and, via the `chain` profile, inside the compose stack:
   mobilisation draw, plan-hash-bound verification, tranche release at the lower bound,
   benefit share and retention.
-* No AWS resources exist. The infrastructure is written — one CloudFormation stack,
-  `deploy/cloudformation/demo-host.yml`, chosen over Terraform and CDK because it needs
-  no tool beyond the AWS CLI — and the deploy pipeline is in `.github/workflows/`
-  (§13). Neither has been run: the stack has not been created and no workflow has
-  executed against AWS. The credit available for it is unspent.
+* **The demonstration is live at `http://32.189.224.38`** (us-west-2, stack
+  `ecorestore-demo` from `deploy/cloudformation/demo-host.yml`, one `t3.xlarge`,
+  no SSH). Every push to `main` redeploys it through `.github/workflows/deploy.yml`
+  (§13); two deploys have completed. The host runs `caddy`, `frontend`, `verify` and
+  `analysis` from ECR images tagged with the deployed commit, with a host-specific
+  `VERIFIER_SEED` from Parameter Store. `verify` runs in **outbox mode** — Guardian
+  requests are staged and reported as not submitted — and with **no chain**: calldata
+  is prepared, never broadcast. All three scenarios verify live on the Python engine.
+  CloudFormation was chosen over Terraform and CDK because it needs no tool beyond
+  the AWS CLI. The Guardian checkout is on the host but not started; port 3000 is
+  closed. Plain HTTP until a domain is set.
 * **The split pipeline in §7 is built.** `docker compose up --build` starts `analysis`,
   `verify` and `frontend`; the interface at `localhost:3001` runs each scenario through
   the Python analysis service and the TypeScript verify service and displays the result.
@@ -533,7 +540,7 @@ Nothing in this document is deployed to AWS. The container stack in §7 runs loc
 
 ---
 
-## 13. Continuous deployment (written 2026-09-10, not yet run)
+## 13. Continuous deployment (2026-09-10; running)
 
 `main` deploys itself to the host in §7.7. The runbook is `deploy/README.md`; this
 section records the shape and the decisions.
@@ -579,6 +586,9 @@ Decisions:
   parameter. It describes the host completely and is the only way the host changes.
 
 Not done by this: a domain and TLS certificate (Caddy provisions one as soon as
-`/ecorestore/demo/DOMAIN` names a record pointing at the EIP), a Guardian policy, an
-Arc Testnet deployment, and running any of it — see §12.
+`/ecorestore/demo/DOMAIN` names a record pointing at the EIP), a Guardian policy, and
+an Arc Testnet deployment — see §12. Two things the first run taught, both now in the
+template and script: GitHub's OIDC subject for repositories created after 2026-07-15
+carries owner and repository ids, and a bind mount created by root is not writable by
+the container's unprivileged user.
 

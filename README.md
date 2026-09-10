@@ -70,7 +70,7 @@ npm run acquire:finalize -- out/acquire/tier0-kootenay-riparian-001.unhashed.jso
 Ports bind to `127.0.0.1`; override with `FRONTEND_PORT`, `VERIFY_PORT`. See `.env.example`.
 
 The same stack deploys itself to AWS on every push to `main` (`.github/workflows/`,
-`deploy/README.md`, `docs/DEPLOYMENT.md` §13). Nothing has been deployed yet.
+`deploy/README.md`, `docs/DEPLOYMENT.md` §13). Live at http://32.189.224.38 (§12).
 
 ## Quickstart — host
 
