@@ -58,7 +58,9 @@ def analyse_endpoint(req: AnalysisRequest, response: Response) -> dict:
     started = time.perf_counter()
     try:
         out = analyse(plan, t0, plan_hash=req.planHash.lower(), snapshot_hash=req.snapshotHash.lower())
-    except (KeyError, TypeError, ValueError) as e:
+    except (KeyError, IndexError, TypeError, ValueError, ArithmeticError) as e:
+        # A document that passed its receipt but cannot be analysed is the
+        # caller's problem, not a crash: say what is wrong and answer 422.
         raise HTTPException(status_code=422, detail=f"analysis failed: {e}") from e
     response.headers["x-analysis-elapsed-seconds"] = f"{time.perf_counter() - started:.3f}"
     return out

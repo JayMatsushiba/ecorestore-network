@@ -62,9 +62,24 @@ def _composite(scene_ids: list[str], unit_index: int, snapshot: dict[str, Any]) 
     return median(vals) if vals else None
 
 
+def _check_shape(snapshot: dict[str, Any], pre_windows: list[dict[str, Any]]) -> None:
+    """Reject a document the engine cannot analyse, with a message, rather than
+    fail on an index deep inside a loop. Receipts prove the bytes are the ones
+    sent; they say nothing about whether the arrays inside line up."""
+    n = len(snapshot["units"])
+    for sid, o in snapshot["observations"].items():
+        for key in ("ndvi", "validFraction", "waterFraction"):
+            if len(o[key]) != n:
+                raise ValueError(f"scene {sid}: {key} has {len(o[key])} entries for {n} units")
+    mids = [window_mid_year(w) for w in pre_windows]
+    if len(mids) >= 2 and mids[0] == mids[-1]:
+        raise ValueError(f"pre windows {pre_windows[0]['label']!r} and {pre_windows[-1]['label']!r} have the same mid-date; no pre-slope is defined")
+
+
 def build_unit_series(snapshot: dict[str, Any], plan: dict[str, Any]) -> list[UnitSeries]:
     pre_windows = plan["windows"]["pre"]
     post_windows = plan["windows"]["post"]
+    _check_shape(snapshot, pre_windows)
     pre_scene_ids = [scenes_in_window(snapshot, plan, w) for w in pre_windows]
     post_scene_ids = [sid for w in post_windows for sid in scenes_in_window(snapshot, plan, w)]
     scene_by_id = {s["sceneId"]: s for s in snapshot["scenes"]}
