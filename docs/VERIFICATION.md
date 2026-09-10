@@ -58,7 +58,33 @@ recorded in every result.
 **Tiers 1-3 are simulated** from realistic parameters and must be explicitly marked as
 simulated wherever they appear.
 
-*(This amends the earlier all-synthetic framing. See Idea 0.3 §3.2 and §13.5.)*
+*(This amends an earlier all-synthetic framing; the reason is recorded in
+`DECISIONS.md` §2.)*
+
+### Datasets
+
+**Two columns, and they mean different things.** *Kind* is whether the dataset is real
+observation or simulated for the demonstration. *Acquired* is whether this repository has
+actually ingested it. Only Sentinel-2 L2A is acquired today; every other real dataset is
+planned, and no result depends on one.
+
+| Dataset | Use | Kind | Acquired |
+|---|---|---|---|
+| Sentinel-2 L2A | Optical indices, 10 m | REAL observation | **Yes** — 72 scenes, Earth Search STAC |
+| Sentinel-1 GRD (+SLC) | SAR backscatter; coherence only where interpretable | REAL observation | No — planned |
+| Landsat 5/7/8/9 | Long baseline, 1984– | REAL observation | No — planned |
+| ICESat-2 | Canopy structure (GEDI unusable at this latitude) | REAL observation | No — planned |
+| ESA WorldCover | Land cover transitions | REAL observation | No — planned |
+| Dynamic World | Near-real-time land cover context | REAL observation | No — planned |
+| SRTM / Copernicus DEM | Terrain covariates for control matching | REAL observation | No — planned |
+| WorldClim / ERA5 | Climate covariates for control matching | REAL observation | No — planned |
+| Biodiversity Intactness 100 m v1.1 | Ecological value prior for parcel scoring | REAL observation | No — planned |
+| Drone orthomosaic, crown detections | Tier 1 calibration | **SIMULATED, LABELLED** | Generated |
+| Soil moisture, water table, acoustic | Tier 2 condition signal | **SIMULATED, LABELLED** | Generated |
+| Plot surveys, planting records, geotagged photos | Tier 3 claims | **SIMULATED, LABELLED** | Generated |
+
+Control matching currently uses pre-level and pre-slope only. The terrain, soil and
+climate covariates above are specified, not yet joined.
 
 ---
 
@@ -112,6 +138,18 @@ is not conservative, so it is handled explicitly rather than assumed away by a b
 estimate**, reported in the result and deducted.
 
 ### 6.1 Pre-registration
+
+**Why it exists.** Nothing otherwise fixes *when* the analysis choices are made. If the
+control set were selected and the analysis run at verification time, by a service the
+restorer pays per request, the result would be:
+
+> a researcher-degrees-of-freedom problem with money attached: run the verification
+> against several candidate control sets, several observation windows, several index
+> choices, and submit the favourable one. Every number in the verdict stays honest; the
+> estimator is still biased.
+
+That is the failure this section prevents, and it is why metered verification cannot ship
+without the coupling in `X402.md` §5.
 
 The analysis plan hash is committed at `createDeed()`, before any outcome is
 observable:
@@ -181,7 +219,7 @@ leakage deduction. *This is what the engine measures.*
 
 **Financial additionality** — would this have happened without the payment? *This is
 not measurable from imagery.* It is addressed procedurally by the encumbrance registry
-(Idea 0.3 §4.6), which records legal obligations, public subsidy and existing claims at
+(`ARC.md`), which records legal obligations, public subsidy and existing claims at
 parcel registration and attaches an `obligation_status` to the outcome.
 
 Conflating the two is the criticism levelled hardest at credit markets. The vocabulary
@@ -231,6 +269,38 @@ settledQuantity = lowerBound(uncertaintyInterval)
 ```
 
 The point estimate is not the settlement authority.
+
+### Conservatism and pricing are separated
+
+The lower-bound rule on its own places 100% of measurement uncertainty on the restorer.
+The stated benefit — restorers are incentivised to fund better measurement — holds only
+for the **controllable** fraction. Most of the interval is not controllable:
+
+* **Biome.** Cloud frequency, canopy density, phenological noise and index saturation are
+  properties of where the ecosystem is.
+* **Parcel size.** Mixed-pixel boundary error scales with perimeter-to-area, so small
+  parcels have structurally wider relative intervals.
+* **Ecosystem type.** Peatland and dryland — the two biomes where restoration need is
+  highest and measurement is hardest — are penalised hardest.
+
+Net effect, uncorrected: the mechanism pays best for large, uniform, temperate,
+dense-canopy plantings. That is the easiest thing to measure and the thing most likely to
+be a monoculture — the opposite of the NbS priority ordering.
+
+**The fix is one deed parameter.** Price per unit is set against the **ex-ante expected
+interval width for that biome and parcel-size class** — a difficulty premium. The restorer
+then bears only the *deviation from expectation*, which is the controllable part, and the
+incentive to improve measurement survives intact.
+
+The equilibrium, stated honestly: if price does not adjust for expected uncertainty,
+buyers bid for easily-measured projects and the clearing price for hard-to-measure biomes
+collapses. **A lower-bound rule without a difficulty premium is partly self-cancelling.**
+
+The two rules are therefore inseparable. Settlement pays the lower bound
+(`DECISIONS.md` §5); pricing compensates for the expected width of that bound. Implementing
+the first without the second reproduces the outcome the design exists to avoid.
+
+*Not implemented. The difficulty premium is a pricing parameter; no deed carries one yet.*
 
 ---
 
@@ -333,3 +403,77 @@ provisional in the analysis plan and in `docs/DEVELOPMENT_LOG.md`:
 
 Not yet implemented: Sentinel-1 / Landsat / ICESat-2 ingest, covariate matching beyond
 pre-level and pre-slope, the polygon intersection check at issuance.
+
+### The analysis boundary (2026-09-10)
+
+§2's pipeline is split at one seam, defined in `verification/analysis-contract.ts`:
+
+```text
+analysis   unit series → controls by the committed rule → parallel-trend diagnostic
+           → DiD → leakage → bootstrap interval → placebo coverage        (numbers)
+verify     evidence and issuance gates → status → provenance → evidence commitment
+           → canonical VerificationResult → resultHash                     (the document)
+```
+
+Two implementations of the analysis side exist and must agree exactly:
+
+- `verification/engine.ts` `analyseTier0()` — the reference, in-process, used by the
+  test suite and by `verify()`.
+- `analysis/` — the Python service (numpy, scipy, FastAPI), used by the container stack
+  through `verifyWith()`. Its test suite replays five reference cases dumped from the
+  TypeScript side (`real`, `synthetic`, `trend-failure`, `few-scenes`, `few-controls`)
+  and asserts equality of every number. The seeded generator is ported exactly and the
+  bootstrap consumes its stream in the reference order; the regression uses numpy and
+  scipy and agrees to well inside the six decimals reported.
+
+The result names the engine that produced it (`analysisEngine`), so two results that
+agree on every scientific quantity still differ in `resultHash` if different runtimes
+computed them. That is deliberate: the determinism guarantee is per runtime
+(`DEPLOYMENT.md` §5), and the runtime is therefore part of the commitment.
+
+A named runtime is only worth as much as the environment behind the name, so
+`analysis/constraints.txt` pins the whole resolved dependency set — NumPy and SciPy
+included — and the image installs against it. Without the pins two rebuilds could
+resolve different numeric libraries and return different floats under an unchanged
+`analysisEngine`, which is the one thing the identity is there to prevent. Moving a pin
+means re-running the parity suite inside the image and bumping the engine version; the
+service reports the versions it actually loaded at `GET /health` (`numericStack`), so
+drift is visible without waiting for the next parity run.
+
+The client binds to the engine identity it read from `/health` and rejects an
+`/analyse` response that answers as anything else. A rollout between the two calls would
+otherwise let a result commit to one engine while the caller reported another, and
+`analysisEngine` is inside the hash.
+
+The committed parity references are checked against the live TypeScript engine by
+`verification/analysis-reference.test.ts`, which recomputes all five cases and fails on
+any drift. Without it a change to `analyseTier0()` would leave the Python suite green
+against stale files while the two live engines disagreed — the references would be
+testing history rather than the engine. The case definitions are shared with the dump
+script so the check cannot drift from what it is checking.
+
+The analysis response body is the `AnalysisOutput` of the contract and nothing else —
+no timing, no host, no request id. Two identical requests get byte-identical bodies,
+because the caller assembles a hashed document out of what it receives and an
+undeclared field on that boundary is a hazard rather than a convenience. Elapsed time
+is reported in the `x-analysis-elapsed-seconds` header.
+
+Tier 0 acquisition also has a second implementation, processing graph `2.0.0`
+(`analysis/ecorestore_analysis/acquire.py`: pystac-client, rasterio, h3, shapely,
+pyproj). On the same grid it reproduces the committed 1.0.0 fixture's parcel and
+parcel-cell pixel masks exactly and parcel NDVI to 4 dp; ring candidates at the buffer
+edge and unit areas (ellipsoidal rather than spherical) differ slightly, which is why it
+carries a new graph version. The committed fixture is still 1.0.0.
+
+The acquisition job emits the parcel geometry and H3 resolution it actually read
+alongside the unhashed snapshot, and `acquire:finalize` refuses to attach the
+repository parcel's `geometryHash` and `h3Root` unless that geometry hashes to the same
+identity. A matching `parcelId` is not a matching parcel — the job can be pointed at any
+fixture directory — and binding a snapshot to an identity it was not derived from would
+make the provenance commitment assert something untrue. The handoff field is stripped
+before canonicalisation and never enters the hash.
+
+Scene order is `(datetime, sceneId)` in both acquisition implementations. Granules of
+one pass share an acquisition datetime, and the scene array is canonicalised into
+`snapshotHash`, so datetime alone would leave the commitment dependent on the
+catalogue's paging order.

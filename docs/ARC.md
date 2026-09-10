@@ -81,13 +81,42 @@ reallocates existing restoration rather than increasing it.
 The deed already holds committed USDC against machine-evaluable conditions, which is a
 better credit instrument than a small restorer's balance sheet. `drawMobilisation()`
 and `assignTranche()` are what turn that into working capital, and MRV cost is paid
-from escrow rather than the restorer's pocket. See Idea 0.3 §4.5.
+from escrow rather than the restorer's pocket.
 
 The exact interface is designed during M1.
 
----
+### Cohort verification — specified, not built
 
-## 5. Security Requirements
+A Tier 1 drone sortie is roughly £1–5k and a sensor array £2–10k installed. On a 40 ha
+planting at $1–3k/ha, MRV is plausibly 10–30% of project cost; on the 1–10 ha parcels
+that dominate BNG and community restoration it is prohibitive. Cheap MRV being
+self-penalising therefore cuts hardest against exactly the projects that most need to
+participate.
+
+**Cohort verification:** many small parcels aggregate into a cohort sharing one control
+set, one drone sortie and one calibration transfer function; verification runs at cohort
+level and allocates to parcels. This amortises Tier 1 across parcels and is a natural
+extension of pooled deeds.
+
+Specified in the design; not built for the hackathon (`ROADMAP.md` §4).
+
+### Monitoring is decoupled from payment
+
+Tranches stop at 36 months. The obligation the buyer is discharging does not — UK BNG
+carries a 30-year maintenance obligation, and the 27-year gap between them is the entire
+liability. After a final tranche, a detected reversal with no financial consequence is
+worth nothing to the buyer.
+
+**Payment ends at the final tranche; observation and reversal-flagging continue for the
+full obligation term.** The project's own argument defeats the shorter limit: if marginal
+monitoring cost is near zero, there is no reason to stop watching. This costs almost
+nothing and is directly the instrument the BNG market lacks.
+
+The retention withholding and buffer-pool mechanisms are what give a post-payment reversal
+a financial consequence; the actuarial sizing of the pool is deferred (`ROADMAP.md` §4).
+
+*Partly implemented: retention withholding ships. Observation past the payment window is a
+property of the deployed monitoring, not of the contract, and is not yet operated.*
 
 The contract must prevent:
 

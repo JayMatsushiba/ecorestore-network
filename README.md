@@ -6,8 +6,10 @@ Capital for ecological restoration is released against spatially verified,
 uncertainty-bounded, additionality-adjusted evidence of ecological change. The verified
 outcome becomes an auditable asset a corporate buyer can hold, audit, and retire.
 
-**Canonical baseline: [`proposals/idea-0.3.md`](proposals/idea-0.3.md).** Start with its
-§1 one-page summary; §13 is the decision log.
+**`docs/` is the source of truth.** Start with
+[`docs/PRODUCT.md`](docs/PRODUCT.md) for what this is and who it is for;
+[`docs/DECISIONS.md`](docs/DECISIONS.md) records why the design is what it is, what is
+still open, and the risks being carried knowingly.
 
 ## What runs today
 
@@ -15,15 +17,18 @@ outcome becomes an auditable asset a corporate buyer can hold, audit, and retire
 REAL Sentinel-2 L2A (Earth Search STAC, 72 scenes)      SIMULATED Tiers 1-3, labelled
             │                                                     │
             ▼                                                     ▼
-   verification/engine.ts — deterministic: controls drawn by the committed rule,
-   parallel-trend gate, DiD vs far ring, leakage from near/far divergence,
-   bootstrap interval + placebo coverage, issuance gates, lower bound
+   analysis (Python service) ≡ verification/engine.ts (TypeScript reference), bit-exact:
+   controls drawn by the committed rule, parallel-trend gate, DiD vs far ring,
+   leakage from near/far divergence, bootstrap interval + placebo coverage
+            │  numbers, over hash receipts
+            ▼
+   verify: issuance gates, status, lower bound, canonical result, resultHash
             │
             ▼  canonical VerificationResult (resultHash, analysisPlanHash, runIndex)
             │
    ┌────────┴──────────────────────────────┐
    ▼                                       ▼
-guardian/adapter.ts                  contracts/RestorationDeed.sol (Foundry, 28 tests)
+guardian/adapter.ts                  contracts/RestorationDeed.sol (Foundry, 31 tests)
 signed W3C VC (Ed25519 did:key)      recordVerificationRun → verifyMilestone (replay-
 → externalDataBlock request          protected, plan-hash-bound) → releaseTranche at the
 → ATS setDocument/issueByPartition   lower bound, benefit share, retention, assignTranche
@@ -38,21 +43,60 @@ signed W3C VC (Ed25519 did:key)      recordVerificationRun → verifyMilestone (
 | `synthetic` | **SIMULATED** (real series + injected +0.25 NDVI, labelled) | `PARTIAL` — settled at the 95% lower bound, VC signed, Guardian request staged, issuance calldata prepared, tranche released on a local chain. |
 | `trend-failure` | REAL | `INSUFFICIENT_EVIDENCE` — parallel-trend gate refuses to settle. |
 
-## Quickstart
+## Quickstart — containers
+
+Three containers (`docs/DEPLOYMENT.md` §7): a Python **analysis** service that returns
+numbers and can reach nothing, a TypeScript **verify** service that canonicalises, signs
+and submits, and an nginx **frontend** that proxies to it.
+
+```bash
+# With the Guardian quickstart running (its network is joined automatically)
+docker compose up --build
+# Without Guardian: requests are staged to guardian/outbox/ and reported as not submitted
+docker compose -f docker-compose.yml up --build
+
+open http://localhost:3001            # the verification console
+curl -s localhost:8090/health         # analysis engine, Guardian and chain reachability
+curl -s -X POST localhost:8090/api/verify/synthetic | jq .result.verificationStatus
+
+# Also settle each verification on a local chain
+DEMO_RPC_URL=http://anvil:8545 docker compose --profile chain up --build
+
+# Batch job: re-acquire REAL Tier 0 into out/acquire/ (network), then finalise it
+docker compose --profile acquire run --rm acquire --limit 5
+npm run acquire:finalize -- out/acquire/tier0-kootenay-riparian-001.unhashed.json --out /tmp/preview.json
+```
+
+Ports bind to `127.0.0.1`; override with `FRONTEND_PORT`, `VERIFY_PORT`. See `.env.example`.
+
+## Quickstart — host
 
 ```bash
 npm install
 npm test                 # vitest: engine, geometry, stats, adapter, client, auditor
 npm run typecheck
 npm run test:contracts   # needs Foundry: https://getfoundry.sh
-npm run demo             # offline: uses the committed REAL Tier 0 snapshot
+npm run demo             # offline: in-process TypeScript analysis, REAL Tier 0 snapshot
+
+# Python analysis service and its parity suite (needs Python ≥ 3.12).
+# Install against constraints.txt: the pins are what the image ships, and
+# parity is bit-exact, so an unconstrained NumPy is a different engine.
+python -m venv analysis/.venv
+analysis/.venv/bin/pip install -c analysis/constraints.txt -e "analysis[test]"
+npm run test:analysis                # prefers analysis/.venv/bin/python when it exists
+analysis/.venv/bin/ecorestore-analysis-server &
+ANALYSIS_URL=http://127.0.0.1:8000 GUARDIAN_URL=http://localhost:3000 npm run demo
+
+# verify service + Vite dev server
+npm run verify:serve &                      # :8080 on the host
+(cd app && npm run dev)                     # proxies /api to it
 
 # End to end on a local chain
 anvil &
 npm run build:contracts
 DEMO_RPC_URL=http://127.0.0.1:8545 npm run demo
 
-# Re-acquire the REAL Tier 0 snapshot from Earth Search (network, ~5 min)
+# Re-acquire the REAL Tier 0 snapshot from Earth Search with the TypeScript graph (1.0.0)
 npm run acquire
 ```
 
@@ -60,17 +104,18 @@ npm run acquire
 
 | Path | Contents |
 |---|---|
-| `proposals/idea-0.3.md` | **Canonical product baseline** |
-| `proposals/idea-0.2.md` | Historical — the text reviewed in `proposal_review.md` |
-| `proposal_review.md` | Incentive, scientific and landscape review (2026-09-09) |
-| `docs/` | Architecture, verification, Guardian, Arc, Graph, Auditor, demo, development log |
-| `verification/` | Deterministic verification engine, REAL Tier 0 acquisition, simulated Tiers 1-3, fixtures |
+| `docs/PRODUCT.md` | **What this is, who buys it, and why** |
+| `docs/DECISIONS.md` | Decisions and their reasons, open approvals, risks carried |
+| `docs/ROADMAP.md` | Build sequence, milestones, cut order |
+| `docs/` | Architecture, verification, Guardian, Arc, Graph, Auditor, demo, deployment, x402, development log |
+| `verification/` | Deterministic verification engine, the analysis boundary contract, REAL Tier 0 acquisition (graph 1.0.0), simulated Tiers 1-3, fixtures |
+| `analysis/` | Python analysis service — bit-exact with the TypeScript engine — and the Tier 0 acquisition batch job (graph 2.0.0) |
+| `verify/` | The verify HTTP service and the shared end-to-end pipeline |
 | `contracts/` | Arc Restoration Deed (Solidity, Foundry) and its TypeScript client |
 | `guardian/` | Verdict VC schema, DID-signed credential, externalDataBlock request, ATS seam |
 | `auditor/` | Orchestration and explanation boundary (no LLM) |
 | `scripts/demo.ts` | End-to-end demonstration |
 | `app/` | React application |
-| `ideation/` | Historical brainstorming and superseded drafts |
 
 ## Authority model
 
@@ -82,6 +127,7 @@ npm run acquire
 | The Graph | Indexed blockchain history |
 | Restoration Auditor | Orchestration and explanation |
 | React application | Presentation |
+| x402 payment gateway | API access payment only — never settlement |
 
 **No AI-generated numerical result may directly determine financial settlement.**
 
@@ -96,6 +142,6 @@ is labelled SIMULATED at Tier 0 in every artefact it produces.
 
 ## Status
 
-Prototype of the M1–M4 vertical slice. See `docs/DEVELOPMENT_LOG.md` for what is built,
-what is deferred, and which methodology parameters remain provisional pending approval
-(Idea 0.3 §13.6).
+Prototype of the M1–M4 vertical slice. See `docs/DEVELOPMENT_LOG.md` for what is built
+and what is deferred, and `docs/DECISIONS.md` §3 for the methodology parameters that
+remain provisional pending approval.

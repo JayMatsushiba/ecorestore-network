@@ -4,18 +4,22 @@
 
 Ecorestore Network is a spatially-verified restoration finance protocol.
 
-The canonical product baseline is:
+**`docs/` is the source of truth.** There is no separate proposal document. The original
+proposals and ideation drafts were starting points; they were removed once their
+load-bearing content moved into `docs/`, and they remain in git history.
 
-`proposals/idea-0.3.md`
+Start here:
 
-Idea 0.3 reconciles Idea 0.2, `ideation/ecorestore_network_proposal_v2.md`, and
-`proposal_review.md` into one approach. Its §13 decision log records every accepted,
-rejected and deferred change, and its §13.6 lists the methodology decisions still
-awaiting explicit approval.
+- `docs/PRODUCT.md` — what this is, who buys it, and why
+- `docs/DECISIONS.md` — why the design is what it is, what is still open, risks carried
+- `docs/ARCHITECTURE.md` — component boundaries and the authority model
+- `docs/ROADMAP.md` — build sequence and milestones
 
-`proposals/idea-0.2.md` and everything in `ideation/` are historical.
+`docs/DECISIONS.md` §3 lists the methodology decisions still awaiting explicit approval,
+and §5 the constraints that are not open to revision.
 
-Do not modify the proposal unless explicitly instructed.
+Update these documents as the design changes. They are working documents, not a fixed
+baseline — but §5 of `DECISIONS.md` changes only with explicit approval.
 
 ## Development Role
 
@@ -46,8 +50,13 @@ The system has explicit authority boundaries:
 - The Graph = indexed blockchain history/read layer
 - Auditor = orchestration and explanation
 - React application = presentation layer
+- x402 payment gateway = API access payment only, never settlement
 
 AI-generated numerical results must never directly determine financial settlement.
+
+Paying for an API request must never trigger, influence or substitute for a milestone
+settlement. Settlement is USDC on Arc; API payment is HBAR/HTS on Hedera. Different
+networks, different accounts, different authority.
 
 ## Data Provenance
 
@@ -90,7 +99,7 @@ Every milestone must have:
 - tests
 - validation
 - architectural/scientific/security decisions
-- deviations from Idea 0.3
+- deviations from the documented design
 - unresolved risks
 - next steps
 
@@ -98,38 +107,36 @@ Do not fabricate implementation history.
 
 ## Current Milestone
 
-M1 — Arc Restoration Deed.
+**M1 — Arc Restoration Deed. One thing remains: deployment to Arc Testnet.**
 
-The build sequence is ordered against the **September 30, 2026 Arc mainnet-readiness
-deadline** (Idea 0.3 §9). Contracts come first; the pipeline builds against a deployed
-contract, not the reverse.
+The sequence was ordered contracts-first against the **September 30, 2026 Arc
+mainnet-readiness deadline** (`docs/ROADMAP.md`). That is not how the work went. The
+M1–M4 slice was built together on one branch, on the owner's instruction, and the piece
+that has *not* happened is the deployment M1 is named for.
 
-M1 implements:
+Built and tested: `RestorationDeed` (escrow, plan-hash commitment, replay-protected
+verification, lower-bound settlement, mobilisation draw, `assignTranche()`, benefit share,
+retention — 31 Foundry tests); the deterministic engine on real Sentinel-2 Tier 0; the
+end-to-end vertical slice; the Guardian verdict-VC and ATS calldata seam; the rule-based
+Auditor boundary.
 
-- RestorationDeed escrow and milestone state
-- `analysis_plan_hash` committed at `createDeed()` (Idea 0.3 §3.7.1)
-- authorized verification with replay protection
-- lower-bound settlement bounded by contract state
-- mobilisation draw, `assignTranche()`, benefit-share routing (§4.5)
-- retention withholding
-- Arc Testnet deployment and a full contract test suite
+**Not done: Arc Testnet deployment** — no deployer key in this environment;
+`contracts/script/Deploy.s.sol` is ready. This gates the public demonstration.
 
-M1 also closes the M0 gaps recorded in Idea 0.3 §9.1: the TypeScript interface
-definitions the empty stubs are supposed to hold, a running test framework, and a
-development log entry.
+Also open, and not M1: Sentinel-1/Landsat/ICESat-2 ingest, Guardian stood up, ATS
+broadcast, The Graph subgraph, the Auditor LLM narrator, x402, production settlement. See
+`docs/ARCHITECTURE.md` §8 for the current split and `docs/ROADMAP.md` for the sequence.
 
-M1 does NOT implement:
+**Do not describe unbuilt work as built, and do not describe built work as unbuilt.** When
+this section and the repository disagree, fix this section.
 
-- satellite processing
-- control matching
-- DiD
-- additionality calculation
-- uncertainty calculation
-- Guardian integration
-- Hedera ATS issuance
-- Graph integration
-- Auditor intelligence
+Still unbuilt, and not to be described otherwise:
+
+- Sentinel-1, Landsat and ICESat-2 ingest (only Sentinel-2 is acquired)
+- control matching on terrain, soil and climate covariates (pre-level and pre-slope only)
+- a running Guardian instance
+- Hedera ATS broadcast (calldata is prepared, never sent)
+- The Graph subgraph
+- Auditor LLM narration (the narrator is a deterministic template)
 - x402
 - production financial settlement
-
-Those belong to M2 and later.

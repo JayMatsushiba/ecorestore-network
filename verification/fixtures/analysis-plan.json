@@ -75,12 +75,12 @@
   },
   "processingGraphVersion": "1.0.0",
   "provisional": [
-    { "field": "metric.id", "openItem": "Idea 0.3 §13.6.1", "note": "Recommended metric implemented as the default; settled metric awaits approval." },
-    { "field": "uncertainty.confidenceLevel", "openItem": "Idea 0.3 §13.6.2", "note": "Recommended 95% used pending approval." },
-    { "field": "controlRule.nearRing / controlRule.farRing", "openItem": "Idea 0.3 §13.6.3", "note": "300 m near ring and 800–1500 m far ring are placeholders; displacement distance for this landscape not yet approved." },
-    { "field": "parallelTrend", "openItem": "Idea 0.3 §13.6.4", "note": "Slope-interaction OLS with alpha 0.10 and 0.03 NDVI/yr is a placeholder criterion." },
-    { "field": "uncertainty.modelTransfer", "openItem": "Idea 0.3 §3.8 item 2", "note": "Index→cover transfer coefficient is a placeholder and dominates hectare-scale uncertainty." },
-    { "field": "uncertainty.controlMatchingShock", "openItem": "Idea 0.3 §3.8 item 1", "note": "Adding a far-ring residual draw per bootstrap iteration is the prototype's representation of control-matching error. Without it, placebo coverage on the Kootenay snapshot was 0.33 against a nominal 0.95. Method awaits approval." },
-    { "field": "gates.*", "openItem": "Idea 0.3 §3.11", "note": "Gate thresholds are placeholders." }
+    { "field": "metric.id", "openItem": "docs/DECISIONS.md §3.1", "note": "Recommended metric implemented as the default; settled metric awaits approval." },
+    { "field": "uncertainty.confidenceLevel", "openItem": "docs/DECISIONS.md §3.2", "note": "Recommended 95% used pending approval." },
+    { "field": "controlRule.nearRing / controlRule.farRing", "openItem": "docs/DECISIONS.md §3.3", "note": "300 m near ring and 800–1500 m far ring are placeholders; displacement distance for this landscape not yet approved." },
+    { "field": "parallelTrend", "openItem": "docs/DECISIONS.md §3.4", "note": "Slope-interaction OLS with alpha 0.10 and 0.03 NDVI/yr is a placeholder criterion." },
+    { "field": "uncertainty.modelTransfer", "openItem": "docs/DECISIONS.md §3.8", "note": "Index→cover transfer coefficient is a placeholder and dominates hectare-scale uncertainty. See docs/VERIFICATION.md §10." },
+    { "field": "uncertainty.controlMatchingShock", "openItem": "docs/DECISIONS.md §3.8", "note": "Adding a far-ring residual draw per bootstrap iteration is the prototype's representation of control-matching error. Without it, placebo coverage on the Kootenay snapshot was 0.33 against a nominal 0.95. Method awaits approval." },
+    { "field": "gates.*", "openItem": "docs/DECISIONS.md §3.7", "note": "Gate thresholds are placeholders." }
   ]
 }

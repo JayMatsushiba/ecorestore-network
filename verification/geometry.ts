@@ -1,5 +1,5 @@
 /**
- * Spatial identity and sampling geometry (Idea 0.3 §3.10).
+ * Spatial identity and sampling geometry (docs/ARCHITECTURE.md §5).
  *
  * H3 is the index and join key. Polygon geometry carries quantities: every
  * hectare figure comes from geodesic polygon area, never from cell counts.

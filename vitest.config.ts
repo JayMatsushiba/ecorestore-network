@@ -8,6 +8,7 @@ export default defineConfig({
       'auditor/**/*.test.ts',
       'contracts/**/*.test.ts',
       'scripts/**/*.test.ts',
+      'verify/**/*.test.ts',
     ],
     testTimeout: 30_000,
   },

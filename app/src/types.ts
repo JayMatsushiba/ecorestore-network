@@ -16,6 +16,8 @@ export interface VerificationResult {
   runIndex: number;
   methodologyVersion: string;
   processingGraphVersion: string;
+  /** Which implementation of the analysis boundary produced the numbers. */
+  analysisEngine: { name: string; version: string };
   stacSceneIds: string[];
   tier0Provenance: { provenance: Provenance; catalog: string; collection: string; snapshotHash: string; note?: string };
   metric: { id: string; version: string; unit: string };
@@ -66,7 +68,7 @@ export interface AssuranceBundle {
   verdictCredential: { issuer: string; issuanceDate: string; proof?: { type: string } };
   credentialCheck: { signatureValid: boolean; schemaValid: boolean; resultHashMatches: boolean | null };
   presentation: { presentationHash: string; guardian: { stoodUp: boolean; note: string } };
-  guardianSubmission: { request: { method: string; path: string; url: string | null }; outcome: { mode: string; detail: string } };
+  guardianSubmission: { request: { method: string; path: string; url: string | null }; outcome: { mode: 'sent' | 'outbox' | 'failed'; detail: string; httpStatus?: number } };
   issuance: { broadcast?: false; partition?: string; valueHa?: number; document?: { uri: string; documentHash: string }; prepared?: false; reason?: string };
   contract: {
     broadcast: boolean;
@@ -74,4 +76,11 @@ export interface AssuranceBundle {
     verifyMilestone: { calldata: string; status: number; lowerBoundQuantity: string };
   };
   auditorReport: { narrative: string; anomalies: Array<{ code: string; severity: string; detail: string }>; boundary: { llmUsed: boolean } };
+  /** Present on bundles produced by the verify service; absent on older committed bundles. */
+  runtime?: { analysisEngine: { name: string; version: string }; computedAt: string };
 }
+
+/** Where the bundle on screen came from. */
+export type BundleSource =
+  | { kind: 'live'; elapsedMs: number }
+  | { kind: 'static'; reason: string };

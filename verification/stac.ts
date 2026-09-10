@@ -56,7 +56,11 @@ export async function searchSentinel2(opts: StacSearchOptions): Promise<SceneRec
       next = json.links?.find((l) => l.rel === 'next')?.body?.token;
     } while (next);
   }
-  return [...scenes.values()].sort((a, b) => a.datetime.localeCompare(b.datetime));
+  // `sceneId` breaks datetime ties. Two granules of the same pass share an
+  // acquisition datetime; without the tie-break the order is the catalogue's
+  // paging order, and this array is canonicalised into `snapshotHash`.
+  // Must match `analysis/ecorestore_analysis/stac.py`.
+  return [...scenes.values()].sort((a, b) => a.datetime.localeCompare(b.datetime) || a.sceneId.localeCompare(b.sceneId));
 }
 
 function toSceneRecord(item: StacItem): SceneRecord | null {

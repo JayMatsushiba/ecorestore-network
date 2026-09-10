@@ -132,7 +132,8 @@ Never:
 Use:
 
 * simulated dataset / simulated observation (Tiers 1-3);
-* real Sentinel-2 / Sentinel-1 acquisition, with scene IDs (Tier 0);
+* real Sentinel-2 acquisition, with scene IDs (Tier 0) — Sentinel-1 is not ingested and
+  must not be shown as acquired;
 * demonstration outcome;
 * prototype verification.
 
@@ -158,7 +159,8 @@ Do not cut the scientific core to add cosmetic features.
    and ring geometry, analysis plan hash and run index, obligation status, transaction
    references, verdict VC.
 
-Plus the **assurance-adjusted comparison** — *"11.2 ha defensible vs. 42 ha at risk"* —
-because the value proposition is insurance against restatement, not units per dollar.
+Plus the **assurance-adjusted comparison**, generated from the result — on current data
+*"2.2271 ha defensible vs. 42 ha at risk"* — because the value proposition is insurance
+against restatement, not units per dollar.
 A buyer told they get a third of the credits buys elsewhere; a buyer told their units
 survive assurance does not.

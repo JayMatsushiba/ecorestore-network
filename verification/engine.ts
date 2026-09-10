@@ -1,5 +1,5 @@
 /**
- * Deterministic verification engine (docs/VERIFICATION.md, Idea 0.3 §3).
+ * Deterministic verification engine (docs/VERIFICATION.md).
  *
  *   Evidence → Baseline → Parcel observation → Controls drawn by the committed
  *   rule (near + far ring) → Parallel-trend diagnostic → DiD against the far
@@ -7,9 +7,20 @@
  *   Bootstrap uncertainty + empirical coverage → Quality and issuance gates →
  *   Lower bound → canonical VerificationResult
  *
- * The engine is a pure function of (plan, evidence, runIndex). Identical inputs
- * produce byte-identical results. Nothing here can move money or talk to an LLM.
+ * The engine is split at the boundary `docs/DEPLOYMENT.md` §7 draws:
+ *
+ *   analyseTier0()   everything upstream of canonicalisation — numbers only.
+ *                    This file holds the reference TypeScript implementation;
+ *                    `analysis/` holds the Python service that must agree
+ *                    with it byte-for-byte on the same inputs.
+ *   assembleResult() status resolution, Tier 1–3 gates, corroboration,
+ *                    provenance, evidence commitment, canonicalisation, hash.
+ *
+ * `verify()` composes the two with the local backend and is a pure function of
+ * (plan, evidence, runIndex, computedAt). Identical inputs produce
+ * byte-identical results. Nothing here can move money or talk to an LLM.
  */
+import type { AnalysisBackend, AnalysisEngineId, AnalysisOutput, AnalysisRequest, EstimateSummary } from './analysis-contract.js';
 import { canonicalize, cidV1Raw, keccakOf } from './canonical.js';
 import {
   SIMULATED_BANNER,
@@ -30,6 +41,9 @@ import {
 import { dayOfYear, makeRng, mean, median, ols, quantile, randomNormal, sampleSd, yearsSince2000 } from './stats.js';
 
 export const METHODOLOGY_VERSION = 'ecorestore-did-leakage-lowerbound-1.0.0';
+
+/** Identity of the reference TypeScript analysis implementation. */
+export const LOCAL_ENGINE: AnalysisEngineId = { name: 'ecorestore-analysis-ts', version: '1.0.0' };
 
 export interface EngineInput {
   projectId: string;
@@ -209,14 +223,7 @@ export function parallelTrendDiagnostic(parcel: UnitSeries, controls: UnitSeries
 // Estimator
 // ---------------------------------------------------------------------------
 
-export interface Estimate {
-  parcelChange: number;
-  farChange: number;
-  nearChange: number;
-  leakage: number;
-  did: number;
-  additional: number;
-}
+export type Estimate = EstimateSummary;
 
 function change(u: UnitSeries): number {
   return u.postComposite! - u.preLevel!;
@@ -327,22 +334,106 @@ function hashId(s: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Analysis — the numbers, and nothing else (reference implementation)
 // ---------------------------------------------------------------------------
 
-export function verify(input: EngineInput): VerificationResult {
+/**
+ * The reference implementation of the analysis boundary. Pure in
+ * (plan, snapshot). Returns numbers only; see `analysis-contract.ts`.
+ */
+export function analyseTier0(plan: AnalysisPlan, t0: Tier0Snapshot): AnalysisOutput {
+  const series = buildUnitSeries(t0, plan);
+  const parcelSeries = series.find((u) => u.unit.zone === 'parcel');
+  if (!parcelSeries) throw new Error('snapshot has no parcel unit');
+  const parcelCells = series.filter((u) => u.unit.zone === 'parcel_cell' && u.preLevel !== null && u.postComposite !== null);
+  const areaHa = parcelSeries.unit.areaHa;
+
+  const scenesPerWindow = [...plan.windows.pre, ...plan.windows.post].map((w) => ({
+    label: w.label,
+    usable: scenesInWindow(t0, plan, w).filter((id) => t0.observations[id]?.ndvi[parcelSeries.index] != null).length,
+  }));
+
+  const target = { preLevel: parcelSeries.preLevel ?? NaN, preSlope: parcelSeries.preSlope ?? NaN };
+  const far = drawControls('far', target, series, plan);
+  const near = drawControls('near', target, series, plan);
+  const enoughControls = far.matched.length >= plan.controlRule.matching.minMatched;
+
+  const pt = enoughControls
+    ? parallelTrendDiagnostic(parcelSeries, far.matched, plan)
+    : { status: 'NOT_EVALUATED' as GateStatus, slopeDiffPerYear: NaN, pValue: NaN, nObservations: 0, criterion: 'not evaluated: insufficient controls' };
+
+  const parcelChange = parcelSeries.postComposite !== null && parcelSeries.preLevel !== null ? change(parcelSeries) : NaN;
+  const est = enoughControls && Number.isFinite(parcelChange) ? estimate(parcelChange, far.matched, near.matched, plan) : null;
+
+  const alpha = 1 - plan.uncertainty.confidenceLevel;
+  let interval: AnalysisOutput['interval'] = null;
+  if (est) {
+    const draws = bootstrapAdditionalHa(parcelCells.length > 0 ? parcelCells : [parcelSeries], far.matched, near.matched, areaHa, plan, plan.uncertainty.bootstrapIterations, plan.uncertainty.seed);
+    interval = { lower: round4(quantile(draws, alpha / 2)), upper: round4(quantile(draws, 1 - alpha / 2)) };
+  }
+  const coverage = est ? empiricalCoverage(series, plan, plan.uncertainty.seed) : { empirical: null, placebos: 0 };
+
+  const lossCells = parcelCells.filter((c) => change(c) < plan.gates.noNetHabitatLoss.ndviDropThreshold);
+  const lossArea = lossCells.reduce((s, c) => s + c.unit.areaHa, 0);
+  const cellArea = parcelCells.reduce((s, c) => s + c.unit.areaHa, 0);
+
+  const usableScenes = Object.values(t0.observations).filter((o) => o.ndvi[parcelSeries.index] != null).length;
+
+  return {
+    engine: LOCAL_ENGINE,
+    planHash: keccakOf(plan),
+    snapshotHash: t0.snapshotHash,
+    parcel: {
+      unitId: parcelSeries.unit.unitId,
+      areaHa,
+      preLevel: parcelSeries.preLevel,
+      preSlope: parcelSeries.preSlope,
+      postComposite: parcelSeries.postComposite,
+      changeIndex: Number.isFinite(parcelChange) ? parcelChange : null,
+    },
+    parcelCells: { count: parcelCells.length, areaHa: cellArea, lossCellFraction: cellArea > 0 ? lossArea / cellArea : 1 },
+    stacSceneIds: [...plan.windows.pre, ...plan.windows.post].flatMap((w) => scenesInWindow(t0, plan, w)).sort(),
+    scenesPerWindow,
+    controlSets: [summariseControls(far, plan.controlRule.farRing), summariseControls(near, plan.controlRule.nearRing)],
+    parallelTrend: { status: pt.status, slopeDiffPerYear: finiteOrNull(pt.slopeDiffPerYear), pValue: finiteOrNull(pt.pValue), nObservations: pt.nObservations, criterion: pt.criterion },
+    estimate: est,
+    interval,
+    coverage,
+    tier0Usable: { usableScenes, totalScenes: t0.scenes.length },
+  };
+}
+
+/** Build the boundary request for a plan and snapshot: canonical bytes plus hash receipts. */
+export function analysisRequest(plan: AnalysisPlan, t0: Tier0Snapshot): AnalysisRequest {
+  const { snapshotHash, ...unhashed } = t0;
+  return { planCanonical: canonicalize(plan), planHash: keccakOf(plan), tier0Canonical: canonicalize(unhashed), snapshotHash };
+}
+
+/** The in-process reference backend. */
+export const localBackend: AnalysisBackend = {
+  engine: LOCAL_ENGINE,
+  analyse(req) {
+    const plan = JSON.parse(req.planCanonical) as AnalysisPlan;
+    const t0 = { ...(JSON.parse(req.tier0Canonical) as Omit<Tier0Snapshot, 'snapshotHash'>), snapshotHash: req.snapshotHash };
+    return Promise.resolve(analyseTier0(plan, t0));
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Assembly — status, Tier 1–3 gates, provenance, commitment, hash
+// ---------------------------------------------------------------------------
+
+export function assembleResult(input: EngineInput, a: AnalysisOutput): VerificationResult {
   const { plan, evidence, parcel, runIndex } = input;
   const t0 = evidence.tier0;
   if (t0.provenance !== 'REAL' && !t0.syntheticEffectNote) {
     throw new Error('A non-REAL Tier 0 snapshot must declare syntheticEffectNote');
   }
   const analysisPlanHash = keccakOf(plan);
+  if (a.planHash !== analysisPlanHash) throw new Error(`analysis was computed under plan ${a.planHash}, expected ${analysisPlanHash}`);
+  if (a.snapshotHash !== t0.snapshotHash) throw new Error(`analysis was computed over snapshot ${a.snapshotHash}, expected ${t0.snapshotHash}`);
   const computedAt = input.computedAt ?? new Date().toISOString();
-  const series = buildUnitSeries(t0, plan);
-  const parcelSeries = series.find((u) => u.unit.zone === 'parcel');
-  if (!parcelSeries) throw new Error('snapshot has no parcel unit');
-  const parcelCells = series.filter((u) => u.unit.zone === 'parcel_cell' && u.preLevel !== null && u.postComposite !== null);
-  const areaHa = parcelSeries.unit.areaHa;
+  const areaHa = a.parcel.areaHa;
   const claimed = evidence.tier3.claim.value;
   const postWindow = plan.windows.post[plan.windows.post.length - 1]!;
   const window: ObservationWindow = { label: 'verification', start: plan.windows.pre[0]!.start, end: postWindow.end };
@@ -353,56 +444,36 @@ export function verify(input: EngineInput): VerificationResult {
   const evidenceGateFailures: string[] = [];
 
   // Evidence sufficiency — scenes per window.
-  for (const w of [...plan.windows.pre, ...plan.windows.post]) {
-    const n = scenesInWindow(t0, plan, w).filter((id) => t0.observations[id]?.ndvi[parcelSeries.index] != null).length;
-    const ok = n >= plan.minScenesPerWindow;
-    gates.push({ name: `scenes:${w.label}`, status: ok ? 'PASS' : 'FAIL', detail: `${n} usable scenes (min ${plan.minScenesPerWindow})`, provenance: 'REAL' });
-    if (!ok) evidenceGateFailures.push(`${w.label} has ${n} usable scenes`);
+  for (const w of a.scenesPerWindow) {
+    const ok = w.usable >= plan.minScenesPerWindow;
+    gates.push({ name: `scenes:${w.label}`, status: ok ? 'PASS' : 'FAIL', detail: `${w.usable} usable scenes (min ${plan.minScenesPerWindow})`, provenance: 'REAL' });
+    if (!ok) evidenceGateFailures.push(`${w.label} has ${w.usable} usable scenes`);
   }
 
-  const target = { preLevel: parcelSeries.preLevel ?? NaN, preSlope: parcelSeries.preSlope ?? NaN };
-  const far = drawControls('far', target, series, plan);
-  const near = drawControls('near', target, series, plan);
-  const enoughControls = far.matched.length >= plan.controlRule.matching.minMatched;
-  gates.push({ name: 'controls:far_ring', status: enoughControls ? 'PASS' : 'FAIL', detail: `${far.matched.length} matched of ${far.candidates} candidates (min ${plan.controlRule.matching.minMatched})`, provenance: 'REAL' });
-  if (!enoughControls) evidenceGateFailures.push(`only ${far.matched.length} far-ring controls matched`);
+  const far = a.controlSets.find((c) => c.ring === 'far')!;
+  const enoughControls = far.matched >= plan.controlRule.matching.minMatched;
+  gates.push({ name: 'controls:far_ring', status: enoughControls ? 'PASS' : 'FAIL', detail: `${far.matched} matched of ${far.candidates} candidates (min ${plan.controlRule.matching.minMatched})`, provenance: 'REAL' });
+  if (!enoughControls) evidenceGateFailures.push(`only ${far.matched} far-ring controls matched`);
 
-  const pt = enoughControls
-    ? parallelTrendDiagnostic(parcelSeries, far.matched, plan)
-    : { status: 'NOT_EVALUATED' as GateStatus, slopeDiffPerYear: NaN, pValue: NaN, nObservations: 0, criterion: 'not evaluated: insufficient controls' };
+  const pt = a.parallelTrend;
   gates.push({ name: 'parallel_trend', status: pt.status, detail: `Δslope ${fmt(pt.slopeDiffPerYear)} NDVI/yr, p ${fmt(pt.pValue)}, n ${pt.nObservations}`, provenance: 'REAL' });
   if (pt.status === 'FAIL') evidenceGateFailures.push('parallel-trend diagnostic failed');
 
-  const controlSets: ControlSetSummary[] = [summariseControls(far, plan.controlRule.farRing), summariseControls(near, plan.controlRule.nearRing)];
-
-  const parcelChange = parcelSeries.postComposite !== null && parcelSeries.preLevel !== null ? change(parcelSeries) : NaN;
-  const est = enoughControls && Number.isFinite(parcelChange) ? estimate(parcelChange, far.matched, near.matched, plan) : null;
-
-  // Uncertainty
-  const alpha = 1 - plan.uncertainty.confidenceLevel;
-  let lower = NaN;
-  let upper = NaN;
-  if (est) {
-    const draws = bootstrapAdditionalHa(parcelCells.length > 0 ? parcelCells : [parcelSeries], far.matched, near.matched, areaHa, plan, plan.uncertainty.bootstrapIterations, plan.uncertainty.seed);
-    lower = round4(quantile(draws, alpha / 2));
-    upper = round4(quantile(draws, 1 - alpha / 2));
-  }
-  const coverage = est ? empiricalCoverage(series, plan, plan.uncertainty.seed) : { empirical: null, placebos: 0 };
+  const est = a.estimate;
+  const lower = a.interval ? a.interval.lower : NaN;
+  const upper = a.interval ? a.interval.upper : NaN;
   const intervalValid = Number.isFinite(lower) && Number.isFinite(upper) && lower <= upper;
 
   // Issuance gates
-  const lossCells = parcelCells.filter((c) => change(c) < plan.gates.noNetHabitatLoss.ndviDropThreshold);
-  const lossArea = lossCells.reduce((s, c) => s + c.unit.areaHa, 0);
-  const cellArea = parcelCells.reduce((s, c) => s + c.unit.areaHa, 0);
-  const lossFraction = cellArea > 0 ? lossArea / cellArea : 1;
-  const noNetLossOk = parcelCells.length > 0 && lossFraction <= plan.gates.noNetHabitatLoss.maxLossCellFraction;
+  const lossFraction = a.parcelCells.lossCellFraction;
+  const noNetLossOk = a.parcelCells.count > 0 && lossFraction <= plan.gates.noNetHabitatLoss.maxLossCellFraction;
   gates.push({ name: 'no_net_habitat_loss', status: noNetLossOk ? 'PASS' : 'FAIL', detail: `${(lossFraction * 100).toFixed(1)}% of parcel area dropped below ΔNDVI ${plan.gates.noNetHabitatLoss.ndviDropThreshold} (max ${plan.gates.noNetHabitatLoss.maxLossCellFraction * 100}%)`, provenance: 'REAL' });
 
   const nativeOk = evidence.tier1.nativeSpeciesFraction >= plan.gates.nativeSpeciesFraction.min;
   gates.push({ name: 'native_species_fraction', status: nativeOk ? 'PASS' : 'FAIL', detail: `${evidence.tier1.nativeSpeciesFraction} (min ${plan.gates.nativeSpeciesFraction.min}) — SIMULATED Tier 1/3`, provenance: 'SIMULATED' });
 
-  const conditionOk = parcelSeries.postComposite !== null && parcelSeries.postComposite >= plan.gates.conditionFloor.minPostNdvi;
-  gates.push({ name: 'condition_floor', status: conditionOk ? 'PASS' : 'FAIL', detail: `post-window parcel NDVI ${fmt(parcelSeries.postComposite)} (min ${plan.gates.conditionFloor.minPostNdvi})`, provenance: 'REAL' });
+  const conditionOk = a.parcel.postComposite !== null && a.parcel.postComposite >= plan.gates.conditionFloor.minPostNdvi;
+  gates.push({ name: 'condition_floor', status: conditionOk ? 'PASS' : 'FAIL', detail: `post-window parcel NDVI ${fmt(a.parcel.postComposite)} (min ${plan.gates.conditionFloor.minPostNdvi})`, provenance: 'REAL' });
 
   const issuanceGateFailures = [noNetLossOk ? null : 'no_net_habitat_loss', nativeOk ? null : 'native_species_fraction', conditionOk ? null : 'condition_floor'].filter((x): x is string => x !== null);
 
@@ -429,8 +500,8 @@ export function verify(input: EngineInput): VerificationResult {
   }
   const qualityStatus: GateStatus = evidenceGateFailures.length === 0 && issuanceGateFailures.length === 0 ? 'PASS' : 'FAIL';
 
-  const stacSceneIds = [...plan.windows.pre, ...plan.windows.post].flatMap((w) => scenesInWindow(t0, plan, w)).sort();
-  const tierCorroboration = corroborate(evidence, parcelSeries, est, areaHa, transfer);
+  const parcelChange = a.parcel.changeIndex ?? NaN;
+  const tierCorroboration = corroborate(evidence, a, est, areaHa, transfer);
   const obligationStatus = obligation(parcel);
   const evidenceDoc = { tier0: t0.snapshotHash, tier1: evidence.tier1.bundleHash, tier2: evidence.tier2.bundleHash, tier3: evidence.tier3.bundleHash };
   const evidenceHash = keccakOf(evidenceDoc);
@@ -447,7 +518,8 @@ export function verify(input: EngineInput): VerificationResult {
     runIndex,
     methodologyVersion: METHODOLOGY_VERSION,
     processingGraphVersion: t0.processingGraphVersion,
-    stacSceneIds,
+    analysisEngine: { name: a.engine.name, version: a.engine.version },
+    stacSceneIds: a.stacSceneIds,
     tier0Provenance: {
       provenance: t0.provenance,
       catalog: t0.source.catalog,
@@ -471,7 +543,7 @@ export function verify(input: EngineInput): VerificationResult {
       additionalBiophysicalIndex: round4(nz(est?.additional)),
       additionalBiophysicalHa: toHa(nz(est?.additional)),
     },
-    controlSets,
+    controlSets: a.controlSets,
     parallelTrend: { status: pt.status, slopeDiffPerYear: nz(pt.slopeDiffPerYear), pValue: nz(pt.pValue), nObservations: pt.nObservations, criterion: pt.criterion },
     uncertainty: {
       interval: { lower: nz(lower), upper: nz(upper), confidenceLevel: plan.uncertainty.confidenceLevel },
@@ -480,9 +552,9 @@ export function verify(input: EngineInput): VerificationResult {
       seed: plan.uncertainty.seed,
       empiricalCoverage: {
         nominal: plan.uncertainty.confidenceLevel,
-        empirical: coverage.empirical,
+        empirical: a.coverage.empirical,
         method: plan.uncertainty.coverage.method,
-        placebos: coverage.placebos,
+        placebos: a.coverage.placebos,
         basis: 'Placebo-in-space over far-ring units on REAL Tier 0 (truth = 0 by construction). Not held-out ground-truth plots.',
       },
     },
@@ -503,6 +575,22 @@ export function verify(input: EngineInput): VerificationResult {
   return { ...partial, resultHash: keccakOf(partial) };
 }
 
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+/** Synchronous verification with the in-process reference analysis. */
+export function verify(input: EngineInput): VerificationResult {
+  return assembleResult(input, analyseTier0(input.plan, input.evidence.tier0));
+}
+
+/** Verification with any analysis backend (in-process or the Python service). */
+export async function verifyWith(input: EngineInput, backend: AnalysisBackend): Promise<VerificationResult> {
+  const req = analysisRequest(input.plan, input.evidence.tier0);
+  const out = await backend.analyse(req);
+  return assembleResult(input, out);
+}
+
 function summariseControls(d: DrawnControls, geometry: { innerM: number; outerM: number }): ControlSetSummary {
   const m = d.matched;
   return {
@@ -518,17 +606,17 @@ function summariseControls(d: DrawnControls, geometry: { innerM: number; outerM:
   };
 }
 
-function corroborate(evidence: EvidenceBundle, parcelSeries: UnitSeries, est: Estimate | null, areaHa: number, transfer: number): TierCorroboration[] {
+function corroborate(evidence: EvidenceBundle, a: AnalysisOutput, est: Estimate | null, areaHa: number, transfer: number): TierCorroboration[] {
   const t0 = evidence.tier0;
-  const usable = Object.values(t0.observations).filter((o) => o.ndvi[parcelSeries.index] != null).length;
-  const tier0Score = t0.scenes.length > 0 ? round4(usable / t0.scenes.length) : 0;
+  const { usableScenes, totalScenes } = a.tier0Usable;
+  const tier0Score = totalScenes > 0 ? round4(usableScenes / totalScenes) : 0;
   const out: TierCorroboration[] = [
     {
       tier: 0,
       label: t0.provenance === 'REAL' ? 'Sentinel-2 L2A (REAL)' : 'Sentinel-2 L2A with SYNTHETIC EFFECT INJECTED (SIMULATED)',
       provenance: t0.provenance,
       score: tier0Score,
-      note: `${usable} of ${t0.scenes.length} scenes usable over the parcel after SCL masking`,
+      note: `${usableScenes} of ${totalScenes} scenes usable over the parcel after SCL masking`,
     },
   ];
   const t1 = evidence.tier1;
@@ -556,6 +644,10 @@ function obligation(parcel: ParcelRecord): ObligationStatus {
 
 function nz(x: number | undefined | null): number {
   return x === undefined || x === null || !Number.isFinite(x) ? 0 : x;
+}
+
+function finiteOrNull(x: number): number | null {
+  return Number.isFinite(x) ? x : null;
 }
 
 function fmt(x: number | null | undefined): string {

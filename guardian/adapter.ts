@@ -1,5 +1,5 @@
 /**
- * Hedera Guardian adapter (docs/GUARDIAN.md, Idea 0.3 §4.4).
+ * Hedera Guardian adapter (docs/GUARDIAN.md).
  *
  * Guardian is the issuance authority and is NOT stood up for the hackathon.
  * This module makes the seam real:
@@ -363,7 +363,7 @@ export function buildPresentation(vc: VerdictCredential, result: VerificationRes
     ecorestoreResult: result,
     guardian: {
       stoodUp: false,
-      note: 'Guardian is not stood up for this prototype (Idea 0.3 §4.4.2). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.',
+      note: 'Guardian is not stood up for this prototype (docs/GUARDIAN.md). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.',
       dropInPoint: {
         externalDataBlock: 'POST /api/v1/external/{policyId}/{blockTag} with this VC as `document` — see buildExternalDataRequest()',
         vvbReviewScope: ['pipeline configuration', 'pre-registered analysis plan honoured (analysisPlanHash, runIndex)', 'parallel-trend diagnostic passing'],
@@ -406,24 +406,61 @@ export function buildExternalDataRequest(vc: VerdictCredential, target: Guardian
 }
 
 export interface SubmissionOutcome {
-  mode: 'sent' | 'outbox';
+  /**
+   * sent      the gateway answered; `httpStatus` says how.
+   * outbox    GUARDIAN_URL unset; the exact request is staged on disk.
+   * failed    GUARDIAN_URL set but the gateway could not be reached; the
+   *           request is staged to the outbox as well.
+   */
+  mode: 'sent' | 'outbox' | 'failed';
   detail: string;
   httpStatus?: number;
   outboxPath?: string;
 }
 
+/**
+ * What a 2xx from Guardian means. Guardian 3.x's external-data endpoint
+ * acknowledges receipt and hands the document to the policy engine
+ * asynchronously; it returns 200 even for a policy that does not exist. So
+ * "accepted" is a statement about the gateway, not about a policy run —
+ * a run is confirmed only inside Guardian, against a published policy whose
+ * externalDataBlock carries the block tag.
+ */
+export const GUARDIAN_ACCEPTED_NOTE =
+  'Guardian gateway acknowledged the document. Guardian acknowledges receipt before a policy consumes it, so this confirms delivery, not a policy run; a run is confirmed only inside Guardian against a published policy carrying the block tag.';
+
 export async function submitToGuardian(
   req: ExternalDataRequest,
-  opts: { outboxDir: string; fetchImpl?: typeof fetch },
+  opts: { outboxDir: string; fetchImpl?: typeof fetch; timeoutMs?: number },
 ): Promise<SubmissionOutcome> {
   if (req.url) {
     const fetchImpl = opts.fetchImpl ?? fetch;
-    const res = await fetchImpl(req.url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(req.body) });
-    return { mode: 'sent', httpStatus: res.status, detail: res.ok ? 'externalDataBlock accepted the document' : `Guardian responded ${res.status}: ${await res.text()}` };
+    try {
+      const res = await fetchImpl(req.url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(req.body),
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
+      });
+      const text = await res.text();
+      return {
+        mode: 'sent',
+        httpStatus: res.status,
+        detail: res.ok ? `HTTP ${res.status} ${text.slice(0, 120)} — ${GUARDIAN_ACCEPTED_NOTE}` : `Guardian responded ${res.status}: ${text.slice(0, 300)}`,
+      };
+    } catch (e) {
+      const outboxPath = stage(req, opts.outboxDir, `GUARDIAN_URL ${req.url} unreachable (${(e as Error).message}); request staged, NOT submitted. No Guardian policy run has occurred.`);
+      return { mode: 'failed', outboxPath, detail: `Guardian at ${req.url} unreachable: ${(e as Error).message}; request written to outbox and NOT submitted` };
+    }
   }
-  mkdirSync(opts.outboxDir, { recursive: true });
-  const name = `external-${req.body.document.credentialSubject[0].resultHash.slice(2, 18)}.json`;
-  const outboxPath = join(opts.outboxDir, name);
-  writeFileSync(outboxPath, JSON.stringify({ ...req, note: 'GUARDIAN_URL not set; request staged, NOT submitted. No Guardian policy run has occurred.' }, null, 2));
+  const outboxPath = stage(req, opts.outboxDir, 'GUARDIAN_URL not set; request staged, NOT submitted. No Guardian policy run has occurred.');
   return { mode: 'outbox', outboxPath, detail: 'GUARDIAN_URL not set; request written to outbox and NOT submitted' };
+}
+
+function stage(req: ExternalDataRequest, outboxDir: string, note: string): string {
+  mkdirSync(outboxDir, { recursive: true });
+  const name = `external-${req.body.document.credentialSubject[0].resultHash.slice(2, 18)}.json`;
+  const outboxPath = join(outboxDir, name);
+  writeFileSync(outboxPath, JSON.stringify({ ...req, note }, null, 2));
+  return outboxPath;
 }

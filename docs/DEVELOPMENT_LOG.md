@@ -2,6 +2,648 @@
 
 Newest first. One entry per milestone, per `CLAUDE.md`.
 
+Entries written before the documentation consolidation (below) cite `proposals/idea-0.3.md`
+and its section numbers. Those documents were removed from the repository once their
+load-bearing content moved into `docs/`; they remain in git history. Past entries are left
+as written rather than rewritten, because a log records what was true at the time.
+
+---
+
+## 2026-09-10 — Second review pass: stale demonstration bundles, reference drift, engine binding
+
+### Objective
+
+Act on the six findings of the re-review of PR #3 — two new, four the first pass had not
+surfaced. All six held when checked. One of them contradicted a claim this project had
+made about itself, which makes it the most important of the set.
+
+### Implementation
+
+**The committed demonstration bundles were stale.** `app/public/demo/*/assurance-bundle.json`
+carried no `result.analysisEngine` and no `runtime`, and were missing
+`presentation.document` entirely. `analysisEngine` became part of the hashed result when
+the engine was split, so these files could not be produced by the current pipeline at
+all — and the PR description claimed they had been regenerated. They were, in the review
+fix pass, *before* the engine identity existed; nothing regenerated them afterwards.
+Regenerated with `DEMO_FIXED_TIME=2026-09-10T00:00:00.000Z`; every `resultHash` moved
+(`real` `0xfc25a605…` → `0x2fb065b7…`, `synthetic` `0x8a42ed45…` → `0x9534e805…`,
+`trend-failure` `0x6ba2f1ea…` → `0x7d2d0e0b…`). A second run of the demo produces
+byte-identical files, which is what "reproducible" was supposed to mean.
+
+**`sent` is not acceptance.** `submitToGuardian()` reports any HTTP answer as `sent`, so
+the interface rendered a `500` as "submitted … gateway acknowledgement only". The
+adapter's own `detail` had this right — it attaches `GUARDIAN_ACCEPTED_NOTE` only on
+`res.ok` — and only the presentation layer overstated. Now a 2xx renders as submitted
+with the acknowledgement caveat, and anything else renders as *rejected — the gateway
+refused the document; NOT submitted and no policy run*.
+
+**The parity references were testing history.** `analysis/tests/reference/*.output.json`
+are dumps from the TypeScript engine that the Python suite replays. Nothing tied them to
+the live `analyseTier0()`, so a change there would have left `npm run test:analysis`
+green while the two engines diverged. `verification/analysis-reference.test.ts`
+recomputes all five cases — outputs, plan hashes, snapshot hashes and the gzipped
+canonical snapshots — and fails on any difference. The case definitions moved to
+`verification/analysis-reference-cases.ts`, shared with the dump script, so the check
+cannot drift from what it checks. Verified by perturbing a committed reference: the test
+fails.
+
+**The client binds to an engine.** `remoteBackend()` checked the plan and snapshot
+receipts but accepted any `engine` in the response, so a rollout between `/health` and
+`/analyse` could commit a result to one engine while callers reported another.
+Mismatches now throw, with four tests over the guards.
+
+**Host setup and build context.** `npm run test:analysis` invoked the system `python`
+regardless of the virtualenv the README had just created, and that install bypassed
+`constraints.txt` — the drift this project had already documented as a risk, written
+into its own quickstart. The script now prefers `analysis/.venv/bin/python`, and the
+README installs with `-c analysis/constraints.txt`; a fresh venv built that way resolves
+NumPy 2.5.3 / SciPy 1.18.1, the same stack as the image. Separately, the analysis image
+builds with `./analysis` as its context, so the repository-root `.dockerignore` never
+applied: `analysis/.dockerignore` now excludes the virtualenv and caches, deliberately
+keeping `tests/reference` since running parity as a build stage is a stated next step.
+
+### Tests / validation
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 11 files) | 68 passed (was 54) |
+| `npm run typecheck` | clean |
+| `npm run test:analysis` on a venv built per the README | 33 passed on NumPy 2.5.3 / SciPy 1.18.1 — the image's stack |
+| New: `verification/analysis-reference.test.ts` | 10 cases; perturbing `real.output.json` fails it, as intended |
+| New: `verification/analysis-client.test.ts` | 4 guards — engine mismatch, plan mismatch, snapshot mismatch, well-formed |
+| Demo re-run with `DEMO_FIXED_TIME` | byte-identical bundles on all three scenarios |
+| Frontend image build (`tsc -b && vite build`) | clean |
+| Full stack, three scenarios concurrently on anvil | `NOT_ADDITIONAL` / `PARTIAL` 2.2271 ha / `INSUFFICIENT_EVIDENCE`, engine `ecorestore-analysis-py 1.0.0` |
+| nginx-served fallback bundle | carries `analysisEngine` and `resultHash 0x2fb065b7…` |
+| Analysis build context | 466 MB → 469 B |
+
+### Architectural, scientific and security decisions
+
+1. **A committed artefact that the pipeline cannot reproduce is not evidence.** The
+   demonstration bundles are the offline fallback the interface shows when the API is
+   unreachable; showing a result whose hash no longer corresponds to anything is worse
+   than showing nothing.
+2. **A dump is not a test.** Reference files pin one side of a comparison. Something has
+   to keep pinning them to the thing they were dumped from.
+3. **Bind to the engine, not just to the inputs.** Receipts proved *what* was analysed;
+   the engine identity proves *by what*, and it is in the hash.
+4. **The quickstart is part of the reproducibility surface.** A pinned image and an
+   unpinned developer install is one guarantee and one hole.
+
+### Deviations from the documented design
+
+None.
+
+### Unresolved risks
+
+- A non-2xx Guardian response is not staged to the outbox: the request is neither
+  accepted nor retained, though the bundle still carries it. Unreachable and unset are
+  both staged. Worth reconciling when a real policy exists.
+- The engine version was still not bumped; see the previous entry.
+- Parity in the image is still not run as a build stage.
+
+### Next steps
+
+Unchanged: AWS deployment, a Guardian policy, and Arc Testnet deployment of
+`RestorationDeed` — the open M1 deliverable.
+
+---
+
+## 2026-09-10 — Review pass on the container stack: determinism, provenance binding, chain concurrency
+
+### Objective
+
+Act on the seven findings of an automated review of PR #3. Each was checked against the
+code before anything was changed; all seven held. Nothing here alters methodology or
+numerics — the changes close ways the *same* numbers could end up bound to the wrong
+thing, or the same inputs could stop producing the same numbers.
+
+### Implementation
+
+**Scene ordering is `(datetime, sceneId)`** in both acquisition implementations
+(`analysis/ecorestore_analysis/stac.py`, `verification/stac.ts`). Sorting by datetime
+alone is stable, so ties fell back to the catalogue's paging order — and granules of one
+pass share an acquisition datetime. The scene array is canonicalised into
+`snapshotHash`, so the commitment was dependent on the order Earth Search happened to
+page. The committed fixture has 72 distinct datetimes, so nothing moved; the hazard was
+latent, not realised.
+
+**The acquisition handoff carries its own geometry.** `acquire.py` writes
+`sourceParcel` — the `parcelId`, geometry and H3 resolution it actually read — into the
+unhashed document. `scripts/finalize-acquisition.ts` verifies that geometry hashes to the
+repository parcel's `geometryHash` and `h3Root` before attaching them, then strips the
+field. Previously it checked only `parcelId`, and `ecorestore-acquire --fixtures` will
+read any parcel it is pointed at: a snapshot derived from different coordinates would
+have been committed under the repository parcel's identity, with the provenance binding
+asserting something untrue.
+
+**Chain-backed runs are serialised** (`verify/server.ts`). Deduplication was per
+scenario, but the collision is across scenarios: every scenario deploys and settles from
+the same deterministic accounts, and two concurrent runs read the same
+`eth_getTransactionCount` and produce a replacement or a failure. `chain()` now memoises
+the setup *promise* rather than its resolved value — two concurrent first callers both
+saw `undefined` and would both have deployed — and does not cache a failure. Runs with a
+chain context queue behind one another; analysis-only runs stay concurrent.
+
+**The analysis response body is the contract's `AnalysisOutput` and nothing else.**
+`elapsedSeconds` was an undeclared, wall-clock-dependent field on a boundary whose
+output `verify` assembles into a hashed document. It moved to the
+`x-analysis-elapsed-seconds` header.
+
+**The analysis image installs against pinned constraints.** `analysis/constraints.txt`
+pins the entire resolved set. `pyproject.toml` declared `numpy>=1.26`, and the drift was
+not hypothetical: the built image carries NumPy 2.5.3 / SciPy 1.18.1 while the
+development host had 1.26.4 / 1.11.4 — two numeric stacks under one `analysisEngine
+1.0.0`, which is exactly what the identity exists to rule out. `GET /health` now reports
+the versions actually loaded (`numericStack`), surfaced through `verify`'s `/health`, so
+drift is visible without waiting for a parity run. `ENGINE` carries the rule that its
+version bumps when a pin moves.
+
+**Documentation.** `DEPLOYMENT.md` §7.4's example reported 72 usable scenes against 72
+total; the reference outputs say 61 of 72. `DECISIONS.md` carried the same error in a
+sentence that contradicted itself. `GUARDIAN.md` §10 stated that a Guardian instance
+runs alongside the stack, which contradicted §9 and the roadmap's unbuilt list; nothing
+in this repository starts Guardian, so it is now a dated validation result against a
+quickstart the operator runs separately, and §9 says what the delivered stack does and
+does not contain.
+
+### Tests / validation
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 9 files) | 54 passed |
+| `npm run typecheck` | clean |
+| pytest, run **inside** `ecorestore/analysis:latest` | 33 passed (was 29): parity still bit-exact on the image's NumPy 2.5.3 / SciPy 1.18.1 |
+| New: `test_analyse_body_is_exactly_the_contract_output` | HTTP body keys and values equal the reference — the gap that let `elapsedSeconds` through, since `test_parity` calls `analyse()` directly |
+| New: `test_identical_requests_get_identical_bodies` | two POSTs of one request return identical bytes |
+| New: `analysis/tests/test_constraints.py` | every declared dependency is pinned; no pin below its declared minimum |
+| `finalize-acquisition` on the committed fixture with a `sourceParcel` handoff | reproduces `snapshotHash 0x5be25dd2…` exactly — the handoff is stripped and does not perturb the hash |
+| Same, geometry shifted 0.01° under the correct `parcelId` | refused: `acquisition read a different geometry` |
+| Same, H3 resolution 9 instead of 10 | refused |
+| Same, no handoff at all | refused, with the instruction to re-acquire |
+
+### Architectural, scientific and security decisions
+
+1. **A matching id is not a matching parcel.** The identity attached to a snapshot must
+   be the identity of the geometry that produced it, verified, not inferred from a
+   string equal on both sides.
+2. **A named runtime is worth what its environment is worth.** `analysisEngine` is a
+   claim about which numbers come back; an unpinned NumPy makes that claim unfalsifiable.
+   The pins are part of the identity, and the rule for moving one is written where the
+   pins are.
+3. **Nothing wall-clock-dependent crosses the analysis boundary.** The receiving side
+   builds a hashed document; convenience fields are a hazard there.
+4. **Serialise on the shared resource, not on the request.** Per-scenario deduplication
+   was the wrong axis — the contention is the account, not the scenario.
+
+### Deviations from the documented design
+
+None. Every change enforces a rule the documents already stated.
+
+### Unresolved risks
+
+- Parity is verified against whatever stack is installed. The pins make the *image*
+  reproducible; a developer host installed outside `constraints.txt` still runs a
+  different NumPy, and only the parity suite would catch it. Running the parity suite as
+  a build stage in the image would close this.
+- `resultHash` is still not reproducible across service runs — `computedAt` is the wall
+  clock and the service does not yet accept a fixed time. Unchanged by this pass.
+- Chain-backed runs are now serialised, which bounds throughput to one settlement at a
+  time. Correct for a demonstration; a real deployment needs per-role nonce management.
+- The engine version was **not** bumped, because the pins record the stack the committed
+  bundles were produced on rather than changing it. The next pin move must bump it and
+  regenerate the bundles.
+
+### Next steps
+
+Unchanged from the previous entry: AWS deployment, a real Guardian policy, and Arc
+Testnet deployment of `RestorationDeed` — still the open M1 deliverable.
+
+---
+
+## 2026-09-10 — Containerised prototype: Python analysis, TypeScript verify, frontend, Guardian attached
+
+### Objective
+
+Run the prototype as containers, on the owner's instruction: the spatial analysis
+rewritten in Python "to make it easier to have a more conventional spatial analysis
+pipeline", with acquisition (batch) sharing its image; verification in its own
+container; the frontend in its own; all able to reach the Guardian instance running
+locally on `localhost:3000`; one compose file that brings up the first prototype. AWS
+deployment is deferred to a later milestone. `docs/` updated where the build differs
+from what was documented.
+
+### Implementation
+
+**The analysis boundary** (`verification/analysis-contract.ts`, `engine.ts`). The engine
+was split at the seam `DEPLOYMENT.md` §7 had proposed: `analyseTier0()` holds everything
+upstream of canonicalisation and returns numbers; `assembleResult()` holds status
+resolution, the Tier 1–3 gates, corroboration, provenance, the evidence commitment and
+the hash. `verify()` composes the two in-process and is unchanged in behaviour;
+`verifyWith(input, backend)` takes any `AnalysisBackend`. Requests cross the boundary as
+canonical bytes with hash receipts (`planHash`, `snapshotHash`); the analysis side checks
+each by hashing the opaque string and never re-serialises. The result now carries
+`analysisEngine`.
+
+**Python analysis service** (`analysis/`, `python:3.12-slim`, ~790 MB with the
+scientific stack). FastAPI: `GET /health`, `POST /analyse`. Receipts verified with
+pycryptodome keccak; a mismatch is a `422`. The pipeline ports the reference numerics:
+numpy and scipy for the regression and t-distribution; an exact port of mulberry32 whose
+stream is vectorised — the state advances by a constant, so the *n*-th output is a
+function of `(seed, n)` — and column-wise accumulation in the bootstrap so
+floating-point order matches the reference loop. Sums are sequential because Python
+3.12's built-in `sum()` compensates float error and does not reproduce the reference.
+
+**Parity.** `scripts/dump-analysis-reference.ts` writes five (request, output) pairs from
+the TypeScript side; `analysis/tests/test_parity.py` replays them and asserts every
+number equal. The first run differed in exactly two values (the compensated sum); after
+the fix, all five cases are bit-identical: interval, coverage, control sets, regression.
+The three demo scenarios computed by the two engines differ only in `analysisEngine` and
+therefore `resultHash`.
+
+**Verify service** (`verify/`, `node:22-slim` with a Foundry stage compiling the
+contracts). `verify/pipeline.ts` holds one scenario end to end and is shared with
+`scripts/demo.ts`; `verify/server.ts` exposes `/health`, `/api/scenarios`,
+`POST /api/verify/:scenario`, `/api/results`. Runs TypeScript directly via `tsx`.
+
+**Frontend** (`app/Dockerfile`: Vite build served by `nginx:alpine`, 74 MB). The page
+POSTs `/api/verify/<scenario>`, falls back to the committed bundle when the API is
+unreachable and says which it is showing, names the analysis engine, reports Guardian's
+outcome, and renders the SIMULATED banner *inside* the settlement card for the synthetic
+scenario (`DEPLOYMENT.md` §9 obligation).
+
+**Guardian.** `submitToGuardian()` has three outcomes: `sent`, `outbox`, `failed`
+(unreachable; staged to the outbox as well). Its `2xx` message states that the gateway
+acknowledged delivery, not that a policy ran.
+
+**Compose.** `docker-compose.yml`: `analysis` on an `internal: true` network (no
+gateway); `verify` on `internal` + `edge`, published on `127.0.0.1:8090`; `frontend` on
+`edge`, published on `127.0.0.1:3001`; profiles `chain` (anvil) and `acquire` (batch
+job). `docker-compose.override.yml`, merged by default, joins `verify` — only `verify` —
+to `guardian-quickstart_default` and points it at Guardian's `web-proxy`.
+
+**Acquisition in Python** (`acquire.py`, `geometry.py`, `stac.py`, `cog.py`; processing
+graph `2.0.0`): pystac-client, rasterio windowed reads, h3 + shapely + pyproj frame. It
+writes an *unhashed* snapshot; `scripts/finalize-acquisition.ts` (`npm run
+acquire:finalize`) attaches `geometryHash`, `h3Root` and `snapshotHash`, compares with
+the committed fixture, and writes it. The committed fixture was not replaced.
+
+### Tests / validation
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 9 files) | 54 passed — unchanged after the engine split |
+| `npm run typecheck` | clean, including `verify/` and the new scripts |
+| `npm run test:analysis` (pytest) | 29 passed — 5 parity cases bit-exact, RNG stream, server, acquisition geometry |
+| `docker compose config` (with and without override) | valid |
+| `docker compose up` + three scenarios via `localhost:3001/api/verify/*` | `NOT_ADDITIONAL` / `PARTIAL` 2.2271 ha / `INSUFFICIENT_EVIDENCE`; engine `ecorestore-analysis-py 1.0.0`; 0.2–0.3 s each |
+| Guardian 3.7.0 quickstart, from `verify` | `POST /api/v1/external/…` → `200 true` on all three; `/health` sees Guardian (`401` on an authenticated probe) |
+| Network containment | from `analysis`: Earth Search and `web-proxy` unreachable; from `verify`: `web-proxy` answers |
+| `--profile chain` (anvil) | synthetic: 11 transactions, milestone `RELEASED`, restorer +22,056.50 (18,000 mobilisation + 4,056.50), steward +2,450.72, retained 795.39; real: milestone `FAILED`, mobilisation only |
+| `--profile acquire --limit 2` (network, in Docker) | same 402×382 grid, same 857 units (253 / 83 / 520), parcel NDVI identical to the fixture on both scenes; finalize: `geometryHash` and `h3Root` unchanged |
+| Host smoke, `--limit 3` | 856 of 857 units shared with the 1.0.0 frame; 91 % of unit NDVI values bit-identical; max difference 0.02 on ring-edge units |
+
+### Architectural, scientific and security decisions
+
+Made within the implementation mandate; the numerics were ported, not changed.
+
+1. **Bit-exact parity is the acceptance test for the Python engine**, not tolerance. Two
+   engines that agree on every number are interchangeable behind one contract; two that
+   agree "closely" are two methodologies. The seeded generator is therefore ported
+   rather than replaced with numpy's, and sums keep the reference order.
+2. **The engine is named in the result.** Determinism is per runtime (`DEPLOYMENT.md`
+   §5), so the runtime is part of the commitment. Same inputs through the two engines
+   give the same quantities and different `resultHash` values.
+3. **Python never hashes what it produced.** Analysis echoes receipts it was given;
+   acquisition writes an unhashed document and TypeScript finalises it. The
+   one-canonicaliser rule is kept structurally, not by convention.
+4. **Containment by topology.** `analysis` has no route to anything; `verify` is the
+   only container on Guardian's network. Checked, not assumed.
+5. **Guardian's `200` is delivery.** Guardian 3.7 queues and acknowledges before the
+   policy engine looks for the policy — a nonexistent policy ID also gets `200`. Reported
+   as gateway acknowledgement everywhere it appears.
+6. **The snapshot travels inline.** The synthetic scenario's snapshot exists only in
+   memory on the verify side; a shared volume cannot carry it.
+
+### Deviations from the documented design
+
+- `DEPLOYMENT.md` §7.7 listed the frontend-as-container as an anti-pattern; built on the
+  owner's instruction, with the reason recorded (§7.8). The static path stands.
+- `CLAUDE.md`'s M1 scope excludes Guardian integration; the owner asked for the
+  containers to reach the local Guardian. Delivery to a running instance is done;
+  policy authoring is not.
+- The proposal's compose `secrets:` block is not used locally; `VERIFIER_SEED` is an
+  environment variable with a demonstration default. §8 still governs deployment.
+- `verify` ships development dependencies and runs `tsx`; a compiled build is deferred.
+- Acquisition graph 2.0.0 uses ellipsoidal areas and projected-plane ring buffers, so
+  ring candidates and hectare figures differ slightly from 1.0.0 (parcel 48.95 → 49.10
+  ha). Recorded in `processingGraphVersion`; the 1.0.0 fixture remains committed.
+
+### Unresolved risks
+
+- No Guardian policy exists; the seam is delivery-only until one is authored, published
+  and the verifier DID registered against its `externalDataBlock`.
+- Images are large (`verify` 1.05 GB, `analysis` 790 MB) — dev dependencies and the
+  full scientific stack. Fine for a prototype; a compiled `verify` and a
+  two-image split for `analysis`/`acquire` would halve them.
+- `docker compose up` requires Guardian's network to exist because the override is
+  merged by default; without Guardian the `-f docker-compose.yml` form must be used.
+- `resultHash` is not reproducible across runs of the service because `computedAt` is
+  the wall clock (already recorded in the review fix pass); the service does not yet
+  accept a fixed time.
+- Verification runs are unauthenticated; the API is bound to loopback and is not meant
+  to be exposed as is.
+
+### Next steps
+
+1. AWS deployment of the compose stack beside Guardian on one host (`DEPLOYMENT.md`
+   §7.7), Terraform or CDK to be chosen; the credit is unspent.
+2. Author and publish a Guardian policy with an `externalDataBlock` tagged
+   `ecorestore_verdict_ingest`; register the verifier DID; then the `200` means a run.
+3. Deploy `RestorationDeed` to Arc Testnet — still the open M1 deliverable.
+4. Decide whether to promote a full 2.0.0 acquisition to the committed fixture.
+
+---
+
+## 2026-09-10 — Review fix pass: doc/code contradictions, restored decisions, regenerated plan hash
+
+### Objective
+
+Act on a max-effort review of the consolidation. Fifteen findings, most of them introduced
+by moving proposal prose into documents that read as descriptions of a built system.
+
+### Implementation
+
+**Restored two decisions lost in the deletion.** `VERIFICATION.md` §11 regains the
+separation of conservatism from pricing: the lower-bound rule alone loads all measurement
+uncertainty onto the restorer including the uncontrollable part, which pays best for large
+uniform temperate plantings and penalises the biomes where need is highest; the fix is a
+difficulty premium against the ex-ante expected interval width. `DECISIONS.md` §5 now
+states the bound and the premium as one rule, since preserving the first without the second
+reproduces the outcome the design exists to avoid. `ARC.md` §4 regains monitoring decoupled
+from payment — tranches end at 36 months, observation runs the full obligation term.
+
+**Regenerated the plan hash.** The seven `openItem` citations in `analysis-plan.json`
+`provisional[]` now cite `docs/DECISIONS.md` §3. Because that block is hashed,
+`analysisPlanHash` moved `0xf9b5265f…` → `0xa901a322…`, and every downstream `resultHash`,
+credential and bundle with it. Bundles were regenerated with `DEMO_FIXED_TIME` pinned to
+`2026-09-10T00:00:00.000Z`, so the committed artefacts are now reproducible rather than
+carrying a wall-clock timestamp. Citations in the contract, engine, models, geometry,
+adapter, issuance and demo were rewritten; the Guardian `note` string embedded in every
+bundle no longer cites a deleted document.
+
+**Corrected claims that were false about the code.** `X402.md` §5.2 stated three
+safeguards as implemented; two were overstated. `verify()` is deterministic in
+`(plan, evidence, runIndex, computedAt)` and *not* pure in the first three — `computedAt`
+defaults to the wall clock and is inside the hash — so the replay guard deduplicates
+nothing across re-runs. The `RUN_COUNT` anomaly reaches `critical` at three hidden runs,
+not at one, so the alarm as tuned tolerates two silent runs per submission. Both now carry
+what must change before metering ships. `DEPLOYMENT.md` §7.4 described `evidenceHash` as a
+hash of the snapshot's raw file bytes; it is a four-field digest, the inner `snapshotHash`
+is itself a canonical hash over the object minus that field, and a raw-bytes hash matches
+neither — following the doc would have forced the second canonicaliser §7.1 forbids.
+
+**Fixed the compose skeleton**, which did not validate: `secrets: [verifier_seed]` had no
+top-level definition, and the `internal` network lacked `internal: true`, so the
+containment §7.3 claims as structural did not exist. It also passed `ARC_TESTNET_RPC_URL`,
+which no TypeScript reads, instead of `DEMO_RPC_URL`.
+
+**Corrected provenance claims.** The datasets table marked eight never-acquired datasets
+`REAL` in a column whose peer rows read `SIMULATED, LABELLED`; it now separates *kind* from
+*acquired*, and only Sentinel-2 is acquired. `ARCHITECTURE.md` §4 and `DEMO.md` no longer
+assert Sentinel-1, Landsat and ICESat-2 acquisitions.
+
+**Marked designed-but-unbuilt surfaces as such** rather than deleting them — pooled deeds
+and the Privy treasury flow. Pooled deeds additionally records that `fundDeed()` accepts
+any address while `reclaim()` returns everything to the sponsor, so a second contributor
+has no claim today.
+
+**Milestone honesty.** `CLAUDE.md`'s Current Milestone described a contracts-first ordering
+and listed as unimplemented a set of things the repository contains. It now states what is
+built, that Arc Testnet deployment is the one remaining M1 deliverable, and a rule: when
+the section and the repository disagree, fix the section. `ARCHITECTURE.md` §8 and
+`ROADMAP.md` §2 gain the same built/not-done split. x402 was added to the authority tables
+in `CLAUDE.md` and `README.md`, which still listed six components.
+
+Smaller corrections: `PRODUCT.md`'s "13.1 ha" and `DEMO.md`'s "11.2 ha" replaced with the
+figures the code generates; `README.md` 28 → 31 contract tests; the Creston Valley site
+described as interior rather than coastal, with scene availability recorded as resolved;
+`DEPLOYMENT.md`'s tier count, byte counts and timing scoped correctly; the `real` landing
+state recorded as already implemented; a seventh and eighth open approval added to
+`DECISIONS.md` §3 with the gate thresholds written out, since seven provisional fields were
+listed against six approvals and the thresholds appeared in no document.
+
+### Tests / validation
+
+- `npm test` — 54 passed, 9 files, after the citation and fixture changes.
+- `npm run typecheck` — clean.
+- `npm run demo` with `DEMO_FIXED_TIME` — three scenarios, unchanged outcomes
+  (`NOT_ADDITIONAL`, `PARTIAL` at 2.2271 ha, `INSUFFICIENT_EVIDENCE`). The estimates did
+  not move; only the plan hash and the hashes over it did.
+- The corrected compose block was validated with `docker compose config`: exit 0, with
+  `internal: true` and the secret resolving. The previous block was confirmed invalid.
+- No reference to the removed proposals remains in `docs/`, `README.md`, `CLAUDE.md`, or in
+  any TypeScript, Solidity or fixture file — this time the sweep covered code.
+
+### Architectural, scientific and security decisions
+
+- **Aspirational documentation is allowed; false statements about code are not.** Design
+  intent stays, marked as design. A claim that evidence exists, that a safeguard is
+  implemented, or that a command works is checked against the tree.
+- **Provenance is not subject to the above.** A dataset that has not been ingested may not
+  be marked real in a provenance table, and no interface may show scene IDs for an
+  unacquired sensor.
+- **`computedAt` must stop defaulting to the wall clock** before metered verification
+  ships. Recorded in `X402.md` §5.2 rather than changed here, because it alters every
+  published hash and belongs with the M6 decision.
+
+### Deviations from the documented design
+
+None. Restorations reinstate previously adopted decisions; the rest are corrections.
+
+### Unresolved risks
+
+- `computedAt` still defaults to the wall clock, so `resultHash` is not reproducible unless
+  a caller pins it. The committed artefacts pin it; nothing enforces that.
+- The `RUN_COUNT` threshold of three is unchanged. It is defensible without a paywall and
+  not with one.
+- Pooled funding remains reachable: `fundDeed()` still accepts any address. The
+  documentation now warns, but the contract does not prevent it.
+- The eight open methodology approvals in `DECISIONS.md` §3 still block M2.
+
+### Next steps
+
+1. Deploy `RestorationDeed` to Arc Testnet — the remaining M1 deliverable.
+2. Decide whether `fundDeed()` should be restricted to the sponsor for now.
+3. Settle the open methodology approvals before M2 work begins.
+
+---
+
+## 2026-09-10 — Documentation consolidation: `docs/` becomes the source of truth
+
+### Objective
+
+Move the load-bearing content out of `proposals/` and `ideation/` into `docs/`, then
+remove both directories, on the owner's instruction that the proposal and ideation
+documents are starting points rather than binding rules and that further updates are made
+against `docs/`. No code changed.
+
+### Implementation
+
+Three documents created to carry content that existed nowhere in `docs/`:
+
+- `docs/PRODUCT.md` — one-page summary, positioning, the honest market figures, the
+  corporate buyer and the regulatory drivers, the restatement-risk framing, supply-side
+  design constraint, sponsor stack, treasury controls and pooled deeds, and the central
+  rule.
+- `docs/ROADMAP.md` — build sequence ordered against September 30, the M0–M7 table, M0's
+  honest state, out-of-scope list and cut order.
+- `docs/DECISIONS.md` — decisions and the reasons behind them, the six methodology
+  decisions still requiring approval, open questions and risks, and the constraints not
+  open to revision.
+
+Existing documents absorbed the rest: the dataset table into `VERIFICATION.md` §3, cohort
+verification into `ARC.md`. Every reference to the removed documents was rewritten to
+point at `docs/` — 28 sites across `ARCHITECTURE.md`, `VERIFICATION.md`, `ARC.md`,
+`X402.md`, `DEPLOYMENT.md`, `README.md` and `CLAUDE.md`.
+
+`CLAUDE.md` no longer names a canonical proposal. It points at `docs/` and states that
+these are working documents, with the exception of the constraints in `DECISIONS.md` §5.
+
+`ideation/` and `proposals/` removed — 4777 lines across eight files.
+
+### Tests / validation
+
+No code changed. Validation was documentary:
+
+- No reference to `idea-0.3`, `idea-0.2`, `proposals/`, `ideation/` or `proposal_review`
+  remains in `docs/`, `README.md` or `CLAUDE.md`, except in the historical log entries
+  below, which are deliberately preserved.
+
+  **This sweep was scoped to prose and missed the code.** 42 further references survived
+  in TypeScript, Solidity and fixture files, including seven `openItem` citations inside
+  the `provisional[]` block of `analysis-plan.json` — a hashed field, so the stale
+  citations were committed into `analysisPlanHash` itself. Corrected in the following
+  entry.
+- Every claim carried across was taken from the source text rather than paraphrased from
+  memory: the BNG and VCM figures, the regulatory drivers, the milestone table, the risk
+  assessments and the six open approvals.
+
+### Architectural, scientific and security decisions
+
+- **`docs/` is the source of truth.** A single baseline document that must not be
+  modified, sitting alongside documentation that must be, produced two sources of truth
+  and a rule against updating the more authoritative one. Working documents that are
+  expected to change are the more honest arrangement.
+- **Reconciliation provenance was not carried across.** The tables recording which of the
+  four source documents each decision came from are archaeology once those documents are
+  gone; git history holds them. What was carried is the *reason* for each decision, which
+  is what stops a later contributor re-proposing something already rejected for cause.
+- **The non-negotiable constraints are stated as such** in `DECISIONS.md` §5 — the AI
+  settlement boundary, real-versus-simulated labelling, pre-registration, lower-bound
+  settlement, and `INSUFFICIENT_EVIDENCE` as a valid outcome. Loosening the proposal's
+  authority should not loosen those.
+
+### Deviations from the documented design
+
+None. This is a relocation of content, not a revision of it. Where wording was tightened,
+the substance and the figures are unchanged.
+
+### Unresolved risks
+
+- The six methodology decisions in `DECISIONS.md` §3 remain unapproved and still block M2.
+- Historical log entries reference section numbers that no longer resolve to a file in the
+  working tree. The header note above explains this; the alternative was rewriting a dated
+  record, which is worse.
+
+### Next steps
+
+1. Deploy `RestorationDeed` to Arc Testnet — M1 is not closed until it exists.
+2. Settle the six open methodology decisions before M2 work begins.
+
+---
+
+## 2026-09-10 — Deployment and x402 documentation
+
+### Objective
+
+Record how the demonstration is intended to run on AWS alongside a Guardian instance,
+and how API payment would work if it ships, without either document being mistakable for
+a record of work done. No code changed.
+
+### Implementation
+
+- `docs/DEPLOYMENT.md` (new). Four tiers — static application, Arc Testnet settlement,
+  optional verification, optional Guardian host — ordered so the expensive and
+  security-sensitive tiers can be dropped without breaking the demonstration. §7 records
+  the container architecture for a **proposed** Python/TypeScript split of the pipeline.
+  §8 covers key custody, §9 the provenance obligations a public URL creates.
+- `docs/X402.md` (new). Authority boundary, Hedera's payment scheme, the
+  specification-search coupling, account separation, determinism requirement.
+- `docs/ARCHITECTURE.md` §2 and §7 amended: the x402 gateway added to the authority
+  model and given a component boundary with its `may not` list.
+- `README.md` documentation index updated.
+
+### Tests / validation
+
+No code changed; validation was documentary, with two operational checks run against the
+existing tree:
+
+- The Foundry suite was executed through the `ghcr.io/foundry-rs/foundry` container with
+  no local Foundry installation: **31 passed, 0 failed**. This is the first time this
+  environment has been able to run the
+  contract suite has run in this environment and it substantiates `ARC.md` §8.
+- The full three-scenario demo was run against a containerised `anvil` (chain 31337):
+  `real` → milestone FAILED, `synthetic` → RELEASED with benefit share and retention,
+  `trend-failure` → INSUFFICIENT. Offline, the three scenarios complete in 1.38 s wall,
+  153 MB peak resident — the figure `DEPLOYMENT.md` §5 uses to size the optional tier.
+
+### Architectural, scientific and security decisions
+
+- **Guardian is not a submodule.** It is cloned as a sibling checkout and run from its
+  own compose project. The integration surface is one HTTP POST; there is no
+  source-level dependency to pin, its configuration and key material live inside its own
+  tree, and vendoring it would blur the authority boundary.
+- **Settlement runs on Arc Testnet, not a hosted chain.** A transaction on a private
+  demonstration chain is a screenshot, not evidence.
+- **One serializer, not one runtime.** A hash commits to bytes, not data. Exactly one
+  implementation may serialise a result; every other participant treats the hash as
+  opaque. `RestorationDeed.sol` already follows this — it contains no `keccak256` and no
+  `abi.encode`. A Python split may therefore own everything upstream of canonicalisation
+  and nothing downstream of it.
+- **x402 is coupled to pre-registration, and the coupling is now written down**, as
+  Idea 0.3 §4.8 requires. The first draft of `X402.md` recommended selling per-request
+  verification without it; that is the exact hazard §3.7.1 names — *"a service the
+  restorer pays per request"* — and it was corrected during review. The rule recorded is
+  that every verification sold must be a recorded verification: no unrecorded preview
+  tier, because an unrecorded run is a private trial that defeats run-count history while
+  leaving pre-registration apparently intact.
+- **Three separate Hedera accounts** for Guardian operator, ATS treasury and x402
+  receipts. A compromise of a public payment endpoint must not reach the account that can
+  issue outcome tokens.
+
+### Deviations from Idea 0.3
+
+None. `X402.md` restates §4.8's demotion and §3.7.1's coupling rather than revising
+either; x402 remains optional, M6, and third in the cut order.
+
+### Unresolved risks
+
+- No infrastructure-as-code exists and no choice has been made between Terraform and CDK.
+- The split pipeline in `DEPLOYMENT.md` §7 is unapproved. It is an architectural change
+  and requires explicit sign-off before any of it is built.
+- The provenance obligations in `DEPLOYMENT.md` §9 are documented but not implemented:
+  the `SIMULATED` banner is not yet guaranteed to appear within a settlement view, and
+  the application still lands on a scenario chosen by the reader rather than defaulting
+  to `real`.
+
+### Next steps
+
+1. Deploy `RestorationDeed` to Arc Testnet and record the address — M1 is not closed
+   until this exists.
+2. Implement the two provenance changes before anything is publicly reachable.
+3. Choose an infrastructure tool, then write the static tier.
+
 ---
 
 ## 2026-09-10 — Spatial pipeline → Guardian seam → Arc deed prototype (M1–M4 vertical slice)

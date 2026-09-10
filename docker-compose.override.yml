@@ -1,0 +1,24 @@
+# Guardian attachment — merged automatically by `docker compose up`.
+#
+# Joins the verify service (and only verify) to the network of the Guardian
+# quickstart compose project running alongside this one, so the verdict is
+# POSTed to Guardian's web proxy — the same server you see at
+# http://localhost:3000 — without publishing any Guardian port to this project.
+#
+# Requires Guardian to be running (`docker network ls` must list the network).
+# Without Guardian, start with `docker compose -f docker-compose.yml up` so
+# this file is not merged; requests are then staged to guardian/outbox/.
+services:
+  verify:
+    networks: [internal, edge, guardian]
+    environment:
+      # Guardian's gateway serves its routes without the /api/v1 prefix; the
+      # web proxy adds it. Target the proxy so the documented
+      # /api/v1/external/{policyId}/{blockTag} path is what is called.
+      GUARDIAN_URL: ${GUARDIAN_URL:-http://web-proxy:80}
+      GUARDIAN_PUBLIC_URL: ${GUARDIAN_PUBLIC_URL:-http://localhost:3000}
+
+networks:
+  guardian:
+    external: true
+    name: ${GUARDIAN_NETWORK:-guardian-quickstart_default}
