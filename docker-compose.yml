@@ -68,7 +68,9 @@ services:
   anvil:
     profiles: [chain]
     image: ghcr.io/foundry-rs/foundry:latest
-    command: ["anvil", "--host", "0.0.0.0", "--chain-id", "31337", "--silent"]
+    # The image's entrypoint is `sh -c`, which would run only the first word of a list command.
+    entrypoint: ["anvil"]
+    command: ["--host", "0.0.0.0", "--chain-id", "31337", "--silent"]
     networks: [internal]
     expose: ["8545"]
     healthcheck:
@@ -85,7 +87,14 @@ services:
     build: ./analysis
     image: ecorestore/analysis
     entrypoint: ["ecorestore-acquire"]
-    command: ["--out", "/out", "--cache", "/cache"]
+    # Arguments given to `docker compose run acquire …` (e.g. --limit 5) are appended.
+    # Runs as the host user so the bind-mounted ./out/acquire stays writable; set
+    # ACQUIRE_UID/ACQUIRE_GID in .env if `id -u` is not 1000.
+    user: "${ACQUIRE_UID:-1000}:${ACQUIRE_GID:-1000}"
+    environment:
+      ACQUIRE_OUT: /out
+      ACQUIRE_CACHE_DIR: /cache
+      HOME: /tmp
     networks: [egress]
     volumes:
       - ./verification/fixtures:/fixtures:ro

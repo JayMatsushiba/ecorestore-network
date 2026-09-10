@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -162,8 +163,8 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(description="REAL Tier 0 acquisition (processing graph 2.0.0)")
     ap.add_argument("--fixtures", default=None, help="directory holding kootenay-parcel.json and analysis-plan.json (default: /fixtures, else ../verification/fixtures)")
-    ap.add_argument("--out", default="./out/acquire", help="output directory")
-    ap.add_argument("--cache", default=None, help="COG window cache directory")
+    ap.add_argument("--out", default=os.environ.get("ACQUIRE_OUT", "./out/acquire"), help="output directory (env ACQUIRE_OUT)")
+    ap.add_argument("--cache", default=os.environ.get("ACQUIRE_CACHE_DIR"), help="COG window cache directory (env ACQUIRE_CACHE_DIR)")
     ap.add_argument("--limit", type=int, default=None, help="only the first N scenes (smoke test)")
     ap.add_argument("--concurrency", type=int, default=4)
     args = ap.parse_args(argv)

@@ -15,7 +15,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl libexpat1 \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -28,7 +28,7 @@ COPY ecorestore_analysis ./ecorestore_analysis
 RUN pip install --no-deps .
 
 RUN useradd --create-home --uid 10001 analysis \
- && mkdir -p /out /cache && chown analysis:analysis /out /cache
+ && mkdir -p /out /cache && chmod 1777 /out /cache
 USER analysis
 
 EXPOSE 8000

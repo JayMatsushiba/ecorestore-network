@@ -92,7 +92,8 @@ export interface ChainContext {
 }
 
 export async function setupChain(rpcUrl: string, log: (s: string) => void, mnemonic?: string): Promise<ChainContext> {
-  const phrase = mnemonic ?? 'test test test test test test test test test test test junk';
+  // `||`, not `??`: compose passes unset variables through as empty strings.
+  const phrase = mnemonic || 'test test test test test test test test test test test junk';
   const roles = ['sponsor', 'restorer', 'steward', 'verifier', 'lender', 'bufferPool'] as const;
   const accounts = Object.fromEntries(roles.map((r, i) => [r, mnemonicToAccount(phrase, { addressIndex: i })])) as ChainContext['accounts'];
   const probe = createPublicClient({ transport: http(rpcUrl) });
