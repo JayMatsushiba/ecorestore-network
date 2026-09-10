@@ -9,6 +9,106 @@ as written rather than rewritten, because a log records what was true at the tim
 
 ---
 
+## 2026-09-10 — Second review pass: stale demonstration bundles, reference drift, engine binding
+
+### Objective
+
+Act on the six findings of the re-review of PR #3 — two new, four the first pass had not
+surfaced. All six held when checked. One of them contradicted a claim this project had
+made about itself, which makes it the most important of the set.
+
+### Implementation
+
+**The committed demonstration bundles were stale.** `app/public/demo/*/assurance-bundle.json`
+carried no `result.analysisEngine` and no `runtime`, and were missing
+`presentation.document` entirely. `analysisEngine` became part of the hashed result when
+the engine was split, so these files could not be produced by the current pipeline at
+all — and the PR description claimed they had been regenerated. They were, in the review
+fix pass, *before* the engine identity existed; nothing regenerated them afterwards.
+Regenerated with `DEMO_FIXED_TIME=2026-09-10T00:00:00.000Z`; every `resultHash` moved
+(`real` `0xfc25a605…` → `0x2fb065b7…`, `synthetic` `0x8a42ed45…` → `0x9534e805…`,
+`trend-failure` `0x6ba2f1ea…` → `0x7d2d0e0b…`). A second run of the demo produces
+byte-identical files, which is what "reproducible" was supposed to mean.
+
+**`sent` is not acceptance.** `submitToGuardian()` reports any HTTP answer as `sent`, so
+the interface rendered a `500` as "submitted … gateway acknowledgement only". The
+adapter's own `detail` had this right — it attaches `GUARDIAN_ACCEPTED_NOTE` only on
+`res.ok` — and only the presentation layer overstated. Now a 2xx renders as submitted
+with the acknowledgement caveat, and anything else renders as *rejected — the gateway
+refused the document; NOT submitted and no policy run*.
+
+**The parity references were testing history.** `analysis/tests/reference/*.output.json`
+are dumps from the TypeScript engine that the Python suite replays. Nothing tied them to
+the live `analyseTier0()`, so a change there would have left `npm run test:analysis`
+green while the two engines diverged. `verification/analysis-reference.test.ts`
+recomputes all five cases — outputs, plan hashes, snapshot hashes and the gzipped
+canonical snapshots — and fails on any difference. The case definitions moved to
+`verification/analysis-reference-cases.ts`, shared with the dump script, so the check
+cannot drift from what it checks. Verified by perturbing a committed reference: the test
+fails.
+
+**The client binds to an engine.** `remoteBackend()` checked the plan and snapshot
+receipts but accepted any `engine` in the response, so a rollout between `/health` and
+`/analyse` could commit a result to one engine while callers reported another.
+Mismatches now throw, with four tests over the guards.
+
+**Host setup and build context.** `npm run test:analysis` invoked the system `python`
+regardless of the virtualenv the README had just created, and that install bypassed
+`constraints.txt` — the drift this project had already documented as a risk, written
+into its own quickstart. The script now prefers `analysis/.venv/bin/python`, and the
+README installs with `-c analysis/constraints.txt`; a fresh venv built that way resolves
+NumPy 2.5.3 / SciPy 1.18.1, the same stack as the image. Separately, the analysis image
+builds with `./analysis` as its context, so the repository-root `.dockerignore` never
+applied: `analysis/.dockerignore` now excludes the virtualenv and caches, deliberately
+keeping `tests/reference` since running parity as a build stage is a stated next step.
+
+### Tests / validation
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 11 files) | 68 passed (was 54) |
+| `npm run typecheck` | clean |
+| `npm run test:analysis` on a venv built per the README | 33 passed on NumPy 2.5.3 / SciPy 1.18.1 — the image's stack |
+| New: `verification/analysis-reference.test.ts` | 10 cases; perturbing `real.output.json` fails it, as intended |
+| New: `verification/analysis-client.test.ts` | 4 guards — engine mismatch, plan mismatch, snapshot mismatch, well-formed |
+| Demo re-run with `DEMO_FIXED_TIME` | byte-identical bundles on all three scenarios |
+| Frontend image build (`tsc -b && vite build`) | clean |
+| Full stack, three scenarios concurrently on anvil | `NOT_ADDITIONAL` / `PARTIAL` 2.2271 ha / `INSUFFICIENT_EVIDENCE`, engine `ecorestore-analysis-py 1.0.0` |
+| nginx-served fallback bundle | carries `analysisEngine` and `resultHash 0x2fb065b7…` |
+| Analysis build context | 466 MB → 469 B |
+
+### Architectural, scientific and security decisions
+
+1. **A committed artefact that the pipeline cannot reproduce is not evidence.** The
+   demonstration bundles are the offline fallback the interface shows when the API is
+   unreachable; showing a result whose hash no longer corresponds to anything is worse
+   than showing nothing.
+2. **A dump is not a test.** Reference files pin one side of a comparison. Something has
+   to keep pinning them to the thing they were dumped from.
+3. **Bind to the engine, not just to the inputs.** Receipts proved *what* was analysed;
+   the engine identity proves *by what*, and it is in the hash.
+4. **The quickstart is part of the reproducibility surface.** A pinned image and an
+   unpinned developer install is one guarantee and one hole.
+
+### Deviations from the documented design
+
+None.
+
+### Unresolved risks
+
+- A non-2xx Guardian response is not staged to the outbox: the request is neither
+  accepted nor retained, though the bundle still carries it. Unreachable and unset are
+  both staged. Worth reconciling when a real policy exists.
+- The engine version was still not bumped; see the previous entry.
+- Parity in the image is still not run as a build stage.
+
+### Next steps
+
+Unchanged: AWS deployment, a Guardian policy, and Arc Testnet deployment of
+`RestorationDeed` — the open M1 deliverable.
+
+---
+
 ## 2026-09-10 — Review pass on the container stack: determinism, provenance binding, chain concurrency
 
 ### Objective

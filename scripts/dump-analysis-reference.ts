@@ -8,29 +8,22 @@
  * are stored once each, gzip-compressed, and referenced by hash from every case.
  *
  *   npx tsx scripts/dump-analysis-reference.ts        # writes analysis/tests/reference/
+ *
+ * The cases live in `verification/analysis-reference-cases.ts` so that
+ * `verification/analysis-reference.test.ts` can recompute exactly these and
+ * fail if the committed files have gone stale against the TypeScript engine.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { REFERENCE_CASES, REFERENCE_DIR } from '../verification/analysis-reference-cases.js';
 import { analyseTier0, analysisRequest } from '../verification/engine.js';
 import { loadEvidenceBundle } from '../verification/fixtures.js';
-import { injectSyntheticEffect } from '../verification/scenario.js';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const OUT = join(here, '..', 'analysis', 'tests', 'reference');
-const SYNTHETIC_DELTA = 0.25;
+const OUT = REFERENCE_DIR;
 
 const { plan, evidence } = loadEvidenceBundle();
-const real = evidence.tier0;
-const synthetic = injectSyntheticEffect(real, plan, SYNTHETIC_DELTA);
-const cases = [
-  { name: 'real', plan, tier0: real },
-  { name: 'synthetic', plan, tier0: synthetic },
-  { name: 'trend-failure', plan: { ...plan, parallelTrend: { ...plan.parallelTrend, maxAbsSlopeDiffPerYear: 0.000001, alpha: 0.999 } }, tier0: real },
-  { name: 'few-scenes', plan: { ...plan, minScenesPerWindow: 500 }, tier0: real },
-  { name: 'few-controls', plan: { ...plan, controlRule: { ...plan.controlRule, matching: { ...plan.controlRule.matching, caliperSd: 0.0001 } } }, tier0: real },
-];
+const cases = REFERENCE_CASES(plan, evidence.tier0);
 
 mkdirSync(OUT, { recursive: true });
 const snapshots = new Map<string, string>();

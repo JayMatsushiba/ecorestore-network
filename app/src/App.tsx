@@ -42,6 +42,11 @@ async function loadBundle(scenario: AssuranceBundle['scenario'], signal: AbortSi
   return { bundle: (await res.json()) as AssuranceBundle, source: { kind: 'static', reason: liveError } };
 }
 
+/** A Guardian response counts as acknowledged delivery only on 2xx. */
+function guardianAccepted(httpStatus: number | undefined): boolean {
+  return httpStatus !== undefined && httpStatus >= 200 && httpStatus < 300;
+}
+
 export default function App() {
   const [scenario, setScenario] = useState<AssuranceBundle['scenario']>('real');
   const [bundle, setBundle] = useState<AssuranceBundle | null>(null);
@@ -199,8 +204,15 @@ export default function App() {
               <dl className="kv">
                 <dt>Guardian</dt>
                 <dd>
+                  {/*
+                    `sent` means the gateway answered, not that it accepted: the adapter
+                    reports any HTTP response as `sent`. Only a 2xx earns acknowledgement
+                    wording, and even then it is delivery rather than a policy run.
+                  */}
                   {bundle.guardianSubmission.outcome.mode === 'sent'
-                    ? <><span className={bundle.guardianSubmission.outcome.httpStatus && bundle.guardianSubmission.outcome.httpStatus < 300 ? 'gate-pass' : 'gate-fail'}>submitted · HTTP {bundle.guardianSubmission.outcome.httpStatus}</span> — gateway acknowledgement only; a policy run is confirmed inside Guardian</>
+                    ? guardianAccepted(bundle.guardianSubmission.outcome.httpStatus)
+                      ? <><span className="gate-pass">submitted · HTTP {bundle.guardianSubmission.outcome.httpStatus}</span> — gateway acknowledgement only; a policy run is confirmed inside Guardian</>
+                      : <><span className="gate-fail">rejected · HTTP {bundle.guardianSubmission.outcome.httpStatus}</span> — the gateway refused the document; NOT submitted and no policy run</>
                     : bundle.guardianSubmission.outcome.mode === 'failed'
                       ? <span className="gate-fail">Guardian unreachable — request staged, NOT submitted</span>
                       : 'not configured — request staged, NOT submitted'}

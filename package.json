@@ -15,7 +15,7 @@
     "acquire": "tsx verification/acquire.ts",
     "acquire:finalize": "tsx scripts/finalize-acquisition.ts",
     "verify:serve": "tsx verify/server.ts",
-    "test:analysis": "cd analysis && python -m pytest -q",
+    "test:analysis": "cd analysis && $(test -x .venv/bin/python && echo .venv/bin/python || echo python) -m pytest -q",
     "demo": "tsx scripts/demo.ts",
     "build:contracts": "forge build --root contracts"
   },

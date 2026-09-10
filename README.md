@@ -78,9 +78,12 @@ npm run typecheck
 npm run test:contracts   # needs Foundry: https://getfoundry.sh
 npm run demo             # offline: in-process TypeScript analysis, REAL Tier 0 snapshot
 
-# Python analysis service and its parity suite (needs Python ≥ 3.12)
-python -m venv analysis/.venv && analysis/.venv/bin/pip install -e "analysis[test]"
-npm run test:analysis
+# Python analysis service and its parity suite (needs Python ≥ 3.12).
+# Install against constraints.txt: the pins are what the image ships, and
+# parity is bit-exact, so an unconstrained NumPy is a different engine.
+python -m venv analysis/.venv
+analysis/.venv/bin/pip install -c analysis/constraints.txt -e "analysis[test]"
+npm run test:analysis                # prefers analysis/.venv/bin/python when it exists
 analysis/.venv/bin/ecorestore-analysis-server &
 ANALYSIS_URL=http://127.0.0.1:8000 GUARDIAN_URL=http://localhost:3000 npm run demo
 

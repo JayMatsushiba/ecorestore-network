@@ -440,6 +440,18 @@ means re-running the parity suite inside the image and bumping the engine versio
 service reports the versions it actually loaded at `GET /health` (`numericStack`), so
 drift is visible without waiting for the next parity run.
 
+The client binds to the engine identity it read from `/health` and rejects an
+`/analyse` response that answers as anything else. A rollout between the two calls would
+otherwise let a result commit to one engine while the caller reported another, and
+`analysisEngine` is inside the hash.
+
+The committed parity references are checked against the live TypeScript engine by
+`verification/analysis-reference.test.ts`, which recomputes all five cases and fails on
+any drift. Without it a change to `analyseTier0()` would leave the Python suite green
+against stale files while the two live engines disagreed — the references would be
+testing history rather than the engine. The case definitions are shared with the dump
+script so the check cannot drift from what it is checking.
+
 The analysis response body is the `AnalysisOutput` of the contract and nothing else —
 no timing, no host, no request id. Two identical requests get byte-identical bodies,
 because the caller assembles a hashed document out of what it receives and an

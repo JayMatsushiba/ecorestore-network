@@ -49,6 +49,13 @@ export function remoteBackend(opts: RemoteAnalysisOptions, engine: AnalysisEngin
       const out = (await res.json()) as AnalysisOutput;
       if (out.planHash !== req.planHash) throw new Error(`analysis echoed plan ${out.planHash}, sent ${req.planHash}`);
       if (out.snapshotHash !== req.snapshotHash) throw new Error(`analysis echoed snapshot ${out.snapshotHash}, sent ${req.snapshotHash}`);
+      // The identity was read from /health one request earlier. A rollout or a
+      // reconfigured service between the two calls would otherwise let the result
+      // commit to one engine while callers report another — and `analysisEngine`
+      // is inside the result hash, so the two must be the same engine.
+      if (out.engine.name !== engine.name || out.engine.version !== engine.version) {
+        throw new Error(`analysis answered as ${out.engine.name} ${out.engine.version}, bound to ${engine.name} ${engine.version}`);
+      }
       return out;
     },
   };
