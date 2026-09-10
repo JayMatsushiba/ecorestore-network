@@ -9,6 +9,150 @@ as written rather than rewritten, because a log records what was true at the tim
 
 ---
 
+## 2026-09-10 — Containerised prototype: Python analysis, TypeScript verify, frontend, Guardian attached
+
+### Objective
+
+Run the prototype as containers, on the owner's instruction: the spatial analysis
+rewritten in Python "to make it easier to have a more conventional spatial analysis
+pipeline", with acquisition (batch) sharing its image; verification in its own
+container; the frontend in its own; all able to reach the Guardian instance running
+locally on `localhost:3000`; one compose file that brings up the first prototype. AWS
+deployment is deferred to a later milestone. `docs/` updated where the build differs
+from what was documented.
+
+### Implementation
+
+**The analysis boundary** (`verification/analysis-contract.ts`, `engine.ts`). The engine
+was split at the seam `DEPLOYMENT.md` §7 had proposed: `analyseTier0()` holds everything
+upstream of canonicalisation and returns numbers; `assembleResult()` holds status
+resolution, the Tier 1–3 gates, corroboration, provenance, the evidence commitment and
+the hash. `verify()` composes the two in-process and is unchanged in behaviour;
+`verifyWith(input, backend)` takes any `AnalysisBackend`. Requests cross the boundary as
+canonical bytes with hash receipts (`planHash`, `snapshotHash`); the analysis side checks
+each by hashing the opaque string and never re-serialises. The result now carries
+`analysisEngine`.
+
+**Python analysis service** (`analysis/`, `python:3.12-slim`, ~790 MB with the
+scientific stack). FastAPI: `GET /health`, `POST /analyse`. Receipts verified with
+pycryptodome keccak; a mismatch is a `422`. The pipeline ports the reference numerics:
+numpy and scipy for the regression and t-distribution; an exact port of mulberry32 whose
+stream is vectorised — the state advances by a constant, so the *n*-th output is a
+function of `(seed, n)` — and column-wise accumulation in the bootstrap so
+floating-point order matches the reference loop. Sums are sequential because Python
+3.12's built-in `sum()` compensates float error and does not reproduce the reference.
+
+**Parity.** `scripts/dump-analysis-reference.ts` writes five (request, output) pairs from
+the TypeScript side; `analysis/tests/test_parity.py` replays them and asserts every
+number equal. The first run differed in exactly two values (the compensated sum); after
+the fix, all five cases are bit-identical: interval, coverage, control sets, regression.
+The three demo scenarios computed by the two engines differ only in `analysisEngine` and
+therefore `resultHash`.
+
+**Verify service** (`verify/`, `node:22-slim` with a Foundry stage compiling the
+contracts). `verify/pipeline.ts` holds one scenario end to end and is shared with
+`scripts/demo.ts`; `verify/server.ts` exposes `/health`, `/api/scenarios`,
+`POST /api/verify/:scenario`, `/api/results`. Runs TypeScript directly via `tsx`.
+
+**Frontend** (`app/Dockerfile`: Vite build served by `nginx:alpine`, 74 MB). The page
+POSTs `/api/verify/<scenario>`, falls back to the committed bundle when the API is
+unreachable and says which it is showing, names the analysis engine, reports Guardian's
+outcome, and renders the SIMULATED banner *inside* the settlement card for the synthetic
+scenario (`DEPLOYMENT.md` §9 obligation).
+
+**Guardian.** `submitToGuardian()` has three outcomes: `sent`, `outbox`, `failed`
+(unreachable; staged to the outbox as well). Its `2xx` message states that the gateway
+acknowledged delivery, not that a policy ran.
+
+**Compose.** `docker-compose.yml`: `analysis` on an `internal: true` network (no
+gateway); `verify` on `internal` + `edge`, published on `127.0.0.1:8090`; `frontend` on
+`edge`, published on `127.0.0.1:3001`; profiles `chain` (anvil) and `acquire` (batch
+job). `docker-compose.override.yml`, merged by default, joins `verify` — only `verify` —
+to `guardian-quickstart_default` and points it at Guardian's `web-proxy`.
+
+**Acquisition in Python** (`acquire.py`, `geometry.py`, `stac.py`, `cog.py`; processing
+graph `2.0.0`): pystac-client, rasterio windowed reads, h3 + shapely + pyproj frame. It
+writes an *unhashed* snapshot; `scripts/finalize-acquisition.ts` (`npm run
+acquire:finalize`) attaches `geometryHash`, `h3Root` and `snapshotHash`, compares with
+the committed fixture, and writes it. The committed fixture was not replaced.
+
+### Tests / validation
+
+| Suite | Result |
+|---|---|
+| `npm test` (vitest, 9 files) | 54 passed — unchanged after the engine split |
+| `npm run typecheck` | clean, including `verify/` and the new scripts |
+| `npm run test:analysis` (pytest) | 29 passed — 5 parity cases bit-exact, RNG stream, server, acquisition geometry |
+| `docker compose config` (with and without override) | valid |
+| `docker compose up` + three scenarios via `localhost:3001/api/verify/*` | `NOT_ADDITIONAL` / `PARTIAL` 2.2271 ha / `INSUFFICIENT_EVIDENCE`; engine `ecorestore-analysis-py 1.0.0`; 0.2–0.3 s each |
+| Guardian 3.7.0 quickstart, from `verify` | `POST /api/v1/external/…` → `200 true` on all three; `/health` sees Guardian (`401` on an authenticated probe) |
+| Network containment | from `analysis`: Earth Search and `web-proxy` unreachable; from `verify`: `web-proxy` answers |
+| `--profile chain` (anvil) | synthetic: 11 transactions, milestone `RELEASED`, restorer +22,056.50 (18,000 mobilisation + 4,056.50), steward +2,450.72, retained 795.39; real: milestone `FAILED`, mobilisation only |
+| `--profile acquire --limit 2` (network, in Docker) | same 402×382 grid, same 857 units (253 / 83 / 520), parcel NDVI identical to the fixture on both scenes; finalize: `geometryHash` and `h3Root` unchanged |
+| Host smoke, `--limit 3` | 856 of 857 units shared with the 1.0.0 frame; 91 % of unit NDVI values bit-identical; max difference 0.02 on ring-edge units |
+
+### Architectural, scientific and security decisions
+
+Made within the implementation mandate; the numerics were ported, not changed.
+
+1. **Bit-exact parity is the acceptance test for the Python engine**, not tolerance. Two
+   engines that agree on every number are interchangeable behind one contract; two that
+   agree "closely" are two methodologies. The seeded generator is therefore ported
+   rather than replaced with numpy's, and sums keep the reference order.
+2. **The engine is named in the result.** Determinism is per runtime (`DEPLOYMENT.md`
+   §5), so the runtime is part of the commitment. Same inputs through the two engines
+   give the same quantities and different `resultHash` values.
+3. **Python never hashes what it produced.** Analysis echoes receipts it was given;
+   acquisition writes an unhashed document and TypeScript finalises it. The
+   one-canonicaliser rule is kept structurally, not by convention.
+4. **Containment by topology.** `analysis` has no route to anything; `verify` is the
+   only container on Guardian's network. Checked, not assumed.
+5. **Guardian's `200` is delivery.** Guardian 3.7 queues and acknowledges before the
+   policy engine looks for the policy — a nonexistent policy ID also gets `200`. Reported
+   as gateway acknowledgement everywhere it appears.
+6. **The snapshot travels inline.** The synthetic scenario's snapshot exists only in
+   memory on the verify side; a shared volume cannot carry it.
+
+### Deviations from the documented design
+
+- `DEPLOYMENT.md` §7.7 listed the frontend-as-container as an anti-pattern; built on the
+  owner's instruction, with the reason recorded (§7.8). The static path stands.
+- `CLAUDE.md`'s M1 scope excludes Guardian integration; the owner asked for the
+  containers to reach the local Guardian. Delivery to a running instance is done;
+  policy authoring is not.
+- The proposal's compose `secrets:` block is not used locally; `VERIFIER_SEED` is an
+  environment variable with a demonstration default. §8 still governs deployment.
+- `verify` ships development dependencies and runs `tsx`; a compiled build is deferred.
+- Acquisition graph 2.0.0 uses ellipsoidal areas and projected-plane ring buffers, so
+  ring candidates and hectare figures differ slightly from 1.0.0 (parcel 48.95 → 49.10
+  ha). Recorded in `processingGraphVersion`; the 1.0.0 fixture remains committed.
+
+### Unresolved risks
+
+- No Guardian policy exists; the seam is delivery-only until one is authored, published
+  and the verifier DID registered against its `externalDataBlock`.
+- Images are large (`verify` 1.05 GB, `analysis` 790 MB) — dev dependencies and the
+  full scientific stack. Fine for a prototype; a compiled `verify` and a
+  two-image split for `analysis`/`acquire` would halve them.
+- `docker compose up` requires Guardian's network to exist because the override is
+  merged by default; without Guardian the `-f docker-compose.yml` form must be used.
+- `resultHash` is not reproducible across runs of the service because `computedAt` is
+  the wall clock (already recorded in the review fix pass); the service does not yet
+  accept a fixed time.
+- Verification runs are unauthenticated; the API is bound to loopback and is not meant
+  to be exposed as is.
+
+### Next steps
+
+1. AWS deployment of the compose stack beside Guardian on one host (`DEPLOYMENT.md`
+   §7.7), Terraform or CDK to be chosen; the credit is unspent.
+2. Author and publish a Guardian policy with an `externalDataBlock` tagged
+   `ecorestore_verdict_ingest`; register the verifier DID; then the `200` means a run.
+3. Deploy `RestorationDeed` to Arc Testnet — still the open M1 deliverable.
+4. Decide whether to promote a full 2.0.0 acquisition to the committed fixture.
+
+---
+
 ## 2026-09-10 — Review fix pass: doc/code contradictions, restored decisions, regenerated plan hash
 
 ### Objective

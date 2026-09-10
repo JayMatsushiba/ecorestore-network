@@ -173,3 +173,25 @@ Steps 1–3 of §9 exist in `guardian/`:
 The Guardian drop-in point is recorded in every presentation: `externalDataBlock` for
 ingest, the VVB review scope, `timerBlock` for persistence, `mintDocumentBlock` for the
 amount.
+
+### Guardian running locally (2026-09-10)
+
+A Guardian 3.7.0 quickstart instance runs alongside the container stack, and the
+`verify` service is attached to its Docker network (`DEPLOYMENT.md` §7.6). Each verdict
+is POSTed to `/api/v1/external/{policyId}/{blockTag}` through Guardian's web proxy — the
+same server exposed on `localhost:3000` — and the gateway answers `200`.
+
+Two things that `200` does not mean, stated so the seam is not overstated:
+
+- **No policy exists.** The policy ID is the placeholder `ecorestore-policy-not-deployed`.
+  Guardian's external endpoint queues the document and acknowledges before the policy
+  engine looks for the policy, so it returns `200` regardless. The adapter and the
+  interface describe the outcome as *gateway acknowledged*, never as a completed run.
+- **Steps 4–5 of §9 remain.** Authoring a policy with an `externalDataBlock` tagged
+  `ecorestore_verdict_ingest`, registering the verifier DID against it and publishing it
+  are Guardian-side work not yet done. Until then, `submitToGuardian()` proves delivery;
+  the ERC-1643 binding remains the demonstrated seam.
+
+`submitToGuardian()` now distinguishes three outcomes: `sent` (any HTTP answer, with the
+status), `outbox` (`GUARDIAN_URL` unset), and `failed` (configured but unreachable; the
+request is staged to the outbox as well).

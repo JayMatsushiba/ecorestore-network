@@ -403,3 +403,37 @@ provisional in the analysis plan and in `docs/DEVELOPMENT_LOG.md`:
 
 Not yet implemented: Sentinel-1 / Landsat / ICESat-2 ingest, covariate matching beyond
 pre-level and pre-slope, the polygon intersection check at issuance.
+
+### The analysis boundary (2026-09-10)
+
+§2's pipeline is split at one seam, defined in `verification/analysis-contract.ts`:
+
+```text
+analysis   unit series → controls by the committed rule → parallel-trend diagnostic
+           → DiD → leakage → bootstrap interval → placebo coverage        (numbers)
+verify     evidence and issuance gates → status → provenance → evidence commitment
+           → canonical VerificationResult → resultHash                     (the document)
+```
+
+Two implementations of the analysis side exist and must agree exactly:
+
+- `verification/engine.ts` `analyseTier0()` — the reference, in-process, used by the
+  test suite and by `verify()`.
+- `analysis/` — the Python service (numpy, scipy, FastAPI), used by the container stack
+  through `verifyWith()`. Its test suite replays five reference cases dumped from the
+  TypeScript side (`real`, `synthetic`, `trend-failure`, `few-scenes`, `few-controls`)
+  and asserts equality of every number. The seeded generator is ported exactly and the
+  bootstrap consumes its stream in the reference order; the regression uses numpy and
+  scipy and agrees to well inside the six decimals reported.
+
+The result names the engine that produced it (`analysisEngine`), so two results that
+agree on every scientific quantity still differ in `resultHash` if different runtimes
+computed them. That is deliberate: the determinism guarantee is per runtime
+(`DEPLOYMENT.md` §5), and the runtime is therefore part of the commitment.
+
+Tier 0 acquisition also has a second implementation, processing graph `2.0.0`
+(`analysis/ecorestore_analysis/acquire.py`: pystac-client, rasterio, h3, shapely,
+pyproj). On the same grid it reproduces the committed 1.0.0 fixture's parcel and
+parcel-cell pixel masks exactly and parcel NDVI to 4 dp; ring candidates at the buffer
+edge and unit areas (ellipsoidal rather than spherical) differ slightly, which is why it
+carries a new graph version. The committed fixture is still 1.0.0.

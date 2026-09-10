@@ -293,9 +293,13 @@ that has *not* happened is the deployment itself.
 | Vertical slice end to end (`scripts/demo.ts`), executed against a local chain | Guardian stood up; ATS broadcast (calldata prepared only) |
 | Guardian seam — signed verdict VC, `externalDataBlock` request, ATS issuance calldata | The Graph subgraph; Auditor LLM narrator; x402 |
 | Rule-based Auditor boundary; additionality view in the app | Production financial settlement |
+| **Container stack** — Python `analysis` service (bit-exact with the TypeScript engine), TypeScript `verify` service, nginx `frontend`, optional `anvil` and `acquire`; `verify` attached to a running Guardian 3.7.0 quickstart and its verdicts acknowledged by the gateway (`DEPLOYMENT.md` §7) | AWS deployment; a published Guardian policy carrying the block tag (the `200` is delivery, not a policy run) |
 
 **Deployment to Arc Testnet is therefore the remaining M1 deliverable**, and it gates the
-public demonstration (`DEPLOYMENT.md` §4). Everything else on the left was prototyped
+public demonstration (`DEPLOYMENT.md` §4). The verification engine now has two
+implementations of one boundary — the reference in `verification/engine.ts` and the
+Python service in `analysis/` — and the result records which one produced it
+(`VERIFICATION.md` §15). Everything else on the left was prototyped
 ahead of its milestone; the development log records that it was done on the owner's
 instruction rather than by drift.
 
