@@ -1,4 +1,5 @@
 import { Badge, StatusBadge, type BuildStatus } from './Badge';
+import { hrefFor } from './route';
 
 /**
  * What Ecorestore Network is for, how it works, and what is actually built.
@@ -48,7 +49,7 @@ export function About({ onBack }: { onBack: (e: React.MouseEvent<HTMLAnchorEleme
         <li><strong>Methodology workflow.</strong> The verdict is signed as a credential and handed to a methodology workflow that holds the policy, the review steps and the outcome record.</li>
         <li><strong>Programmable settlement.</strong> A deed holding escrowed USDC releases capital at the <em>lower bound</em> of the interval, never at the point estimate. If the lower bound is not above zero, it releases nothing.</li>
         <li><strong>Verified restoration outcome.</strong> The settled quantity becomes an outcome a buyer can hold, audit and retire.</li>
-        <li><strong>Indexed history.</strong> Every verdict, run and settlement is readable afterwards.</li>
+        <li><strong>Indexed history.</strong> The design indexes every verdict, run and settlement for later reading. That index is not built; today each run's bundle is exportable from the dashboard.</li>
       </ol>
       <p>
         Three things make this different from a monitoring report. The comparison with nearby land sits inside the rule that moves money, not in a methodology document. The control set is drawn by a committed rule, not chosen at verification time. And settlement pays the lower bound, so an honest claim that the measurement cannot defend is not paid.
@@ -97,7 +98,7 @@ export function About({ onBack }: { onBack: (e: React.MouseEvent<HTMLAnchorEleme
       <p className="muted">
         Every outcome on the dashboard is a demonstration outcome. It is not a regulatory credit and not certification.
       </p>
-      <p><a href="./" onClick={onBack}>Back to the dashboard</a></p>
+      <p><a href={hrefFor('dashboard')} onClick={onBack}>Back to the dashboard</a></p>
     </article>
   );
 }

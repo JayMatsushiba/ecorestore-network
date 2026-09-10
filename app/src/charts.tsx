@@ -20,7 +20,7 @@ const W = 880;
 const H = 320;
 const m = { l: 50, r: 16, t: 20, b: 38 };
 
-export function TrajectoryChart({ points, treatmentDate, tier0Provenance, rings }: { points: TrajectoryPoint[]; treatmentDate: string; tier0Provenance: Provenance; rings: { near: { innerM: number; outerM: number } | undefined; far: { innerM: number; outerM: number } | undefined } }) {
+export function TrajectoryChart({ points, treatmentDate, tier0Provenance, controlProvenance, rings }: { points: TrajectoryPoint[]; treatmentDate: string; tier0Provenance: Provenance; controlProvenance: Provenance; rings: { near: { innerM: number; outerM: number } | undefined; far: { innerM: number; outerM: number } | undefined } }) {
   const [hover, setHover] = useState<number | null>(null);
   const parcelColor = tier0Provenance === 'REAL' ? 'var(--series-parcel)' : 'var(--simulated)';
 
@@ -80,8 +80,8 @@ export function TrajectoryChart({ points, treatmentDate, tier0Provenance, rings 
     <div className="chart-wrap">
       <div className="legend" aria-label="legend">
         <span><i className="swatch" style={{ background: parcelColor }} />Parcel <Badge p={tier0Provenance} /></span>
-        <span><i className="swatch band" style={{ background: 'var(--series-far)' }} />Comparison land, far ring {rings.far ? `${rings.far.innerM}–${rings.far.outerM} m` : ''}: mean ± sd of the matched cells <Badge p="REAL" /></span>
-        <span><i className="swatch dashed" style={{ borderColor: 'var(--series-near)' }} />Comparison land, near ring {rings.near ? `${rings.near.innerM}–${rings.near.outerM} m` : ''}, leakage-exposed <Badge p="REAL" /></span>
+        <span><i className="swatch fill" style={{ background: 'var(--series-far)' }} />Comparison land, far ring {rings.far ? `${rings.far.innerM}–${rings.far.outerM} m` : ''}: mean ± sd of the matched cells <Badge p={controlProvenance} /></span>
+        <span><i className="swatch dashed" style={{ borderColor: 'var(--series-near)' }} />Comparison land, near ring {rings.near ? `${rings.near.innerM}–${rings.near.outerM} m` : ''}, leakage-exposed <Badge p={controlProvenance} /></span>
       </div>
       <div className="chart-scroll">
         <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Parcel NDVI against comparison land over time, one point per Sentinel-2 scene"

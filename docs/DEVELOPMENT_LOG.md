@@ -103,6 +103,28 @@ purely additive.
 * #12 proposed tab labels with settled quantities in them; the tabs carry the rule's
   behaviour instead, so a re-run with different data cannot leave a stale number in a tab.
 
+### Review round
+
+The repository's Claude Code Review workflow ran twice on the pull request and posted
+nothing: 7 turns, one permission denial, no comments each time (issue #16). A local
+review of the branch at medium effort returned eight findings; all eight were fixed:
+
+* The About route unmounted the dashboard and re-ran verification on return. The
+  dashboard now stays mounted and hidden behind the About page.
+* The trajectory legend hard-coded `REAL` on the control series while the map marked
+  the same cells `SIMULATED` in the synthetic run. The chart takes the bundle's control
+  provenance.
+* The About page said indexed history exists in the present tense. Reworded.
+* The bare `.band` layout rule also matched the legend swatch class. Renamed.
+* The build-state strip said "unsent" even when Guardian had acknowledged delivery, and
+  its "why" sentence named no actor. The Guardian row is conditional and the verify
+  service is the actor.
+* "2.23 ha released" read as funds moved. Headlines state the rule's decision ("The
+  rule releases…"), and the delivery card is "Verdict delivery status".
+* The back link used a relative `href`. It uses the route helper.
+* Tab outcome phrases were fixed per scenario and could contradict a live result. Once
+  a run has loaded, its tab derives the phrase from `verificationStatus`.
+
 ### Unresolved risks
 
 * All three committed bundles still carry `contract.chain: null`, so no run shows

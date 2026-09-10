@@ -4,7 +4,7 @@
  * The engine records (`statusReason`); the interface explains. Everything here is derived
  * from fields the result already carries, never from a number the page computes.
  */
-import type { ScenarioId, VerificationResult } from './types';
+import type { ScenarioId, VerificationResult, VerificationStatus } from './types';
 
 export function fmt(x: number, d = 2): string {
   return x.toFixed(d);
@@ -25,41 +25,41 @@ export function verdictFor(r: VerificationResult): Verdict {
     case 'VERIFIED':
       return {
         released: true,
-        headline: `${fmt(r.settledQuantity)} ha released, the full claim.`,
-        explanation: `The lower ${level}% bound of what the measurement can defend meets the claimed quantity, so the rule releases the whole tranche.`,
+        headline: `The rule releases the full ${fmt(r.settledQuantity)} ha claim.`,
+        explanation: `The lower ${level}% bound of what the measurement can defend meets the claimed quantity, so the rule releases the whole tranche. Whether the deed executed that decision is stated under What is on record.`,
       };
     case 'PARTIAL':
       return {
         released: true,
-        headline: `${fmt(r.settledQuantity)} ha released against a ${fmt(r.claimedQuantity)} ha claim.`,
-        explanation: `The parcel grew faster than comparable land nearby. The rule pays only the lower ${level}% bound, the quantity that would survive an audit. The rest of the claim is regional change, leakage and uncertainty, and none of it is paid.`,
+        headline: `The rule releases ${fmt(r.settledQuantity)} ha of a ${fmt(r.claimedQuantity)} ha claim.`,
+        explanation: `The parcel grew faster than comparable land nearby. The rule pays only the lower ${level}% bound, the quantity that would survive an audit. The rest of the claim is regional change, leakage and uncertainty, and none of it is paid. Whether the deed executed that decision is stated under What is on record.`,
       };
     case 'NOT_ADDITIONAL':
       return {
         released: false,
-        headline: 'No payment released.',
+        headline: 'The rule releases nothing.',
         explanation: 'Over this period the parcel did not grow faster than comparable land nearby, so there is nothing defensible to settle. This is the rule working as designed: it declines to pay for change the region would have shown anyway.',
       };
     case 'INSUFFICIENT_EVIDENCE':
       return {
         released: false,
-        headline: 'No payment released, and no score given.',
+        headline: 'The rule releases nothing, and gives no score.',
         explanation: 'The evidence did not pass a guard the committed plan set, so the rule refuses to compare the parcel with its controls at all. A refusal is not a zero. It says the comparison cannot be trusted under this plan.',
       };
     case 'GATE_FAILED':
       return {
         released: false,
-        headline: 'No payment released.',
+        headline: 'The rule releases nothing.',
         explanation: 'The measurement is valid, but an issuance gate failed: habitat loss, native species or the condition floor. The rule withholds settlement until the gate passes.',
       };
     case 'INVALID_RESULT':
       return {
         released: false,
-        headline: 'No payment released.',
+        headline: 'The rule releases nothing.',
         explanation: 'The uncertainty interval is not valid, so the rule cannot state a defensible quantity and pays nothing.',
       };
     default:
-      return { released: false, headline: 'No payment released.', explanation: 'The rule did not release capital for this run.' };
+      return { released: false, headline: 'The rule releases nothing.', explanation: 'The rule did not release capital for this run.' };
   }
 }
 
@@ -67,9 +67,29 @@ export interface ScenarioCopy {
   id: ScenarioId;
   /** The lesson, not the data condition. */
   label: string;
-  /** What the rule does in this run. Stated by construction of the scenario, not read from the result. */
+  /** What the scenario is built to show. Once a run has loaded, `outcomeFor()` its status replaces this. */
   outcome: string;
   hint: string;
+}
+
+/** One phrase per status, so a tab never disagrees with the verdict it leads to. */
+export function outcomeFor(status: VerificationStatus): string {
+  switch (status) {
+    case 'VERIFIED':
+      return 'settles the full claim';
+    case 'PARTIAL':
+      return 'settles the lower bound';
+    case 'NOT_ADDITIONAL':
+      return 'settles nothing';
+    case 'INSUFFICIENT_EVIDENCE':
+      return 'refuses to score';
+    case 'GATE_FAILED':
+      return 'withholds settlement';
+    case 'INVALID_RESULT':
+      return 'cannot state a quantity';
+    default:
+      return 'settles nothing';
+  }
 }
 
 /**

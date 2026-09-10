@@ -3,10 +3,10 @@ import './App.css';
 import { About } from './About';
 import { Badge } from './Badge';
 import { CounterfactualChart, TrajectoryChart } from './charts';
-import { fmt, gateGloss, loadingCopy, SCENARIOS, verdictFor } from './copy';
+import { fmt, gateGloss, loadingCopy, outcomeFor, SCENARIOS, verdictFor } from './copy';
 import { ParcelMap } from './Map';
 import { hrefFor, useRoute } from './route';
-import type { AssuranceBundle, BundleSource, ScenarioId } from './types';
+import type { AssuranceBundle, BundleSource, ScenarioId, VerificationStatus } from './types';
 
 const TREATMENT_DATE = '2024-10-15';
 /** The verify service, proxied by nginx in the container and by Vite in development. */
@@ -57,7 +57,9 @@ export default function App() {
           <a href={hrefFor('about')} onClick={go('about')} aria-current={route === 'about' ? 'page' : undefined}>About</a>
         </nav>
       </header>
-      {route === 'about' ? <About onBack={go('dashboard')} /> : <Dashboard />}
+      {/* The dashboard stays mounted behind the About page, so a route change never discards a loaded run or starts another. */}
+      {route === 'about' && <About onBack={go('dashboard')} />}
+      <div hidden={route === 'about'}><Dashboard /></div>
     </div>
   );
 }
@@ -68,6 +70,8 @@ function Dashboard() {
   const [source, setSource] = useState<BundleSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [runId, setRunId] = useState(0);
+  // Status of each run once it has loaded, so its tab states what the rule did rather than what the scenario was built to show.
+  const [outcomes, setOutcomes] = useState<Partial<Record<ScenarioId, VerificationStatus>>>({});
   // A new load clears the previous result at the event that starts it, not inside the
   // effect (react-hooks/set-state-in-effect).
   const clear = () => {
@@ -91,6 +95,7 @@ function Dashboard() {
       .then(({ bundle: b, source: s }) => {
         setBundle(b);
         setSource(s);
+        setOutcomes((o) => ({ ...o, [b.scenario]: b.result.verificationStatus }));
       })
       .catch((e: Error) => {
         if (!ctrl.signal.aborted) setError(e.message);
@@ -127,7 +132,7 @@ function Dashboard() {
           {SCENARIOS.map((s) => (
             <button key={s.id} aria-pressed={scenario === s.id} onClick={() => select(s.id)} title={s.hint}>
               <span className="tab-label">{s.label}</span>
-              <span className="tab-outcome">{s.outcome}</span>
+              <span className="tab-outcome">{outcomes[s.id] ? outcomeFor(outcomes[s.id]!) : s.outcome}</span>
             </button>
           ))}
         </nav>
@@ -192,7 +197,7 @@ function Dashboard() {
             <div className="grid">
               <section className="card span-12 step">
                 <h3><span className="step-n">1</span> Did the parcel outgrow comparable land nearby?</h3>
-                <TrajectoryChart points={bundle.trajectory.points} treatmentDate={TREATMENT_DATE} tier0Provenance={bundle.tier0Provenance.provenance} rings={{ near: nearSet?.geometry, far: farSet?.geometry }} />
+                <TrajectoryChart points={bundle.trajectory.points} treatmentDate={TREATMENT_DATE} tier0Provenance={bundle.tier0Provenance.provenance} controlProvenance={bundle.spatial?.controls.provenance ?? bundle.tier0Provenance.provenance} rings={{ near: nearSet?.geometry, far: farSet?.geometry }} />
                 <p className="muted" style={{ marginBottom: 0 }}>
                   Parcel change {fmt(r.measured.parcelChangeHa)} ha against {fmt(r.measured.controlChangeFarRingHa)} ha on far-ring comparison land. Far ring {farSet?.geometry.innerM}–{farSet?.geometry.outerM} m, {farSet?.matched} of {farSet?.candidates} candidates matched · near ring 0–{nearSet?.geometry.outerM} m, {nearSet?.matched} matched. The plan committed at deed creation ({r.analysisPlanHash.slice(0, 12)}…) draws the controls; nobody chooses them at verification time.
                 </p>
@@ -265,18 +270,23 @@ function Dashboard() {
                     The deterministic engine, <span className="mono">{engine?.name ?? 'unknown'} {engine?.version ?? ''}</span>, on {r.stacSceneIds.length} {bundle.tier0Provenance.provenance === 'REAL' ? 'real' : 'real, then synthetically perturbed,'} Sentinel-2 L2A scenes. The verdict credential is signed and checked on this page.
                     {bundle.contract.chain ? <> The Restoration Deed executed this verdict on a local demonstration chain (anvil, not Arc Testnet).</> : null}
                   </dd>
-                  <dt>Prepared, deliberately unsent</dt>
+                  <dt>Prepared, not broadcast</dt>
                   <dd>
-                    {bundle.contract.chain ? null : <>The <span className="mono">verifyMilestone</span> calldata for the Restoration Deed. </>}
-                    {bundle.guardianSubmission.outcome.mode === 'sent'
-                      ? guardianAccepted(bundle.guardianSubmission.outcome.httpStatus)
-                        ? <>The Guardian document was delivered to a gateway (HTTP {bundle.guardianSubmission.outcome.httpStatus}); no policy run has consumed it. </>
-                        : <>The Guardian document was refused by the gateway (HTTP {bundle.guardianSubmission.outcome.httpStatus}). </>
-                      : <>The Guardian document, staged to the outbox. </>}
+                    {bundle.contract.chain ? <>Nothing on Arc: the deed ran on the local chain above. </> : <>The <span className="mono">verifyMilestone</span> calldata for the Restoration Deed. </>}
                     {bundle.issuance.partition ? <>The outcome-token issuance calldata for {bundle.issuance.valueHa} ha.</> : <>No outcome token: {bundle.issuance.reason}.</>}
                   </dd>
+                  <dt>{bundle.guardianSubmission.outcome.mode === 'sent' ? 'Delivered to Guardian' : 'Staged for Guardian'}</dt>
+                  <dd>
+                    {bundle.guardianSubmission.outcome.mode === 'sent'
+                      ? guardianAccepted(bundle.guardianSubmission.outcome.httpStatus)
+                        ? <>The gateway acknowledged the verdict document (HTTP {bundle.guardianSubmission.outcome.httpStatus}). No published policy has consumed it, so this is delivery, not a policy run.</>
+                        : <>The gateway refused the verdict document (HTTP {bundle.guardianSubmission.outcome.httpStatus}). Nothing was submitted.</>
+                      : bundle.guardianSubmission.outcome.mode === 'failed'
+                        ? <>The verify service could not reach Guardian. The verdict document is staged, not submitted.</>
+                        : <>No Guardian is configured. The verify service wrote the verdict document to its outbox and did not submit it.</>}
+                  </dd>
                   <dt>Why</dt>
-                  <dd>This environment holds no Arc deployer key and no Hedera operator account. Nothing is broadcast that has not been, and each record below says which it is. The evidence CID is computed, not pinned.</dd>
+                  <dd>This page never broadcasts a transaction. The verify service holds no Arc deployer key and no Hedera operator account, so it prepares each record below and states whether it sent it. It computes the evidence CID and does not pin it.</dd>
                 </dl>
               </section>
 
@@ -292,7 +302,7 @@ function Dashboard() {
               </section>
 
               <section className="card span-4">
-                <h3>Where the verdict was sent</h3>
+                <h3>Verdict delivery status</h3>
                 <dl className="kv">
                   <dt>Guardian</dt>
                   <dd>
