@@ -365,8 +365,15 @@ The same images run in both places. Deployed, the least complicated honest arran
 is one EC2 host running both compose projects side by side: the instance is already
 sized for Guardian (§6), and these three containers add little to it. Splitting them
 across separate ECS services buys nothing at this scale and costs the shared network.
-The AWS deployment itself is a later milestone; nothing in this section has been
-deployed (§12).
+
+That arrangement is what `deploy/` and `.github/workflows/` implement (§13). Deployed,
+the stack is `docker-compose.yml` with `deploy/docker-compose.aws.yml` layered on it:
+the three images come from ECR at the deployed commit instead of being built, the
+frontend's host port is replaced by a Caddy container on 80/443 (automatic TLS when a
+domain is set), and `docker-compose.override.yml` is added only while Guardian's
+network exists on the host. Guardian runs from its own checkout beside it, with
+`deploy/guardian/docker-compose.public.yml` publishing its web proxy on `:3000` and
+nothing else. Nothing has been deployed yet (§12).
 
 ### 7.8 Deviations from the proposal
 
@@ -479,6 +486,12 @@ thing to economise on and the cheapest to keep.
 
 Steps 1 and 2 produce a complete, honest demonstration. Steps 3 and 4 are additive.
 
+The container path (§7, §13) reorders this for the hackathon: the EC2 host serves the
+application, verification and (on demand) methodology tiers together, and step 2's
+static publish is not needed while the frontend container serves the same `dist/`.
+Step 1 is unchanged and still gates the settlement claim: until `RestorationDeed` is on
+Arc Testnet, the deployed stack prepares calldata and does not broadcast (§4).
+
 ---
 
 ## 12. Implementation state (2026-09-10)
@@ -491,8 +504,11 @@ Nothing in this document is deployed to AWS. The container stack in §7 runs loc
   `anvil` — both from the host and, via the `chain` profile, inside the compose stack:
   mobilisation draw, plan-hash-bound verification, tranche release at the lower bound,
   benefit share and retention.
-* No AWS resources exist. No infrastructure-as-code has been written, and no tool has
-  been chosen between Terraform and CDK. The credit available for it is unspent.
+* No AWS resources exist. The infrastructure is written — one CloudFormation stack,
+  `deploy/cloudformation/demo-host.yml`, chosen over Terraform and CDK because it needs
+  no tool beyond the AWS CLI — and the deploy pipeline is in `.github/workflows/`
+  (§13). Neither has been run: the stack has not been created and no workflow has
+  executed against AWS. The credit available for it is unspent.
 * **The split pipeline in §7 is built.** `docker compose up --build` starts `analysis`,
   `verify` and `frontend`; the interface at `localhost:3001` runs each scenario through
   the Python analysis service and the TypeScript verify service and displays the result.
@@ -514,3 +530,55 @@ Nothing in this document is deployed to AWS. The container stack in §7 runs loc
   still stage to `guardian/outbox/`.
 * The measurements in §5 (1.4 s, 153 MB for all three scenarios in-process) and §3
   (~130 KB) were taken on the development host and are indicative, not benchmarks.
+
+---
+
+## 13. Continuous deployment (written 2026-09-10, not yet run)
+
+`main` deploys itself to the host in §7.7. The runbook is `deploy/README.md`; this
+section records the shape and the decisions.
+
+```text
+push to main ─► ci.yml ─► build ×3 ─► ECR ─► SSM Run Command ─► deploy/host/deploy.sh ─► smoke test
+                (typecheck, vitest, lint+build,  (OIDC role;      (instance role; pulls,   (/health, page)
+                 pytest parity, forge test,       no AWS keys      Parameter Store,
+                 compose build)                   in GitHub)       compose up --wait)
+```
+
+| Piece | Where | Runs |
+|---|---|---|
+| `ci.yml` | GitHub | every PR and branch push; called by `deploy.yml` before any image is built |
+| `deploy.yml` | GitHub → ECR → host | every push to `main`; one at a time, never cancelled, so the host is always the branch tip |
+| `guardian.yml` | GitHub → host | by hand: `up` / `down` / `status` / `logs` for the Guardian quickstart |
+| `demo-host.yml` | CloudFormation | once, by hand: EC2 (`t3.xlarge`, AL2023, no SSH), EIP, security group, ECR ×3, instance role, GitHub OIDC provider and deploy role |
+| `deploy.sh`, `guardian.sh` | the host, as root, via SSM | one commit / one Guardian action; both idempotent |
+
+Decisions:
+
+* **GitHub authenticates with OIDC; the host is driven over SSM.** No AWS access key
+  exists in GitHub and no SSH port exists on the host. The deploy role may push to the
+  three repositories and run `AWS-RunShellScript` on the one instance, nothing else.
+* **Secrets live in SSM Parameter Store and are read on the host at deploy time.**
+  `deploy.sh` exports `/ecorestore/demo/*` to compose for the life of the process and
+  writes no `.env`. `VERIFIER_SEED` and Guardian's `OPERATOR_KEY` are `SecureString`
+  parameters. This is §8 as built.
+* **The host checks out the deployed commit before running the deploy script**, so
+  the script that runs is the one committed with the images it deploys. The repository
+  is public; the host clones it anonymously and holds no repository credential.
+* **Images are tagged with the commit SHA**, and `IMAGE_TAG` is the SHA, so what is
+  running is always attributable to a commit. `latest` is a convenience tag only.
+* **Guardian attachment is decided on the host at deploy time** by whether a running
+  Guardian web-proxy sits on `guardian-quickstart_default` (§7.6), exactly as the local
+  stack decides it by which compose files are given. The Guardian UI port is closed by
+  default and opened per judging window with a /32 (§8). Running Guardian is a separate, manual workflow
+  because it is a cost decision (§6, §10), not a build step.
+* **No demonstration chain on AWS** (§4). `DEMO_RPC_URL` is deliberately absent from
+  the host's parameters; the deployed stack prepares settlement calldata and says so.
+* **CloudFormation, not Terraform or CDK.** One file, one command, no state backend and
+  no toolchain to install; the account's existing OIDC provider can be reused with a
+  parameter. It describes the host completely and is the only way the host changes.
+
+Not done by this: a domain and TLS certificate (Caddy provisions one as soon as
+`/ecorestore/demo/DOMAIN` names a record pointing at the EIP), a Guardian policy, an
+Arc Testnet deployment, and running any of it — see §12.
+

@@ -9,6 +9,152 @@ as written rather than rewritten, because a log records what was true at the tim
 
 ---
 
+## 2026-09-10 — Continuous deployment to AWS: GitHub Actions, one EC2 host, Guardian beside it
+
+### Objective
+
+Make `main` deploy itself to a live, publicly reachable demonstration on AWS for the
+hackathon submission: the container stack from `docs/DEPLOYMENT.md` §7 and, on demand,
+the Hedera Guardian quickstart alongside it — with the pipeline living in this
+repository as GitHub Actions. Owner's instruction: "implement the CI/CD to deploy the
+changes to main branch to a live application, hosted on AWS."
+
+### Implementation
+
+* `.github/workflows/ci.yml` — every suite the repository has, on every PR and branch
+  push, and as a reusable workflow: typecheck + vitest, frontend lint + Vite build,
+  pytest parity, `forge test` (foundry-toolchain), and a clean `docker compose build`.
+* `.github/workflows/deploy.yml` — on push to `main`: CI, then three matrix jobs assume
+  an IAM role through GitHub's OIDC provider and push `ecorestore/{analysis,verify,
+  frontend}` to ECR tagged with the commit SHA (registry build cache), then one SSM
+  Run Command advances the host's checkout to that commit and runs
+  `deploy/host/deploy.sh`, then the job smoke-tests `DEMO_URL/health` and the page.
+  Deploys are serialised and never cancelled.
+* `.github/workflows/guardian.yml` — manual `up` / `down` / `status` / `logs` for the
+  Guardian quickstart on the host via `deploy/host/guardian.sh`.
+* `deploy/cloudformation/demo-host.yml` — the one-time stack: `t3.xlarge` Amazon
+  Linux 2023 with an EIP and an encrypted 80 GB gp3 root, security group 80/443 (+3000
+  for the Guardian UI, closable by parameter), no SSH; instance role limited to SSM,
+  ECR pull and `/ecorestore/*` parameters; three ECR repositories with a keep-10
+  lifecycle; GitHub OIDC provider (reusable) and a deploy role trusting only this
+  repository's `main` and its `demo` environment. User-data installs Docker and the
+  compose plugin and clones this repository and Guardian at tag `3.7.0`.
+* `deploy/docker-compose.aws.yml` — overlay on `docker-compose.yml`: images from ECR at
+  `IMAGE_TAG`, `build` reset, frontend host port removed, a `caddy` edge on 80/443 with
+  automatic TLS when `DOMAIN` is set (`deploy/caddy/Caddyfile`).
+* `deploy/guardian/docker-compose.public.yml` — overlay on Guardian's
+  `docker-compose-quickstart.yml`: republishes the web proxy on `0.0.0.0:3000`; nothing
+  else in Guardian is exposed.
+* `deploy/host/deploy.sh` — reads `/ecorestore/demo/*` from Parameter Store into the
+  process environment (no `.env` written), logs in to ECR with the instance role, adds
+  `docker-compose.override.yml` only if `guardian-quickstart_default` exists, and runs
+  `compose up -d --wait`, then checks `/health` through Caddy.
+* `deploy/host/guardian.sh` — the same for Guardian, from `/opt/ecorestore/guardian`,
+  with `OPERATOR_ID`/`OPERATOR_KEY` from `/ecorestore/guardian/*`.
+* `deploy/README.md` — the runbook; `docs/DEPLOYMENT.md` §7.7, §11, §12 updated and
+  §13 added; `README.md` pointer; `.dockerignore` excludes `deploy/` and `.github/`.
+* Branch protection on `main` (GitHub API, not in the repository): the five CI jobs
+  `typescript`, `frontend`, `analysis`, `contracts`, `images` are required status
+  checks, force pushes and deletion are blocked, and administrators are not exempt.
+  Merges to `main` therefore go through a pull request with green CI.
+* `app/src/App.tsx` — the CI lint job exposed a pre-existing
+  `react-hooks/set-state-in-effect` error: the three state resets moved from the
+  effect body into the scenario-select and re-run handlers (a same-scenario click is
+  now a no-op rather than a reset with no reload). Behaviour otherwise unchanged.
+
+### Tests / validation
+
+Run locally in the worktree, on the code as committed:
+
+* `npm run typecheck` clean; `npm test` 9 files, 54 tests passed.
+* `app`: `npm run lint` 0 errors (1 pre-existing `exhaustive-deps` warning in
+  `charts.tsx`); `npm run build` succeeds.
+* `analysis`: `pytest` 29 passed (parity, RNG, acquire, server).
+* `forge test` via `ghcr.io/foundry-rs/foundry`: 31 passed.
+* `docker compose -f docker-compose.yml build`: all three images build.
+* `docker compose -f docker-compose.yml -f deploy/docker-compose.aws.yml config`
+  (with and without `docker-compose.override.yml`): `build` removed, ECR images set,
+  frontend port gone, Caddy on 80/443, `GUARDIAN_URL=http://web-proxy:80` and the
+  external network present only when the override is included.
+* The Guardian overlay validated against the actual `docker-compose-quickstart.yml`
+  of the local 3.7.0 checkout: web-proxy published on `3000:80`, no loopback bind.
+* `actionlint` 1.7.12, `cfn-lint` 1.56.2, `shellcheck` 0.11 (style level): clean.
+
+**Not validated:** anything on AWS. The AWS session on the development machine had
+expired, so the stack was not created, no image was pushed, no SSM command was sent,
+and no workflow has run. The first real run is the validation this entry lacks.
+
+### Architectural, scientific and security decisions
+
+* Nothing in the authority model changes. The deployed stack is the local stack: the
+  same compose file, the same network split (`analysis` internal-only, `verify` the sole
+  key holder, the frontend knowing only `verify`), the same Guardian attachment rule.
+* GitHub ↔ AWS trust is OIDC-only, scoped to this repository's `main` and `demo`
+  environment; the role can push to three repositories and run a shell script on one
+  instance. No AWS key exists in GitHub; no SSH key or port exists on the host.
+* Secrets are SSM Parameter Store `SecureString`s read on the host at deploy time,
+  never a `.env` and never a GitHub secret — `DEPLOYMENT.md` §8 as built. The deployment
+  must use a fresh `VERIFIER_SEED`, not the local default.
+* No chain on AWS (`DEPLOYMENT.md` §4). `DEMO_RPC_URL` is absent from the host's
+  parameters by design; deployed verifications prepare calldata and report that.
+* Guardian is a manual, separately-switched workflow because running it is a cost
+  decision, not part of the build. Only its web proxy is published, and the security
+  group rule for it is a parameter that can be emptied.
+* CloudFormation rather than Terraform or CDK: one file, one CLI, no state backend.
+  This closes the open tool choice recorded in `DEPLOYMENT.md` §12.
+* The host runs the compose projects as root via SSM. Acceptable for a demonstration
+  host holding only testnet material; recorded as a risk below.
+
+### Deviations from the documented design
+
+* `DEPLOYMENT.md` §2–§3 describe S3 + CloudFront for the application tier and Lambda for
+  verification. The container path (§7, added earlier today) supersedes that for the
+  hackathon: one host serves all three tiers. §11 now says so; §2–§3 remain as the
+  lower-cost arrangement for later.
+* `docs/DEPLOYMENT.md` §7.7 previously said the AWS deployment was "a later milestone";
+  it now points at §13. It is still not deployed.
+
+### Unresolved risks
+
+* **Unexecuted pipeline.** No workflow has run against AWS. Likely first-run
+  friction: `!reset`/`!override` need compose ≥ 2.24 on the host (user-data installs the
+  latest release, unpinned); ECR repository names are account-global.
+* **Copilot review (PR #5) fixes, applied the same day:** Guardian UI port closed by
+  default; `deploy.sh` refuses a missing or default `VERIFIER_SEED` and any
+  `DEMO_RPC_URL`/`DEMO_MNEMONIC`; attachment requires a *running* Guardian web-proxy
+  on the network, not just the network; old SHA-tagged images are removed after each
+  deploy; `guardian.sh down` detaches foreign endpoints first; `deploy.yml` and
+  `guardian.yml` use separate concurrency groups and the SSM commands take a host
+  `flock` *before* the checkout (the scripts inherit it via `ECORESTORE_HOST_LOCK`),
+  and `guardian.yml` no longer moves the application checkout at all — only a deploy
+  does; the smoke test fails when `DEMO_URL` is unset; ECR repositories set
+  `EmptyOnDelete`; the instance gets a launch-time public IP so user-data has a route
+  out before the EIP attaches; the `demo` environment is restricted to protected
+  branches because an environment-bound job presents the environment OIDC subject,
+  not the branch.
+* **Root on the host.** SSM Run Command runs as root and so do the compose projects. A
+  dedicated user would be better hygiene; not done.
+* **Guardian UI exposure.** Port 3000 is closed by default (`GuardianUiCidr=""`);
+  opening it for a judging window is a stack update with a /32. The Standard Registry
+  password in the quickstart env is the upstream demo default — change it before
+  opening the port.
+* **Plain HTTP by default.** Without a domain the site is served over HTTP on the EIP.
+  Setting `/ecorestore/demo/DOMAIN` to a record pointing at the EIP gives HTTPS via
+  Caddy with no other change.
+* **Arc Testnet is still not deployed** (M1), so the settlement claim is still shown as
+  prepared calldata, on AWS as locally.
+
+### Next steps
+
+1. `aws login`, create the stack, set the parameters and GitHub secret/variables per
+   `deploy/README.md`, and push to `main` — the first real run of the pipeline.
+2. Deploy `RestorationDeed` to Arc Testnet (M1) and, once it exists, decide how the
+   deployed `verify` addresses it.
+3. Author and publish a Guardian policy carrying `ecorestore_verdict_ingest`; until
+   then a Guardian `200` remains delivery, not a policy run.
+
+---
+
 ## 2026-09-10 — Second review pass: stale demonstration bundles, reference drift, engine binding
 
 ### Objective
