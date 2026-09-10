@@ -346,6 +346,12 @@ export interface VerificationResult {
   runIndex: number;
   methodologyVersion: string;
   processingGraphVersion: string;
+  /**
+   * Which implementation of the analysis boundary produced the numbers
+   * (`analysis-contract.ts`). Determinism is a per-runtime guarantee, so the
+   * runtime is part of what the result hash commits to.
+   */
+  analysisEngine: { name: string; version: string };
   stacSceneIds: string[];
   tier0Provenance: { provenance: Provenance; catalog: string; collection: string; snapshotHash: Hex; note?: string };
   metric: { id: string; version: string; unit: 'ha' };
