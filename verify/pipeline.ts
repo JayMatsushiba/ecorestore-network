@@ -38,6 +38,7 @@ import { loadEvidenceBundle } from '../verification/fixtures.js';
 import { parcelIdentity } from '../verification/geometry.js';
 import type { AnalysisPlan, EvidenceBundle, ParcelRecord, VerificationResult } from '../verification/models.js';
 import { injectSyntheticEffect } from '../verification/scenario.js';
+import { spatialBlock, type SpatialBlock } from './spatial.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const ROOT = join(here, '..');
@@ -316,6 +317,8 @@ export interface AssuranceBundle {
     verifyMilestone: { deedId: string; milestoneId: number; runIndex: number; resultHash: Hex; analysisPlanHash: Hex; status: number; lowerBoundQuantity: string; claimedQuantity: string; calldata: Hex };
   };
   auditorReport: AuditReport;
+  /** Geometry for the map view. Envelope only: it never enters the hashed result. */
+  spatial: SpatialBlock;
   runtime: { analysisEngine: VerificationResult['analysisEngine']; computedAt: string };
 }
 
@@ -358,6 +361,7 @@ export async function runScenario(sc: Scenario, parcel: ParcelRecord, opts: Pipe
       verifyMilestone: { ...contractArgs, deedId: contractArgs.deedId.toString(), lowerBoundQuantity: contractArgs.lowerBoundQuantity.toString(), claimedQuantity: contractArgs.claimedQuantity.toString(), calldata: encodeVerifyMilestone(contractArgs) },
     },
     auditorReport: report,
+    spatial: spatialBlock(parcel, sc.plan, sc.evidence, result),
     runtime: { analysisEngine: result.analysisEngine, computedAt },
   };
 }

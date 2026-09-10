@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import type { TrajectoryPoint, VerificationResult } from './types';
-
-const COLORS = { parcel: 'var(--series-parcel)', far: 'var(--series-far)', near: 'var(--series-near)' };
+import { Badge } from './Badge';
+import { fmt } from './copy';
+import type { Provenance, TrajectoryPoint, VerificationResult } from './types';
 
 function dateToX(date: string, x0: number, x1: number, t0: number, t1: number): number {
   const t = Date.parse(`${date}T00:00:00Z`);
@@ -9,15 +9,20 @@ function dateToX(date: string, x0: number, x1: number, t0: number, t1: number): 
 }
 
 /**
- * Additionality view: parcel NDVI trajectory against the far-ring control
- * envelope (mean ± sd), near ring shown separately so leakage is visible.
- * Every scene is a real acquisition; seasons are drawn as separate segments.
+ * Additionality view: parcel NDVI trajectory against the far-ring control envelope
+ * (mean ± sd), with the near ring shown separately so leakage is visible. Every scene is
+ * a real acquisition; seasons are drawn as separate segments. The two control series
+ * share one cool, neutral family and differ by weight and dash, so they read as one
+ * category, comparison land, distinct from the parcel. The amber range is reserved for
+ * simulated provenance, so the parcel line turns amber only when its Tier 0 is simulated.
  */
-export function TrajectoryChart({ points, treatmentDate, tier0Provenance }: { points: TrajectoryPoint[]; treatmentDate: string; tier0Provenance: string }) {
-  const W = 880;
-  const H = 300;
-  const m = { l: 44, r: 16, t: 16, b: 34 };
+const W = 880;
+const H = 320;
+const m = { l: 50, r: 16, t: 20, b: 38 };
+
+export function TrajectoryChart({ points, treatmentDate, tier0Provenance, rings }: { points: TrajectoryPoint[]; treatmentDate: string; tier0Provenance: Provenance; rings: { near: { innerM: number; outerM: number } | undefined; far: { innerM: number; outerM: number } | undefined } }) {
   const [hover, setHover] = useState<number | null>(null);
+  const parcelColor = tier0Provenance === 'REAL' ? 'var(--series-parcel)' : 'var(--simulated)';
 
   const geom = useMemo(() => {
     const dates = points.map((p) => Date.parse(`${p.date}T00:00:00Z`));
@@ -74,47 +79,49 @@ export function TrajectoryChart({ points, treatmentDate, tier0Provenance }: { po
   return (
     <div className="chart-wrap">
       <div className="legend" aria-label="legend">
-        <span><i className="swatch" style={{ background: COLORS.parcel }} />Parcel ({tier0Provenance})</span>
-        <span><i className="swatch" style={{ background: COLORS.far }} />Far-ring controls, mean ± sd (drawn by the committed rule)</span>
-        <span><i className="swatch" style={{ background: COLORS.near, height: 2, borderTop: '2px dashed var(--series-near)', backgroundColor: 'transparent' }} />Near-ring controls (leakage-exposed)</span>
+        <span><i className="swatch" style={{ background: parcelColor }} />Parcel <Badge p={tier0Provenance} /></span>
+        <span><i className="swatch band" style={{ background: 'var(--series-far)' }} />Comparison land, far ring {rings.far ? `${rings.far.innerM}–${rings.far.outerM} m` : ''}: mean ± sd of the matched cells <Badge p="REAL" /></span>
+        <span><i className="swatch dashed" style={{ borderColor: 'var(--series-near)' }} />Comparison land, near ring {rings.near ? `${rings.near.innerM}–${rings.near.outerM} m` : ''}, leakage-exposed <Badge p="REAL" /></span>
       </div>
-      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Parcel NDVI against control rings over time"
-        onMouseLeave={() => setHover(null)}
-        onMouseMove={(e) => {
-          const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
-          const px = ((e.clientX - rect.left) / rect.width) * W;
-          let best = 0;
-          let bd = Infinity;
-          points.forEach((p, i) => { const d = Math.abs(geom.x(p.date) - px); if (d < bd) { bd = d; best = i; } });
-          setHover(best);
-        }}>
-        <g className="axis">
-          {geom.yTicks.map((v) => (
-            <g key={v}>
-              <line className="grid-line" x1={m.l} x2={W - m.r} y1={geom.y(v)} y2={geom.y(v)} />
-              <text x={m.l - 6} y={geom.y(v) + 4} textAnchor="end">{v.toFixed(1)}</text>
-            </g>
-          ))}
-          {geom.years.map((yr) => (
-            <text key={yr} x={geom.x(`${yr}-07-31`)} y={H - 10} textAnchor="middle">{yr} growing season</text>
-          ))}
-          <text x={m.l - 6} y={m.t - 4} textAnchor="end">NDVI</text>
-        </g>
-        {geom.bands.map((d, i) => <polygon key={i} points={d} fill={COLORS.far} opacity={0.18} />)}
-        {geom.segments((p) => p.far?.mean ?? null).map((d, i) => <polyline key={`f${i}`} points={d} fill="none" stroke={COLORS.far} strokeWidth={2} />)}
-        {geom.segments((p) => p.near?.mean ?? null).map((d, i) => <polyline key={`n${i}`} points={d} fill="none" stroke={COLORS.near} strokeWidth={2} strokeDasharray="5 4" />)}
-        {geom.segments((p) => p.parcel).map((d, i) => <polyline key={`p${i}`} points={d} fill="none" stroke={COLORS.parcel} strokeWidth={2.5} />)}
-        <line x1={treatX} x2={treatX} y1={m.t} y2={H - m.b} stroke="var(--text-muted)" strokeDasharray="3 3" />
-        <text x={treatX + 4} y={m.t + 10}>treatment date (constructed)</text>
-        {hp && (
-          <g>
-            <line x1={geom.x(hp.date)} x2={geom.x(hp.date)} y1={m.t} y2={H - m.b} stroke="var(--text-secondary)" strokeWidth={1} />
-            {hp.parcel !== null && <circle cx={geom.x(hp.date)} cy={geom.y(hp.parcel)} r={4.5} fill={COLORS.parcel} stroke="var(--surface-1)" strokeWidth={2} />}
-            {hp.far && <circle cx={geom.x(hp.date)} cy={geom.y(hp.far.mean)} r={4.5} fill={COLORS.far} stroke="var(--surface-1)" strokeWidth={2} />}
-            {hp.near && <circle cx={geom.x(hp.date)} cy={geom.y(hp.near.mean)} r={4.5} fill={COLORS.near} stroke="var(--surface-1)" strokeWidth={2} />}
+      <div className="chart-scroll">
+        <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Parcel NDVI against comparison land over time, one point per Sentinel-2 scene"
+          onMouseLeave={() => setHover(null)}
+          onMouseMove={(e) => {
+            const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+            const px = ((e.clientX - rect.left) / rect.width) * W;
+            let best = 0;
+            let bd = Infinity;
+            points.forEach((p, i) => { const d = Math.abs(geom.x(p.date) - px); if (d < bd) { bd = d; best = i; } });
+            setHover(best);
+          }}>
+          <g className="axis">
+            {geom.yTicks.map((v) => (
+              <g key={v}>
+                <line className="grid-line" x1={m.l} x2={W - m.r} y1={geom.y(v)} y2={geom.y(v)} />
+                <text x={m.l - 6} y={geom.y(v) + 4} textAnchor="end">{v.toFixed(1)}</text>
+              </g>
+            ))}
+            {geom.years.map((yr) => (
+              <text key={yr} x={geom.x(`${yr}-07-31`)} y={H - 12} textAnchor="middle">{yr} growing season</text>
+            ))}
+            <text x={m.l - 6} y={m.t - 6} textAnchor="end">NDVI</text>
           </g>
-        )}
-      </svg>
+          {geom.bands.map((d, i) => <polygon key={i} points={d} fill="var(--series-far)" opacity={0.22} />)}
+          {geom.segments((p) => p.far?.mean ?? null).map((d, i) => <polyline key={`f${i}`} points={d} fill="none" stroke="var(--series-far)" strokeWidth={2} />)}
+          {geom.segments((p) => p.near?.mean ?? null).map((d, i) => <polyline key={`n${i}`} points={d} fill="none" stroke="var(--series-near)" strokeWidth={1.5} strokeDasharray="5 4" />)}
+          {geom.segments((p) => p.parcel).map((d, i) => <polyline key={`p${i}`} points={d} fill="none" stroke={parcelColor} strokeWidth={2.75} />)}
+          <line x1={treatX} x2={treatX} y1={m.t} y2={H - m.b} stroke="var(--text-muted)" strokeDasharray="3 3" />
+          <text x={treatX + 4} y={m.t + 12}>treatment date (constructed)</text>
+          {hp && (
+            <g>
+              <line x1={geom.x(hp.date)} x2={geom.x(hp.date)} y1={m.t} y2={H - m.b} stroke="var(--text-secondary)" strokeWidth={1} />
+              {hp.parcel !== null && <circle cx={geom.x(hp.date)} cy={geom.y(hp.parcel)} r={4.5} fill={parcelColor} stroke="var(--surface-1)" strokeWidth={2} />}
+              {hp.far && <circle cx={geom.x(hp.date)} cy={geom.y(hp.far.mean)} r={4.5} fill="var(--series-far)" stroke="var(--surface-1)" strokeWidth={2} />}
+              {hp.near && <circle cx={geom.x(hp.date)} cy={geom.y(hp.near.mean)} r={4.5} fill="var(--series-near)" stroke="var(--surface-1)" strokeWidth={2} />}
+            </g>
+          )}
+        </svg>
+      </div>
       {hp && (
         <div className="tooltip" style={{ left: `${(geom.x(hp.date) / W) * 100}%`, top: 40, transform: geom.x(hp.date) > W * 0.7 ? 'translateX(-105%)' : 'translateX(12px)' }}>
           <div className="mono">{hp.sceneId}</div>
@@ -128,45 +135,59 @@ export function TrajectoryChart({ points, treatmentDate, tier0Provenance }: { po
   );
 }
 
-/** The counterfactual reveal: claim → gross → controls → leakage → additional → lower bound → settled. */
+interface Row {
+  label: string;
+  value: number;
+  kind: 'measure' | 'deduct' | 'result' | 'settled';
+}
+
+/**
+ * From the claim to the settled quantity. The claim is a reference line, not a bar: it
+ * is the simulated number and it would set the scale for everything real. Every row is
+ * an operation, so the sign and the word agree. A zero settlement is drawn as a marked
+ * tick that carries its value, never as absence.
+ */
 export function CounterfactualChart({ r }: { r: VerificationResult }) {
   const m = r.measured;
-  const rows = [
-    { label: 'Claimed (SIMULATED Tier 3)', value: r.claimedQuantity, kind: 'claim' },
-    { label: 'Gross parcel change (Tier 0)', value: m.parcelChangeHa, kind: 'measure' },
-    { label: 'Far-ring control change', value: -m.controlChangeFarRingHa, kind: 'deduct' },
-    { label: 'Leakage (near/far divergence)', value: -m.leakageHa, kind: 'deduct' },
-    { label: 'Biophysical additionality', value: m.additionalBiophysicalHa, kind: 'measure' },
-    { label: `Lower ${Math.round(r.uncertainty.interval.confidenceLevel * 100)}% bound`, value: r.lowerBound, kind: 'measure' },
+  const level = Math.round(r.uncertainty.interval.confidenceLevel * 100);
+  const rows: Row[] = [
+    { label: 'Gross change measured on the parcel', value: m.parcelChangeHa, kind: 'measure' },
+    { label: 'less the change on far-ring comparison land', value: -m.controlChangeFarRingHa, kind: 'deduct' },
+    { label: 'less leakage, where the near ring diverges from the far ring', value: -m.leakageHa, kind: 'deduct' },
+    { label: 'equals biophysical additionality', value: m.additionalBiophysicalHa, kind: 'result' },
+    { label: `Lower ${level}% bound of that, the quantity that would survive an audit`, value: r.lowerBound, kind: 'result' },
     { label: 'Settled', value: r.settledQuantity, kind: 'settled' },
   ];
-  const W = 560;
-  const rowH = 30;
-  const H = rows.length * rowH + 30;
-  const labelW = 210;
   const maxAbs = Math.max(1, ...rows.map((x) => Math.abs(x.value)));
-  const zero = labelW + ((W - labelW - 60) * maxAbs) / (2 * maxAbs);
-  const scale = (W - labelW - 60) / (2 * maxAbs);
   const [hover, setHover] = useState<number | null>(null);
+  const pct = (v: number) => (Math.abs(v) / maxAbs) * 50;
+  const ratio = r.claimedQuantity / maxAbs;
   return (
-    <div className="chart-wrap">
-      <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="From claim to settlement">
-        <line x1={zero} x2={zero} y1={8} y2={H - 20} stroke="var(--border)" />
-        {rows.map((row, i) => {
-          const y = 12 + i * rowH;
-          const w = Math.abs(row.value) * scale;
-          const x = row.value >= 0 ? zero : zero - w;
-          const fill = row.kind === 'settled' ? 'var(--series-parcel)' : row.kind === 'claim' ? 'var(--simulated)' : row.kind === 'deduct' ? 'var(--neutral-band)' : 'var(--text-muted)';
-          return (
-            <g key={row.label} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-              <rect x={labelW} y={y - 4} width={W - labelW} height={rowH - 2} fill="transparent" />
-              <text x={labelW - 8} y={y + 12} textAnchor="end">{row.label}</text>
-              <rect x={x} y={y} width={Math.max(w, 1)} height={16} fill={fill} rx={row.value >= 0 ? 0 : 3} ry={3} opacity={hover === null || hover === i ? 1 : 0.6} />
-              <text x={row.value >= 0 ? x + w + 6 : x - 6} y={y + 12} textAnchor={row.value >= 0 ? 'start' : 'end'}>{row.value.toFixed(2)} ha</text>
-            </g>
-          );
-        })}
-      </svg>
+    <div className="waterfall">
+      <p className="waterfall-claim">
+        <span className="claim-value">{fmt(r.claimedQuantity)} ha</span> claimed by the restorer <Badge p="SIMULATED" />
+        <span className="muted"> · the reference every bar below is measured against{ratio > 1.5 ? `, ${ratio.toFixed(1)} times wider than the widest bar` : ''}. The rule walks it down to what the measurement can defend.</span>
+      </p>
+      <table className="waterfall-table">
+        <caption className="sr-only">Each step from the claimed quantity to the settled quantity, in hectares</caption>
+        <tbody>
+          {rows.map((row, i) => {
+            const zeroSettled = row.kind === 'settled' && row.value === 0;
+            return (
+              <tr key={row.label} className={`wf-${row.kind} ${hover !== null && hover !== i ? 'dim' : ''}`} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+                <th scope="row">{row.label}</th>
+                <td className="track" aria-hidden="true">
+                  <span className="zero" />
+                  {zeroSettled
+                    ? <span className="tick" title="0.00 ha settled" />
+                    : <span className="bar" style={row.value >= 0 ? { left: '50%', width: `${pct(row.value)}%` } : { right: '50%', width: `${pct(row.value)}%` }} />}
+                </td>
+                <td className="num value">{fmt(row.value)} ha{zeroSettled ? <span className="muted"> · nothing released</span> : null}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

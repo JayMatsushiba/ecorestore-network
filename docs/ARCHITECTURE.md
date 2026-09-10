@@ -295,6 +295,11 @@ that has *not* happened is the deployment itself.
 | Rule-based Auditor boundary; additionality view in the app | Production financial settlement |
 | **Container stack** — Python `analysis` service (bit-exact with the TypeScript engine), TypeScript `verify` service, nginx `frontend`, optional `anvil` and `acquire`; `verify` attached to a running Guardian 3.7.0 quickstart and its verdicts acknowledged by the gateway (`DEPLOYMENT.md` §7) | AWS deployment; a published Guardian policy carrying the block tag (the `200` is delivery, not a policy run) |
 
+The application's About page (`/about`) states this split in one table. Whoever moves a
+row here updates that table (`app/src/About.tsx`). The application's map view draws the
+`spatial` block of the bundle envelope and computes nothing: every polygon comes from the
+engine's geometry helpers, and no satellite data reaches the browser.
+
 **Deployment to Arc Testnet is therefore the remaining M1 deliverable**, and it gates the
 public demonstration (`DEPLOYMENT.md` §4). The verification engine now has two
 implementations of one boundary — the reference in `verification/engine.ts` and the
