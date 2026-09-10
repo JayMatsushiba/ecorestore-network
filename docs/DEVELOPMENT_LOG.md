@@ -4,6 +4,88 @@ Newest first. One entry per milestone, per `CLAUDE.md`.
 
 ---
 
+## 2026-09-10 — Deployment and x402 documentation
+
+### Objective
+
+Record how the demonstration is intended to run on AWS alongside a Guardian instance,
+and how API payment would work if it ships, without either document being mistakable for
+a record of work done. No code changed.
+
+### Implementation
+
+- `docs/DEPLOYMENT.md` (new). Four tiers — static application, Arc Testnet settlement,
+  optional verification, optional Guardian host — ordered so the expensive and
+  security-sensitive tiers can be dropped without breaking the demonstration. §7 records
+  the container architecture for a **proposed** Python/TypeScript split of the pipeline.
+  §8 covers key custody, §9 the provenance obligations a public URL creates.
+- `docs/X402.md` (new). Authority boundary, Hedera's payment scheme, the
+  specification-search coupling, account separation, determinism requirement.
+- `docs/ARCHITECTURE.md` §2 and §7 amended: the x402 gateway added to the authority
+  model and given a component boundary with its `may not` list.
+- `README.md` documentation index updated.
+
+### Tests / validation
+
+No code changed; validation was documentary, with two operational checks run against the
+existing tree:
+
+- The Foundry suite was executed through the `ghcr.io/foundry-rs/foundry` container with
+  no local Foundry installation: **31 passed, 0 failed**. This is the first time the
+  contract suite has run in this environment and it substantiates `ARC.md` §8.
+- The full three-scenario demo was run against a containerised `anvil` (chain 31337):
+  `real` → milestone FAILED, `synthetic` → RELEASED with benefit share and retention,
+  `trend-failure` → INSUFFICIENT. Offline, the three scenarios complete in 1.38 s wall,
+  153 MB peak resident — the figure `DEPLOYMENT.md` §5 uses to size the optional tier.
+
+### Architectural, scientific and security decisions
+
+- **Guardian is not a submodule.** It is cloned as a sibling checkout and run from its
+  own compose project. The integration surface is one HTTP POST; there is no
+  source-level dependency to pin, its configuration and key material live inside its own
+  tree, and vendoring it would blur the authority boundary.
+- **Settlement runs on Arc Testnet, not a hosted chain.** A transaction on a private
+  demonstration chain is a screenshot, not evidence.
+- **One serializer, not one runtime.** A hash commits to bytes, not data. Exactly one
+  implementation may serialise a result; every other participant treats the hash as
+  opaque. `RestorationDeed.sol` already follows this — it contains no `keccak256` and no
+  `abi.encode`. A Python split may therefore own everything upstream of canonicalisation
+  and nothing downstream of it.
+- **x402 is coupled to pre-registration, and the coupling is now written down**, as
+  Idea 0.3 §4.8 requires. The first draft of `X402.md` recommended selling per-request
+  verification without it; that is the exact hazard §3.7.1 names — *"a service the
+  restorer pays per request"* — and it was corrected during review. The rule recorded is
+  that every verification sold must be a recorded verification: no unrecorded preview
+  tier, because an unrecorded run is a private trial that defeats run-count history while
+  leaving pre-registration apparently intact.
+- **Three separate Hedera accounts** for Guardian operator, ATS treasury and x402
+  receipts. A compromise of a public payment endpoint must not reach the account that can
+  issue outcome tokens.
+
+### Deviations from Idea 0.3
+
+None. `X402.md` restates §4.8's demotion and §3.7.1's coupling rather than revising
+either; x402 remains optional, M6, and third in the cut order.
+
+### Unresolved risks
+
+- No infrastructure-as-code exists and no choice has been made between Terraform and CDK.
+- The split pipeline in `DEPLOYMENT.md` §7 is unapproved. It is an architectural change
+  and requires explicit sign-off before any of it is built.
+- The provenance obligations in `DEPLOYMENT.md` §9 are documented but not implemented:
+  the `SIMULATED` banner is not yet guaranteed to appear within a settlement view, and
+  the application still lands on a scenario chosen by the reader rather than defaulting
+  to `real`.
+
+### Next steps
+
+1. Deploy `RestorationDeed` to Arc Testnet and record the address — M1 is not closed
+   until this exists.
+2. Implement the two provenance changes before anything is publicly reachable.
+3. Choose an infrastructure tool, then write the static tier.
+
+---
+
 ## 2026-09-10 — Spatial pipeline → Guardian seam → Arc deed prototype (M1–M4 vertical slice)
 
 ### Objective

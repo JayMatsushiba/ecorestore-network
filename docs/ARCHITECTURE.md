@@ -27,6 +27,7 @@ The system must remain understandable and independently testable at each boundar
 | The Graph                      | Indexed history / read layer                                            |
 | Auditor Agent                  | Orchestration, investigation and explanation                            |
 | React UI                       | Presentation only                                                       |
+| x402 Payment Gateway           | API access payment only — never settlement (`docs/X402.md`)             |
 
 ### Critical invariant
 
@@ -239,6 +240,31 @@ May not:
 * alter verification quantities;
 * bypass verification;
 * release sponsor funds.
+
+### Payment gateway (x402)
+
+Owns:
+
+* payment terms for a monetised API request;
+* payment verification at the edge;
+* refusal of unpaid requests.
+
+May not:
+
+* trigger, influence or substitute for a milestone settlement;
+* alter a verification result or any quantity within it;
+* place payment data inside a hashed document;
+* charge for the evidence a third party needs to check an issued verdict;
+* sell an unrecorded verification run;
+* become a prerequisite for the core verification or settlement flow.
+
+x402 pays for compute on Hedera. Settlement is USDC on Arc. The two are different
+networks, different assets and different accounts, and the separation is structural
+rather than conventional.
+
+x402 is optional and demoted (Idea 0.3 §4.8). Metering verification per request
+recreates the specification-search incentive §3.7.1 closes, so it ships only coupled to
+plan commitment and on-chain run-count recording. See `docs/X402.md` §5.
 
 ---
 

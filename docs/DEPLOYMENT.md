@@ -38,6 +38,7 @@ of cost:
 | Settlement | Arc Testnet | Yes — this is the product claim |
 | Verification | Lambda | Only for on-demand runs |
 | Methodology | EC2 running Guardian | Only for live policy execution |
+| Payment | x402 gateway (Hedera) | Only if the API is monetised — see `X402.md` |
 
 ---
 
@@ -88,6 +89,18 @@ does not need to run live at all.
 
 Default: **do not deploy this tier.** Pre-compute the bundles, ship them with the
 application, and the demonstration is complete.
+
+One thing would remove the choice: **monetising the API with x402 makes this tier
+mandatory**, because selling access to a verification commits the project to operating
+the service that performs it. The payment layer is edge middleware in front of this tier,
+documented in `X402.md`.
+
+x402 is optional and demoted (Idea 0.3 §4.8), and it carries a condition that is not a
+deployment detail: metered per-request verification recreates the specification-search
+incentive pre-registration exists to close, so it may only ship coupled to plan
+commitment and on-chain run-count recording, and **every verification sold must be a
+recorded verification** — no unrecorded preview tier. See `X402.md` §5 before planning
+this tier.
 
 Deploy it only if a visitor is meant to trigger a fresh verification. In that case use a
 Lambda **container image** rather than a zip: the pinned runtime is the point. The
@@ -379,6 +392,9 @@ Nothing in this document is deployed.
   TypeScript process; no Python service exists, no `analysis` or `verify` container has
   been built, and the split has not been approved. The compose skeleton and request
   contract in §7.4 and §7.5 are illustrative.
+* No payment tier exists. No endpoint returns `402`, no Hedera receiving account has
+  been created and no facilitator has been selected. x402 is outside M1 — see
+  `X402.md` §10 and §11.
 * No Guardian instance has been stood up. Every Guardian request produced so far has been
   staged to `guardian/outbox/` and reported as not submitted.
 * The measurements in §5 (1.4 s, 153 MB) and §3 (144 KB) were taken on the development
