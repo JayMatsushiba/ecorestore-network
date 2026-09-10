@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @title RestorationDeed — programmable restoration escrow (Idea 0.3 §4.1, §4.5)
+/// @title RestorationDeed — programmable restoration escrow (docs/ARC.md)
 /// @notice Holds USDC against a parcel, a metric, a methodology version and a
 ///         pre-registered analysis plan, and releases it only against an
 ///         authorized, replay-protected verification whose lower-bound quantity
@@ -81,7 +81,7 @@ contract RestorationDeed {
         bytes32 resultHash;
         uint32 runIndex;
         uint256 verifiedQuantity; // lower bound accepted, metric units x1e4
-        address assignee; // third-party lender assigned this tranche (§4.5)
+        address assignee; // third-party lender assigned this tranche (docs/ARC.md §4)
         uint256 releasedGross;
         bool reclaimed; // sponsor has recovered the unreleased balance
     }
@@ -89,11 +89,11 @@ contract RestorationDeed {
     struct DeedTerms {
         uint256 projectId;
         address verifier;
-        bytes32 analysisPlanHash; // committed BEFORE any outcome is observable (§3.7.1)
+        bytes32 analysisPlanHash; // committed BEFORE any outcome is observable (docs/VERIFICATION.md §6)
         bytes32 methodologyVersion;
         uint16 confidenceBps; // e.g. 9500
-        uint16 benefitShareBps; // fraction of every net release routed to steward (§4.5)
-        uint16 retentionBps; // fraction of every outcome release withheld against reversal (§4.2.2)
+        uint16 benefitShareBps; // fraction of every net release routed to steward (docs/ARC.md §4)
+        uint16 retentionBps; // fraction of every outcome release withheld against reversal (docs/ARC.md §4)
         address bufferPool; // receives withheld retention on persistence failure
     }
 
@@ -175,7 +175,7 @@ contract RestorationDeed {
     }
 
     // ------------------------------------------------------------------
-    // Project registration (§4.5 tenure, §4.6 encumbrances)
+    // Project registration (docs/ARC.md §4 tenure and encumbrances)
     // ------------------------------------------------------------------
 
     function createProject(ProjectInput calldata input) external returns (uint256 projectId) {
@@ -237,7 +237,7 @@ contract RestorationDeed {
 
     /// @notice Every verification run is recorded on-chain before its verdict
     ///         can be submitted, so a deed with eleven runs and one submitted
-    ///         result is visible (§3.7.1).
+    ///         result is visible (docs/VERIFICATION.md §6).
     function recordVerificationRun(uint256 deedId, bytes32 analysisPlanHash) external returns (uint32 runIndex) {
         Deed storage d = _deed(deedId);
         if (msg.sender != d.terms.verifier) revert NotAuthorized();
@@ -292,7 +292,7 @@ contract RestorationDeed {
         emit MilestoneVerified(deedId, milestoneId, runIndex, resultHash, status, lowerBoundQuantity, claimedQuantity, next);
     }
 
-    /// @notice Cost-recovery advance (§4.5). Same release path, restricted to MOBILISATION.
+    /// @notice Cost-recovery advance (docs/ARC.md §4). Same release path, restricted to MOBILISATION.
     function drawMobilisation(uint256 deedId, uint8 milestoneId) external nonReentrant {
         Milestone storage m = _milestone(deedId, milestoneId);
         if (m.terms.mType != MilestoneType.MOBILISATION) revert BadTerms("not a mobilisation milestone");
@@ -341,7 +341,7 @@ contract RestorationDeed {
         emit TrancheReleased(deedId, milestoneId, gross, retention, share, payee, payeeAmount);
     }
 
-    /// @notice Pledge a future tranche to a third-party lender (§4.5).
+    /// @notice Pledge a future tranche to a third-party lender (docs/ARC.md §4).
     function assignTranche(uint256 deedId, uint8 milestoneId, address assignee) external {
         Deed storage d = _deed(deedId);
         Milestone storage m = _milestone(deedId, milestoneId);
@@ -353,7 +353,7 @@ contract RestorationDeed {
 
     /// @notice A persistence milestone that failed, or expired without a verdict,
     ///         sends the accumulated retention to the buffer pool instead of the
-    ///         restorer (§4.2): persistence was not demonstrated.
+    ///         restorer (docs/ARC.md §4): persistence was not demonstrated.
     function withholdRetention(uint256 deedId, uint8 milestoneId) external nonReentrant {
         Deed storage d = _deed(deedId);
         Milestone storage m = _milestone(deedId, milestoneId);

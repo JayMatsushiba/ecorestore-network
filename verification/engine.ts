@@ -1,5 +1,5 @@
 /**
- * Deterministic verification engine (docs/VERIFICATION.md, Idea 0.3 §3).
+ * Deterministic verification engine (docs/VERIFICATION.md).
  *
  *   Evidence → Baseline → Parcel observation → Controls drawn by the committed
  *   rule (near + far ring) → Parallel-trend diagnostic → DiD against the far

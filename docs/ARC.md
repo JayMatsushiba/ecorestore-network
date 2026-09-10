@@ -100,9 +100,23 @@ extension of pooled deeds.
 
 Specified in the design; not built for the hackathon (`ROADMAP.md` §4).
 
----
+### Monitoring is decoupled from payment
 
-## 5. Security Requirements
+Tranches stop at 36 months. The obligation the buyer is discharging does not — UK BNG
+carries a 30-year maintenance obligation, and the 27-year gap between them is the entire
+liability. After a final tranche, a detected reversal with no financial consequence is
+worth nothing to the buyer.
+
+**Payment ends at the final tranche; observation and reversal-flagging continue for the
+full obligation term.** The project's own argument defeats the shorter limit: if marginal
+monitoring cost is near zero, there is no reason to stop watching. This costs almost
+nothing and is directly the instrument the BNG market lacks.
+
+The retention withholding and buffer-pool mechanisms are what give a post-payment reversal
+a financial consequence; the actuarial sizing of the pool is deferred (`ROADMAP.md` §4).
+
+*Partly implemented: retention withholding ships. Observation past the payment window is a
+property of the deployed monitoring, not of the contract, and is not yet operated.*
 
 The contract must prevent:
 

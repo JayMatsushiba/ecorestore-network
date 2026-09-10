@@ -1,5 +1,5 @@
 /**
- * The ATS seam (Idea 0.3 §4.4): bind the signed verdict into the outcome
+ * The ATS seam (docs/GUARDIAN.md §7): bind the signed verdict into the outcome
  * token via ERC-1643 `setDocument()` and issue into the vintage partition via
  * ERC-1410 `issueByPartition()`.
  *

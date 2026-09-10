@@ -1054,8 +1054,8 @@
     "parcelH3Root": "0xa0cd52944e28229c4ab03172fd737575fc5089354ab4c68341c65aa5b7783689",
     "geometryHash": "0xcd9fedfc65e51ccc37b61621415c45c4048b6684392ffe42851fca46d8a1cdd4",
     "parcelAreaHa": 48.9486,
-    "analysisPlanHash": "0xf3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d6",
-    "runIndex": 2,
+    "analysisPlanHash": "0x9561e1914b5f90264087d304db3b149b6303d4cc9878c1ca76cd247f60d065c4",
+    "runIndex": 1,
     "methodologyVersion": "ecorestore-did-leakage-lowerbound-1.0.0",
     "processingGraphVersion": "1.0.0",
     "stacSceneIds": [
@@ -1371,21 +1371,21 @@
     "evidenceCid": "bafkreidaqirusvmdkhtkp7iin2qpb3zmva2g6e3otfh7qr24cd3rcw6vne",
     "evidenceCidNote": "CIDv1 raw/sha2-256 computed locally over the canonical evidence commitment; not pinned to IPFS by this prototype.",
     "simulatedTiersBanner": "SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
-    "computedAt": "2026-09-10T00:00:00Z",
-    "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50"
+    "computedAt": "2026-09-10T00:00:00.000Z",
+    "resultHash": "0x6ba2f1ea8836c7ea76a83704ea90f94a9a5536ba2a1c047eff6ca25c317c48e4"
   },
   "verdictCredential": {
     "@context": [
       "https://www.w3.org/2018/credentials/v1",
       "https://ecorestore.network/contexts/verification/v1"
     ],
-    "id": "urn:ecorestore:verdict:0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
+    "id": "urn:ecorestore:verdict:0x6ba2f1ea8836c7ea76a83704ea90f94a9a5536ba2a1c047eff6ca25c317c48e4",
     "type": [
       "VerifiableCredential",
       "EcorestoreVerificationResult"
     ],
     "issuer": "did:key:z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43",
-    "issuanceDate": "2026-09-10T00:00:00Z",
+    "issuanceDate": "2026-09-10T00:00:00.000Z",
     "credentialSubject": [
       {
         "type": "#ecorestore-verification-result-1.0.0",
@@ -1395,8 +1395,8 @@
         "parcelH3Root": "0xa0cd52944e28229c4ab03172fd737575fc5089354ab4c68341c65aa5b7783689",
         "geometryHash": "0xcd9fedfc65e51ccc37b61621415c45c4048b6684392ffe42851fca46d8a1cdd4",
         "parcelAreaHa": 48.9486,
-        "analysisPlanHash": "0xf3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d6",
-        "runIndex": 2,
+        "analysisPlanHash": "0x9561e1914b5f90264087d304db3b149b6303d4cc9878c1ca76cd247f60d065c4",
+        "runIndex": 1,
         "methodologyVersion": "ecorestore-did-leakage-lowerbound-1.0.0",
         "processingGraphVersion": "1.0.0",
         "tier0Provenance": "REAL",
@@ -1498,16 +1498,16 @@
         "settlementBasis": "lower_bound_95",
         "evidenceHash": "0xaf4dc13e2e87adcb739c112d3242b4886798af46b017f4702ef3e06c365c855f",
         "evidenceCid": "bafkreidaqirusvmdkhtkp7iin2qpb3zmva2g6e3otfh7qr24cd3rcw6vne",
-        "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
+        "resultHash": "0x6ba2f1ea8836c7ea76a83704ea90f94a9a5536ba2a1c047eff6ca25c317c48e4",
         "simulatedTiersBanner": "SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT."
       }
     ],
     "proof": {
       "type": "Ed25519Signature2020",
-      "created": "2026-09-10T00:00:00Z",
+      "created": "2026-09-10T00:00:00.000Z",
       "verificationMethod": "did:key:z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43#z6Mkta8HXWrRk8uvzsXhxePPjEKU76b5rN1Sf3x9aetW1k43",
       "proofPurpose": "assertionMethod",
-      "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ZpiuVHEnqqjqXumiZCMx2fI1SeTuY7-pSffoQkOE9kXEpLis3sfigN6Hde4V9Xe_kKLX0mNQLgHK_D_8OOr5AA"
+      "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..PKbr2gjGqWiDLzemgKBplIW5YILxHwVZOHTiuy2cfoYfYYAPCTNcZmPTelCyVwNBbbNJ3L5J485Y4PKD9ATWDg"
     }
   },
   "credentialCheck": {
@@ -1517,10 +1517,10 @@
     "errors": []
   },
   "presentation": {
-    "presentationHash": "0x1e262aea3161e11c9fcd4f2c845b51ef95a94d30a8bd86e886d99b4bff622da3",
+    "presentationHash": "0x9a6177f8fc978e9a10fec100db8e655f3754e2ea82848a97e4ed6656b8dc7cef",
     "guardian": {
       "stoodUp": false,
-      "note": "Guardian is not stood up for this prototype (Idea 0.3 §4.4.2). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.",
+      "note": "Guardian is not stood up for this prototype (docs/GUARDIAN.md). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.",
       "dropInPoint": {
         "externalDataBlock": "POST /api/v1/external/{policyId}/{blockTag} with this VC as `document` — see buildExternalDataRequest()",
         "vvbReviewScope": [
@@ -1541,7 +1541,7 @@
     },
     "outcome": {
       "mode": "outbox",
-      "outboxPath": "/home/jay/Programming_Projects/ecorestore-network/.claude/worktrees/spatial-pipeline-prototype/guardian/outbox/external-fa05f977a199a2cd.json",
+      "outboxPath": "/home/jay/Programming_Projects/ecorestore-network/.claude/worktrees/x402-docs/guardian/outbox/external-6ba2f1ea8836c7ea.json",
       "detail": "GUARDIAN_URL not set; request written to outbox and NOT submitted"
     }
   },
@@ -1550,82 +1550,25 @@
     "reason": "no issuance for status INSUFFICIENT_EVIDENCE"
   },
   "contract": {
-    "broadcast": true,
-    "chain": {
-      "deedId": "3",
-      "runIndex": 2,
-      "txs": [
-        {
-          "step": "createProject",
-          "hash": "0x7eff4ec29d94ef7d348e3b7b1655f9a275f154336352ed324d4419154dd5716c"
-        },
-        {
-          "step": "createDeed",
-          "hash": "0xb36ef6f900a24ca98669c2d5fd99820d056482517826e0c645aa617628f80aa3"
-        },
-        {
-          "step": "fundDeed",
-          "hash": "0x6c06d660d6943065742d2d47bfe7da8826643ccbff5bae966fb92a0db7e04c30"
-        },
-        {
-          "step": "submitEvidence(tier0 REAL)",
-          "hash": "0x7c6f757206c27710bbb0e094cd7382750aff0970107e222b98f9022be4de7db2"
-        },
-        {
-          "step": "submitEvidence(tier3 SIMULATED)",
-          "hash": "0x370d037bdb5d3587328a22c51cdaedaaae8a6b27f555dc630d29f913ef591cc3"
-        },
-        {
-          "step": "recordVerificationRun(effort)",
-          "hash": "0xc7a978222aecc3c9137bb2b493377260b7d7777133f7b9552e97000ce833a63b"
-        },
-        {
-          "step": "verifyMilestone(mobilisation)",
-          "hash": "0x06d001bdea0946e49f0281c223096a73d3e256177bb3866e08ca24dc13af4e70"
-        },
-        {
-          "step": "drawMobilisation",
-          "hash": "0x77feedce01d0ec6449d59bb2b3e3650831262b1b6bfaf92fbd8af879670c1ec7"
-        },
-        {
-          "step": "recordVerificationRun(outcome)",
-          "hash": "0x47c1cd2e5042f1de1603a002bb81dc7ba206c1ecc8f706a57d07d59a8b1efd35"
-        },
-        {
-          "step": "verifyMilestone(establishment)",
-          "hash": "0xdcf8a1a27b3c2533c59c6d0bc38253942cbd7a5e3fd4e46bc8e981fe04c62207"
-        }
-      ],
-      "balances": {
-        "restorerReceived": "18000.00 USDC",
-        "stewardReceived": "2000.00 USDC",
-        "retained": "0.00 USDC",
-        "escrowAvailable": "180000.00 USDC"
-      },
-      "milestoneState": "INSUFFICIENT"
-    },
+    "broadcast": false,
+    "chain": null,
     "verifyMilestone": {
-      "deedId": "3",
+      "deedId": "1",
       "milestoneId": 1,
-      "runIndex": 2,
-      "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
-      "analysisPlanHash": "0xf3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d6",
+      "runIndex": 1,
+      "resultHash": "0x6ba2f1ea8836c7ea76a83704ea90f94a9a5536ba2a1c047eff6ca25c317c48e4",
+      "analysisPlanHash": "0x9561e1914b5f90264087d304db3b149b6303d4cc9878c1ca76cd247f60d065c4",
       "status": 3,
       "lowerBoundQuantity": "0",
       "claimedQuantity": "420000",
-      "calldata": "0x0b095352000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002fa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50f3e25efeef7579e4e964b22ff03da91d90990c1eb491b5e434c7540dd4abd9d60000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000668a0"
+      "calldata": "0x0b0953520000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000016ba2f1ea8836c7ea76a83704ea90f94a9a5536ba2a1c047eff6ca25c317c48e49561e1914b5f90264087d304db3b149b6303d4cc9878c1ca76cd247f60d065c40000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000668a0"
     }
   },
   "auditorReport": {
-    "resultHash": "0xfa05f977a199a2cd78c78a2ecbe70bb5dca6ba5208597cdde2c5352730dd7b50",
+    "resultHash": "0x6ba2f1ea8836c7ea76a83704ea90f94a9a5536ba2a1c047eff6ca25c317c48e4",
     "verificationStatus": "INSUFFICIENT_EVIDENCE",
     "settledQuantity": 0,
     "anomalies": [
-      {
-        "code": "RUN_COUNT",
-        "severity": "info",
-        "detail": "1 recorded run(s) without a submitted result"
-      },
       {
         "code": "COVERAGE_BELOW_NOMINAL",
         "severity": "warning",
@@ -1642,7 +1585,7 @@
         "detail": "Δslope 0.0129 NDVI/yr, p 0.7616, n 1229"
       }
     ],
-    "narrative": "Claim: 42 ha of riparian_woody_cover_gain_ha over 2023-06-01 → 2025-09-30 (run 2, plan 0xf3e25efe…).\nTier 0 (REAL): 72 Sentinel-2 scenes, processing graph 1.0.0.\nGross parcel change: -1.63 ha (ΔNDVI -0.0267). Far-ring controls, drawn by the committed rule: 1.01 ha. Near ring: 1.14 ha.\nParallel-trend diagnostic: FAIL (p = 0.761591, n = 1229).\nDifference-in-differences: -2.64 ha; leakage deducted: 0.00 ha; biophysical additionality: -2.65 ha.\n95% interval [-11.62, 5.45] ha; empirical coverage 0.875 over 40 placebos.\nResult: INSUFFICIENT_EVIDENCE — parallel-trend diagnostic failed. Settled quantity: 0 ha (lower_bound_95).\nAnomalies: [info] RUN_COUNT: 1 recorded run(s) without a submitted result | [warning] COVERAGE_BELOW_NOMINAL: empirical coverage 0.875 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric | [info] IOT_FLATLINE: node-3 flatlined through recorded rainfall (SIMULATED Tier 2) — excluded from corroboration | [critical] GATE_PARALLEL_TREND: Δslope 0.0129 NDVI/yr, p 0.7616, n 1229\nSIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
+    "narrative": "Claim: 42 ha of riparian_woody_cover_gain_ha over 2023-06-01 → 2025-09-30 (run 1, plan 0x9561e191…).\nTier 0 (REAL): 72 Sentinel-2 scenes, processing graph 1.0.0.\nGross parcel change: -1.63 ha (ΔNDVI -0.0267). Far-ring controls, drawn by the committed rule: 1.01 ha. Near ring: 1.14 ha.\nParallel-trend diagnostic: FAIL (p = 0.761591, n = 1229).\nDifference-in-differences: -2.64 ha; leakage deducted: 0.00 ha; biophysical additionality: -2.65 ha.\n95% interval [-11.62, 5.45] ha; empirical coverage 0.875 over 40 placebos.\nResult: INSUFFICIENT_EVIDENCE — parallel-trend diagnostic failed. Settled quantity: 0 ha (lower_bound_95).\nAnomalies: [warning] COVERAGE_BELOW_NOMINAL: empirical coverage 0.875 against nominal 0.95 over 40 placebos — the interval method is not yet calibrated for this metric | [info] IOT_FLATLINE: node-3 flatlined through recorded rainfall (SIMULATED Tier 2) — excluded from corroboration | [critical] GATE_PARALLEL_TREND: Δslope 0.0129 NDVI/yr, p 0.7616, n 1229\nSIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.",
     "boundary": {
       "llmUsed": false,
       "note": "Narrative is a deterministic template. An LLM narrator (M5) would implement AuditorNarrator and could only rephrase; every number above is copied from the canonical result."

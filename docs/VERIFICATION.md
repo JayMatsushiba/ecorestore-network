@@ -63,20 +63,28 @@ simulated wherever they appear.
 
 ### Datasets
 
-| Dataset | Use | Source | Status |
+**Two columns, and they mean different things.** *Kind* is whether the dataset is real
+observation or simulated for the demonstration. *Acquired* is whether this repository has
+actually ingested it. Only Sentinel-2 L2A is acquired today; every other real dataset is
+planned, and no result depends on one.
+
+| Dataset | Use | Kind | Acquired |
 |---|---|---|---|
-| Sentinel-2 L2A | Optical indices, 10 m | Copernicus / AWS Open Data (STAC) | **REAL** |
-| Sentinel-1 GRD (+SLC) | SAR backscatter; coherence only where interpretable | Copernicus Data Space / AWS Open Data | **REAL** |
-| Landsat 5/7/8/9 | Long baseline, 1984– | USGS / AWS Open Data | **REAL** |
-| ICESat-2 | Canopy structure (GEDI unusable at this latitude) | NASA | **REAL** |
-| ESA WorldCover | Land cover transitions | ESA | **REAL** |
-| Dynamic World | Near-real-time land cover context | Google / WRI | **REAL** |
-| SRTM / Copernicus DEM | Terrain covariates for control matching | ESA / NASA | **REAL** |
-| WorldClim / ERA5 | Climate covariates for control matching | WorldClim / ECMWF | **REAL** |
-| Biodiversity Intactness 100 m v1.1 | Ecological value prior for parcel scoring | source.coop / vizzuality | **REAL** |
-| Drone orthomosaic, crown detections | Tier 1 calibration | — | **SIMULATED, LABELLED** |
-| Soil moisture, water table, acoustic | Tier 2 condition signal | — | **SIMULATED, LABELLED** |
-| Plot surveys, planting records, geotagged photos | Tier 3 claims | — | **SIMULATED, LABELLED** |
+| Sentinel-2 L2A | Optical indices, 10 m | REAL observation | **Yes** — 72 scenes, Earth Search STAC |
+| Sentinel-1 GRD (+SLC) | SAR backscatter; coherence only where interpretable | REAL observation | No — planned |
+| Landsat 5/7/8/9 | Long baseline, 1984– | REAL observation | No — planned |
+| ICESat-2 | Canopy structure (GEDI unusable at this latitude) | REAL observation | No — planned |
+| ESA WorldCover | Land cover transitions | REAL observation | No — planned |
+| Dynamic World | Near-real-time land cover context | REAL observation | No — planned |
+| SRTM / Copernicus DEM | Terrain covariates for control matching | REAL observation | No — planned |
+| WorldClim / ERA5 | Climate covariates for control matching | REAL observation | No — planned |
+| Biodiversity Intactness 100 m v1.1 | Ecological value prior for parcel scoring | REAL observation | No — planned |
+| Drone orthomosaic, crown detections | Tier 1 calibration | **SIMULATED, LABELLED** | Generated |
+| Soil moisture, water table, acoustic | Tier 2 condition signal | **SIMULATED, LABELLED** | Generated |
+| Plot surveys, planting records, geotagged photos | Tier 3 claims | **SIMULATED, LABELLED** | Generated |
+
+Control matching currently uses pre-level and pre-slope only. The terrain, soil and
+climate covariates above are specified, not yet joined.
 
 ---
 
@@ -130,6 +138,18 @@ is not conservative, so it is handled explicitly rather than assumed away by a b
 estimate**, reported in the result and deducted.
 
 ### 6.1 Pre-registration
+
+**Why it exists.** Nothing otherwise fixes *when* the analysis choices are made. If the
+control set were selected and the analysis run at verification time, by a service the
+restorer pays per request, the result would be:
+
+> a researcher-degrees-of-freedom problem with money attached: run the verification
+> against several candidate control sets, several observation windows, several index
+> choices, and submit the favourable one. Every number in the verdict stays honest; the
+> estimator is still biased.
+
+That is the failure this section prevents, and it is why metered verification cannot ship
+without the coupling in `X402.md` §5.
 
 The analysis plan hash is committed at `createDeed()`, before any outcome is
 observable:
@@ -249,6 +269,38 @@ settledQuantity = lowerBound(uncertaintyInterval)
 ```
 
 The point estimate is not the settlement authority.
+
+### Conservatism and pricing are separated
+
+The lower-bound rule on its own places 100% of measurement uncertainty on the restorer.
+The stated benefit — restorers are incentivised to fund better measurement — holds only
+for the **controllable** fraction. Most of the interval is not controllable:
+
+* **Biome.** Cloud frequency, canopy density, phenological noise and index saturation are
+  properties of where the ecosystem is.
+* **Parcel size.** Mixed-pixel boundary error scales with perimeter-to-area, so small
+  parcels have structurally wider relative intervals.
+* **Ecosystem type.** Peatland and dryland — the two biomes where restoration need is
+  highest and measurement is hardest — are penalised hardest.
+
+Net effect, uncorrected: the mechanism pays best for large, uniform, temperate,
+dense-canopy plantings. That is the easiest thing to measure and the thing most likely to
+be a monoculture — the opposite of the NbS priority ordering.
+
+**The fix is one deed parameter.** Price per unit is set against the **ex-ante expected
+interval width for that biome and parcel-size class** — a difficulty premium. The restorer
+then bears only the *deviation from expectation*, which is the controllable part, and the
+incentive to improve measurement survives intact.
+
+The equilibrium, stated honestly: if price does not adjust for expected uncertainty,
+buyers bid for easily-measured projects and the clearing price for hard-to-measure biomes
+collapses. **A lower-bound rule without a difficulty premium is partly self-cancelling.**
+
+The two rules are therefore inseparable. Settlement pays the lower bound
+(`DECISIONS.md` §5); pricing compensates for the expected width of that bound. Implementing
+the first without the second reproduces the outcome the design exists to avoid.
+
+*Not implemented. The difficulty premium is a pricing parameter; no deed carries one yet.*
 
 ---
 

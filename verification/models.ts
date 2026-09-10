@@ -4,7 +4,7 @@
  * Authority: the engine owns the *scientific result*. Nothing in this module
  * knows about wallets, payments, Guardian or the Auditor.
  *
- * Provenance discipline (CLAUDE.md, Idea 0.3 §3.2): Tier 0 satellite evidence
+ * Provenance discipline (CLAUDE.md, docs/VERIFICATION.md §3): Tier 0 satellite evidence
  * is REAL; Tiers 1-3 are SIMULATED and carry the banner wherever they appear.
  */
 
@@ -25,7 +25,7 @@ export interface ObservationWindow {
 }
 
 // ---------------------------------------------------------------------------
-// Parcel identity (Idea 0.3 §3.10)
+// Parcel identity (docs/ARCHITECTURE.md §5)
 // ---------------------------------------------------------------------------
 
 export interface ParcelPolygon {
@@ -71,7 +71,7 @@ export interface ParcelIdentity {
 }
 
 // ---------------------------------------------------------------------------
-// Pre-registered analysis plan (Idea 0.3 §3.7.1)
+// Pre-registered analysis plan (docs/VERIFICATION.md §6)
 // ---------------------------------------------------------------------------
 
 export interface RingGeometry {
@@ -150,7 +150,7 @@ export interface AnalysisPlan {
     /** Index → physical quantity transfer: fractional woody cover per unit ΔNDVI. */
     modelTransfer: { coefficient: number; sd: number; source: string };
     /**
-     * Control-matching error (Idea 0.3 §3.8 term 1): the parcel is one draw
+     * Control-matching error (docs/VERIFICATION.md §10, term 1): the parcel is one draw
      * from the same population of unit-level shocks as its controls, so the
      * counterfactual error is not the standard error of the control mean alone.
      * `far_ring_residual_v1` adds a draw from the matched far-ring residual
@@ -171,7 +171,7 @@ export interface AnalysisPlan {
   processingGraphVersion: string;
   /**
    * Fields whose values are provisional defaults awaiting explicit approval
-   * (Idea 0.3 §13.6). Recorded in the plan so the hash commits to that state.
+   * (docs/DECISIONS.md §3). Recorded in the plan so the hash commits to that state.
    */
   provisional: Array<{ field: string; openItem: string; note: string }>;
 }

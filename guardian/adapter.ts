@@ -1,5 +1,5 @@
 /**
- * Hedera Guardian adapter (docs/GUARDIAN.md, Idea 0.3 §4.4).
+ * Hedera Guardian adapter (docs/GUARDIAN.md).
  *
  * Guardian is the issuance authority and is NOT stood up for the hackathon.
  * This module makes the seam real:
@@ -363,7 +363,7 @@ export function buildPresentation(vc: VerdictCredential, result: VerificationRes
     ecorestoreResult: result,
     guardian: {
       stoodUp: false,
-      note: 'Guardian is not stood up for this prototype (Idea 0.3 §4.4.2). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.',
+      note: 'Guardian is not stood up for this prototype (docs/GUARDIAN.md). This presentation is emitted by the Ecorestore verifier occupying the slot a Guardian policy run would occupy. In production the VP is produced by Guardian, pinned to IPFS and written to an HCS topic.',
       dropInPoint: {
         externalDataBlock: 'POST /api/v1/external/{policyId}/{blockTag} with this VC as `document` — see buildExternalDataRequest()',
         vvbReviewScope: ['pipeline configuration', 'pre-registered analysis plan honoured (analysisPlanHash, runIndex)', 'parallel-trend diagnostic passing'],

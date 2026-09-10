@@ -1,5 +1,5 @@
 /**
- * End-to-end demonstration (Idea 0.3 §10):
+ * End-to-end demonstration (docs/DEMO.md):
  *
  *   evidence → deterministic verification → signed verdict VC → Guardian
  *   externalDataBlock request → ATS issuance calldata → RestorationDeed

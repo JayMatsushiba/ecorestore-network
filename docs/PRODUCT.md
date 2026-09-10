@@ -80,13 +80,16 @@ record and a data export. It is not a donation application.
 ### The framing correction
 
 Rigorous verification issues *fewer units per dollar of restoration* than lax
-verification. A budget-constrained buyer comparing a settled 13.1 ha against a
+verification. A budget-constrained buyer comparing a settled 2.2 ha against a
 certifier-blessed 42 ha at the same price buys the certifier's — unless assurance and
 litigation risk are priced.
 
 So the comparison presented is never units-per-dollar. It is **expected write-down**. The
-interface carries a named assurance-adjusted view: *"13.1 ha defensible vs. 42 ha at
-risk."* Restatement is the thing a sustainability lead is personally exposed to.
+interface carries a named assurance-adjusted view, generated from the result rather than
+written by hand — on the current demonstration data it reads *"2.2271 ha defensible vs. 42
+ha at risk"* for the synthetic scenario and *"0 ha defensible vs. 42 ha at risk"* for the
+two that settle nothing. Restatement is the thing a sustainability lead is personally
+exposed to.
 
 ---
 
@@ -137,16 +140,26 @@ must strengthen the core thesis.
 
 ## 6. Treasury controls and pooled deeds
 
-**Privy.** A corporate sponsor cannot have one person unilaterally moving funds. The
-funding path uses policies, key quorums and intents: a sustainability lead proposes a
-deed, finance approves under a spend policy, disbursement requires quorum signing, and
-the approval trail is part of the audit record. Built for product reasons; see §5 on
-whether it claims a submission slot.
+*Both are designed, neither is built.*
 
-**Pooled deeds.** Individual contributions aggregate into a single deed against one
-parcel, sharing the same contracts and verification. Contributors hold a proportional
-claim and receive the identical evidence bundle. Thin surface, no separate mechanics, no
-gamification.
+**Privy — designed.** A corporate sponsor cannot have one person unilaterally moving
+funds. The funding path would use policies, key quorums and intents: a sustainability lead
+proposes a deed, finance approves under a spend policy, disbursement requires quorum
+signing, and the approval trail becomes part of the audit record. Intended for product
+reasons; see §5 on whether it claims a submission slot. No integration exists and it sits
+in no milestone.
+
+**Pooled deeds — designed, and the contract is not ready for them.** The intent is that
+individual contributions aggregate into a single deed against one parcel, sharing the same
+contracts and verification, with contributors holding a proportional claim and receiving
+the identical evidence bundle.
+
+`fundDeed()` already accepts USDC from any address, but it increments a single `funded`
+scalar and stores no per-contributor balance, while `reclaim()` returns the entire
+unreleased amount to the one address that called `createDeed()`. **A second contributor to
+a deed today has no claim and can have their principal reclaimed by the sponsor.** Until
+per-contributor accounting exists, pooled funding must not be offered — either restrict
+`fundDeed()` to the sponsor or build the accounting first.
 
 ---
 

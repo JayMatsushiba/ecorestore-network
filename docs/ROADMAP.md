@@ -18,6 +18,13 @@ unresolved risks and next steps, in `DEVELOPMENT_LOG.md`.
 
 ## 2. Milestones
 
+**Where the project actually is (2026-09-10).** The ordering above is what was planned;
+what happened is that M1–M4 were built together on one branch on the owner's instruction.
+M2's engine, M3's vertical slice and M4's Guardian/ATS seam are built and tested. The one
+thing M1 names that has not happened is **deployment to Arc Testnet**, which gates the
+public demonstration. M5 (Subgraph, Auditor LLM), M6 (UI beyond the additionality view,
+x402) and M7 remain open. See `ARCHITECTURE.md` §8 for the built/not-done split.
+
 | M | Objective | Deadline pressure |
 |---|---|---|
 | **M0** | Foundation — repository, documentation, interfaces, React scaffold, test framework, contract scaffold. *Partially complete; see §3.* | done |

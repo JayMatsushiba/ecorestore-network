@@ -50,8 +50,13 @@ The system has explicit authority boundaries:
 - The Graph = indexed blockchain history/read layer
 - Auditor = orchestration and explanation
 - React application = presentation layer
+- x402 payment gateway = API access payment only, never settlement
 
 AI-generated numerical results must never directly determine financial settlement.
+
+Paying for an API request must never trigger, influence or substitute for a milestone
+settlement. Settlement is USDC on Arc; API payment is HBAR/HTS on Hedera. Different
+networks, different accounts, different authority.
 
 ## Data Provenance
 
@@ -102,38 +107,36 @@ Do not fabricate implementation history.
 
 ## Current Milestone
 
-M1 — Arc Restoration Deed.
+**M1 — Arc Restoration Deed. One thing remains: deployment to Arc Testnet.**
 
-The build sequence is ordered against the **September 30, 2026 Arc mainnet-readiness
-deadline** (`docs/ROADMAP.md`). Contracts come first; the pipeline builds against a
-deployed contract, not the reverse.
+The sequence was ordered contracts-first against the **September 30, 2026 Arc
+mainnet-readiness deadline** (`docs/ROADMAP.md`). That is not how the work went. The
+M1–M4 slice was built together on one branch, on the owner's instruction, and the piece
+that has *not* happened is the deployment M1 is named for.
 
-M1 implements:
+Built and tested: `RestorationDeed` (escrow, plan-hash commitment, replay-protected
+verification, lower-bound settlement, mobilisation draw, `assignTranche()`, benefit share,
+retention — 31 Foundry tests); the deterministic engine on real Sentinel-2 Tier 0; the
+end-to-end vertical slice; the Guardian verdict-VC and ATS calldata seam; the rule-based
+Auditor boundary.
 
-- RestorationDeed escrow and milestone state
-- `analysis_plan_hash` committed at `createDeed()` (`docs/VERIFICATION.md`)
-- authorized verification with replay protection
-- lower-bound settlement bounded by contract state
-- mobilisation draw, `assignTranche()`, benefit-share routing (`docs/ARC.md`)
-- retention withholding
-- Arc Testnet deployment and a full contract test suite
+**Not done: Arc Testnet deployment** — no deployer key in this environment;
+`contracts/script/Deploy.s.sol` is ready. This gates the public demonstration.
 
-M1 also closes the M0 gaps recorded in `docs/ROADMAP.md` §3: the TypeScript interface
-definitions the empty stubs are supposed to hold, a running test framework, and a
-development log entry.
+Also open, and not M1: Sentinel-1/Landsat/ICESat-2 ingest, Guardian stood up, ATS
+broadcast, The Graph subgraph, the Auditor LLM narrator, x402, production settlement. See
+`docs/ARCHITECTURE.md` §8 for the current split and `docs/ROADMAP.md` for the sequence.
 
-M1 does NOT implement:
+**Do not describe unbuilt work as built, and do not describe built work as unbuilt.** When
+this section and the repository disagree, fix this section.
 
-- satellite processing
-- control matching
-- DiD
-- additionality calculation
-- uncertainty calculation
-- Guardian integration
-- Hedera ATS issuance
-- Graph integration
-- Auditor intelligence
+Still unbuilt, and not to be described otherwise:
+
+- Sentinel-1, Landsat and ICESat-2 ingest (only Sentinel-2 is acquired)
+- control matching on terrain, soil and climate covariates (pre-level and pre-slope only)
+- a running Guardian instance
+- Hedera ATS broadcast (calldata is prepared, never sent)
+- The Graph subgraph
+- Auditor LLM narration (the narrator is a deterministic template)
 - x402
 - production financial settlement
-
-Those belong to M2 and later.

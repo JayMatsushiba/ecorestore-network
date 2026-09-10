@@ -9,6 +9,120 @@ as written rather than rewritten, because a log records what was true at the tim
 
 ---
 
+## 2026-09-10 — Review fix pass: doc/code contradictions, restored decisions, regenerated plan hash
+
+### Objective
+
+Act on a max-effort review of the consolidation. Fifteen findings, most of them introduced
+by moving proposal prose into documents that read as descriptions of a built system.
+
+### Implementation
+
+**Restored two decisions lost in the deletion.** `VERIFICATION.md` §11 regains the
+separation of conservatism from pricing: the lower-bound rule alone loads all measurement
+uncertainty onto the restorer including the uncontrollable part, which pays best for large
+uniform temperate plantings and penalises the biomes where need is highest; the fix is a
+difficulty premium against the ex-ante expected interval width. `DECISIONS.md` §5 now
+states the bound and the premium as one rule, since preserving the first without the second
+reproduces the outcome the design exists to avoid. `ARC.md` §4 regains monitoring decoupled
+from payment — tranches end at 36 months, observation runs the full obligation term.
+
+**Regenerated the plan hash.** The seven `openItem` citations in `analysis-plan.json`
+`provisional[]` now cite `docs/DECISIONS.md` §3. Because that block is hashed,
+`analysisPlanHash` moved `0xf9b5265f…` → `0xa901a322…`, and every downstream `resultHash`,
+credential and bundle with it. Bundles were regenerated with `DEMO_FIXED_TIME` pinned to
+`2026-09-10T00:00:00.000Z`, so the committed artefacts are now reproducible rather than
+carrying a wall-clock timestamp. Citations in the contract, engine, models, geometry,
+adapter, issuance and demo were rewritten; the Guardian `note` string embedded in every
+bundle no longer cites a deleted document.
+
+**Corrected claims that were false about the code.** `X402.md` §5.2 stated three
+safeguards as implemented; two were overstated. `verify()` is deterministic in
+`(plan, evidence, runIndex, computedAt)` and *not* pure in the first three — `computedAt`
+defaults to the wall clock and is inside the hash — so the replay guard deduplicates
+nothing across re-runs. The `RUN_COUNT` anomaly reaches `critical` at three hidden runs,
+not at one, so the alarm as tuned tolerates two silent runs per submission. Both now carry
+what must change before metering ships. `DEPLOYMENT.md` §7.4 described `evidenceHash` as a
+hash of the snapshot's raw file bytes; it is a four-field digest, the inner `snapshotHash`
+is itself a canonical hash over the object minus that field, and a raw-bytes hash matches
+neither — following the doc would have forced the second canonicaliser §7.1 forbids.
+
+**Fixed the compose skeleton**, which did not validate: `secrets: [verifier_seed]` had no
+top-level definition, and the `internal` network lacked `internal: true`, so the
+containment §7.3 claims as structural did not exist. It also passed `ARC_TESTNET_RPC_URL`,
+which no TypeScript reads, instead of `DEMO_RPC_URL`.
+
+**Corrected provenance claims.** The datasets table marked eight never-acquired datasets
+`REAL` in a column whose peer rows read `SIMULATED, LABELLED`; it now separates *kind* from
+*acquired*, and only Sentinel-2 is acquired. `ARCHITECTURE.md` §4 and `DEMO.md` no longer
+assert Sentinel-1, Landsat and ICESat-2 acquisitions.
+
+**Marked designed-but-unbuilt surfaces as such** rather than deleting them — pooled deeds
+and the Privy treasury flow. Pooled deeds additionally records that `fundDeed()` accepts
+any address while `reclaim()` returns everything to the sponsor, so a second contributor
+has no claim today.
+
+**Milestone honesty.** `CLAUDE.md`'s Current Milestone described a contracts-first ordering
+and listed as unimplemented a set of things the repository contains. It now states what is
+built, that Arc Testnet deployment is the one remaining M1 deliverable, and a rule: when
+the section and the repository disagree, fix the section. `ARCHITECTURE.md` §8 and
+`ROADMAP.md` §2 gain the same built/not-done split. x402 was added to the authority tables
+in `CLAUDE.md` and `README.md`, which still listed six components.
+
+Smaller corrections: `PRODUCT.md`'s "13.1 ha" and `DEMO.md`'s "11.2 ha" replaced with the
+figures the code generates; `README.md` 28 → 31 contract tests; the Creston Valley site
+described as interior rather than coastal, with scene availability recorded as resolved;
+`DEPLOYMENT.md`'s tier count, byte counts and timing scoped correctly; the `real` landing
+state recorded as already implemented; a seventh and eighth open approval added to
+`DECISIONS.md` §3 with the gate thresholds written out, since seven provisional fields were
+listed against six approvals and the thresholds appeared in no document.
+
+### Tests / validation
+
+- `npm test` — 54 passed, 9 files, after the citation and fixture changes.
+- `npm run typecheck` — clean.
+- `npm run demo` with `DEMO_FIXED_TIME` — three scenarios, unchanged outcomes
+  (`NOT_ADDITIONAL`, `PARTIAL` at 2.2271 ha, `INSUFFICIENT_EVIDENCE`). The estimates did
+  not move; only the plan hash and the hashes over it did.
+- The corrected compose block was validated with `docker compose config`: exit 0, with
+  `internal: true` and the secret resolving. The previous block was confirmed invalid.
+- No reference to the removed proposals remains in `docs/`, `README.md`, `CLAUDE.md`, or in
+  any TypeScript, Solidity or fixture file — this time the sweep covered code.
+
+### Architectural, scientific and security decisions
+
+- **Aspirational documentation is allowed; false statements about code are not.** Design
+  intent stays, marked as design. A claim that evidence exists, that a safeguard is
+  implemented, or that a command works is checked against the tree.
+- **Provenance is not subject to the above.** A dataset that has not been ingested may not
+  be marked real in a provenance table, and no interface may show scene IDs for an
+  unacquired sensor.
+- **`computedAt` must stop defaulting to the wall clock** before metered verification
+  ships. Recorded in `X402.md` §5.2 rather than changed here, because it alters every
+  published hash and belongs with the M6 decision.
+
+### Deviations from the documented design
+
+None. Restorations reinstate previously adopted decisions; the rest are corrections.
+
+### Unresolved risks
+
+- `computedAt` still defaults to the wall clock, so `resultHash` is not reproducible unless
+  a caller pins it. The committed artefacts pin it; nothing enforces that.
+- The `RUN_COUNT` threshold of three is unchanged. It is defensible without a paywall and
+  not with one.
+- Pooled funding remains reachable: `fundDeed()` still accepts any address. The
+  documentation now warns, but the contract does not prevent it.
+- The eight open methodology approvals in `DECISIONS.md` §3 still block M2.
+
+### Next steps
+
+1. Deploy `RestorationDeed` to Arc Testnet — the remaining M1 deliverable.
+2. Decide whether `fundDeed()` should be restricted to the sponsor for now.
+3. Settle the open methodology approvals before M2 work begins.
+
+---
+
 ## 2026-09-10 — Documentation consolidation: `docs/` becomes the source of truth
 
 ### Objective
@@ -47,8 +161,14 @@ these are working documents, with the exception of the constraints in `DECISIONS
 No code changed. Validation was documentary:
 
 - No reference to `idea-0.3`, `idea-0.2`, `proposals/`, `ideation/` or `proposal_review`
-  remains anywhere in `docs/`, `README.md` or `CLAUDE.md`, except in the historical log
-  entries below, which are deliberately preserved.
+  remains in `docs/`, `README.md` or `CLAUDE.md`, except in the historical log entries
+  below, which are deliberately preserved.
+
+  **This sweep was scoped to prose and missed the code.** 42 further references survived
+  in TypeScript, Solidity and fixture files, including seven `openItem` citations inside
+  the `provisional[]` block of `analysis-plan.json` — a hashed field, so the stale
+  citations were committed into `analysisPlanHash` itself. Corrected in the following
+  entry.
 - Every claim carried across was taken from the source text rather than paraphrased from
   memory: the BNG and VCM figures, the regulatory drivers, the milestone table, the risk
   assessments and the six open approvals.
@@ -114,7 +234,8 @@ No code changed; validation was documentary, with two operational checks run aga
 existing tree:
 
 - The Foundry suite was executed through the `ghcr.io/foundry-rs/foundry` container with
-  no local Foundry installation: **31 passed, 0 failed**. This is the first time the
+  no local Foundry installation: **31 passed, 0 failed**. This is the first time this
+  environment has been able to run the
   contract suite has run in this environment and it substantiates `ARC.md` §8.
 - The full three-scenario demo was run against a containerised `anvil` (chain 31337):
   `real` → milestone FAILED, `synthetic` → RELEASED with benefit share and retention,

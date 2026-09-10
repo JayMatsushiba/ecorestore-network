@@ -20,7 +20,7 @@ static evidence rather than failing.
                  CloudFront ──► S3          static React app + assurance bundles
                       │
                       ▼
-              (optional) Lambda             on-demand verification, 1.4 s per run
+              (optional) Lambda             on-demand verification, ~1.4 s / 3 scenarios
                       │
         ┌─────────────┴──────────────┐
         ▼                            ▼
@@ -29,7 +29,7 @@ static evidence rather than failing.
    chain 5042002
 ```
 
-Four tiers, in descending order of importance to the demonstration and ascending order
+Five tiers, in descending order of importance to the demonstration and ascending order
 of cost:
 
 | Tier | Service | Required? |
@@ -47,7 +47,7 @@ of cost:
 The React application is static. `npm run build` in `app/` produces `app/dist`; serve it
 from S3 behind CloudFront.
 
-The three assurance bundles total 144 KB, so the evidence the application displays can
+The three assurance bundles total ~130 KB, so the evidence the application displays can
 ship as static assets alongside it. No backend is required to show a completed
 verification.
 
@@ -132,8 +132,8 @@ provider (local Kubo, Storacha, or a Filebase bucket), and RSA-2048 JWT keypairs
 
 The `externalDataBlock` endpoint only accepts a document once a policy containing a block
 tagged to match `GUARDIAN_BLOCK_TAG` has been **published**, with the verifier DID
-registered against it. `guardian/adapter.ts` defaults that tag to
-`ecorestore_verdict_ingest`. Standing up the containers is necessary but not sufficient.
+registered against it. `scripts/demo.ts` defaults that tag to `ecorestore_verdict_ingest`.
+Standing up the containers is necessary but not sufficient.
 
 ### Degraded mode is a supported state
 
@@ -221,10 +221,10 @@ The plan and the evidence both cross the boundary as **raw bytes with a hash rec
 ```jsonc
 // verify → analysis
 {
-  "planCanonical": "<the canonical plan string, 3371 bytes for the current plan>",
-  "planHash":      "0xf9b5265f…",   // analysis verifies by keccak over the raw bytes
+  "planCanonical": "<the canonical plan string, ~3.4 KB for the current plan>",
+  "planHash":      "0xa901a322…",   // analysis verifies by keccak over those raw bytes
   "parcelId":      "kootenay-riparian-001",
-  "evidenceHash":  "0x…"            // keccak over the raw Tier 0 snapshot file bytes
+  "snapshotHash":  "0x…"            // the Tier 0 snapshot's own snapshotHash field
 }
 
 // analysis → verify
@@ -246,9 +246,24 @@ discipline the contract follows.
 
 The Tier 0 snapshot is 860 KB. Mount `verification/fixtures/` read-only into both
 containers rather than shipping it in every request; `analysis` loads it from the volume
-and confirms the raw file bytes hash to the `evidenceHash` it was given. If the two
-containers ever see different bytes the run fails loudly, rather than producing a result
-bound to evidence that was not the evidence analysed.
+and confirms the snapshot it read carries the `snapshotHash` it was given. If the two
+containers ever see different evidence the run fails loudly, rather than producing a
+result bound to evidence that was not the evidence analysed.
+
+**Do not hash the snapshot file's raw bytes to check this.** Two hashes here are easy to
+confuse and neither is the file:
+
+* `snapshotHash` (`acquire.ts`) is `keccakOf(snapshot-without-its-own-snapshotHash-field)`
+  — a canonical hash over the object, computed before the field is added to it.
+* `evidenceHash` (`engine.ts`) is `keccakOf({tier0, tier1, tier2, tier3})`, a four-field
+  digest of the tier hashes — not a hash of any file, and not what `analysis` should be
+  checking.
+
+A raw-bytes hash of the file matches neither, because the stored JSON has its own
+`snapshotHash` embedded and its keys in insertion order. The receipt check that works
+without a second canonicaliser is the cheap one: compare the `snapshotHash` string the
+snapshot already carries against the one `verify` sent. `verify` remains the only
+component that hashes anything.
 
 ### 7.5 Compose skeleton
 
@@ -256,7 +271,7 @@ bound to evidence that was not the evidence analysed.
 services:
   analysis:
     build: ./analysis
-    networks: [internal]
+    networks: [internal]                     # no egress — see the internal: true flag below
     volumes:
       - ./verification/fixtures:/fixtures:ro
 
@@ -268,14 +283,34 @@ services:
     environment:
       ANALYSIS_URL: http://analysis:8000
       GUARDIAN_URL: http://api-gateway:3002  # container name, not localhost
-      ARC_TESTNET_RPC_URL: ${ARC_TESTNET_RPC_URL}
+      DEMO_RPC_URL: ${DEMO_RPC_URL}          # this is the variable the code reads
+      VERIFIER_SEED_FILE: /run/secrets/verifier_seed
     secrets: [verifier_seed]
 
 networks:
   internal:
+    internal: true                           # REQUIRED — without it this is an ordinary
+                                             # bridge network with full outbound access
   guardian_default:
     external: true
+
+secrets:
+  verifier_seed:
+    file: ./secrets/verifier_seed.txt        # or external: true, backed by Secrets Manager
 ```
+
+Three things in that block are load-bearing and easy to get wrong:
+
+* **`internal: true` is what makes the containment real.** A network named `internal`
+  without the flag is an ordinary bridge network — `analysis` would keep normal outbound
+  access and could reach the Arc RPC and any other host, while §7.3 claims it cannot.
+* **The top-level `secrets:` block is required.** Without it, `docker compose config`
+  rejects the project outright: *"service `verify` refers to undefined secret
+  verifier_seed"* — no build, no partial start.
+* **`DEMO_RPC_URL` is the variable the code actually reads.** `ARC_TESTNET_RPC_URL` exists
+  only in `contracts/foundry.toml` as a `forge` input; no TypeScript in the repository
+  reads it. `scripts/demo.ts` falls back to calldata-only when `DEMO_RPC_URL` is unset, and
+  does so silently — the container starts clean and settles nothing.
 
 Joining Guardian by an external network rather than by publishing ports means Guardian's
 gateway need not be exposed on the host at all, and only one of this project's containers
@@ -346,9 +381,9 @@ Before this is publicly reachable:
 * Tier 0 provenance (`REAL` or `SIMULATED`) must be legible in the same viewport as the
   settled quantity;
 * the `real` scenario — which settles nothing, because no intervention took place on that
-  ground — should be the landing state, not `synthetic`.
-
-The honest scenario is the more interesting one. It should be the default view.
+  ground — must remain the landing state. **Already satisfied:** `App.tsx` initialises the
+  scenario selector to `'real'`. This is recorded so it is not changed casually; the honest
+  scenario is the more interesting one and belongs first.
 
 ---
 
@@ -397,5 +432,5 @@ Nothing in this document is deployed.
   `X402.md` §10 and §11.
 * No Guardian instance has been stood up. Every Guardian request produced so far has been
   staged to `guardian/outbox/` and reported as not submitted.
-* The measurements in §5 (1.4 s, 153 MB) and §3 (144 KB) were taken on the development
+* The measurements in §5 (1.4 s, 153 MB for all three scenarios) and §3 (~130 KB) were taken on the development
   host and are indicative, not benchmarks.

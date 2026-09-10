@@ -25,7 +25,7 @@ REAL Sentinel-2 L2A (Earth Search STAC, 72 scenes)      SIMULATED Tiers 1-3, lab
             │
    ┌────────┴──────────────────────────────┐
    ▼                                       ▼
-guardian/adapter.ts                  contracts/RestorationDeed.sol (Foundry, 28 tests)
+guardian/adapter.ts                  contracts/RestorationDeed.sol (Foundry, 31 tests)
 signed W3C VC (Ed25519 did:key)      recordVerificationRun → verifyMilestone (replay-
 → externalDataBlock request          protected, plan-hash-bound) → releaseTranche at the
 → ATS setDocument/issueByPartition   lower bound, benefit share, retention, assignTranche
@@ -83,6 +83,7 @@ npm run acquire
 | The Graph | Indexed blockchain history |
 | Restoration Auditor | Orchestration and explanation |
 | React application | Presentation |
+| x402 payment gateway | API access payment only — never settlement |
 
 **No AI-generated numerical result may directly determine financial settlement.**
 
