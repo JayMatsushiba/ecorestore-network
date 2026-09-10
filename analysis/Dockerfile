@@ -22,9 +22,7 @@ WORKDIR /app
 
 # Install dependencies first so source edits do not invalidate the wheel layer.
 COPY pyproject.toml ./
-RUN mkdir -p ecorestore_analysis && touch ecorestore_analysis/__init__.py \
- && pip install . \
- && rm -rf ecorestore_analysis
+RUN pip install $(python -c "import tomllib; print(' '.join(tomllib.load(open('pyproject.toml','rb'))['project']['dependencies']))")
 
 COPY ecorestore_analysis ./ecorestore_analysis
 RUN pip install --no-deps .
