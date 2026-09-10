@@ -80,9 +80,16 @@ Run locally in the worktree, on the code as committed:
   of the local 3.7.0 checkout: web-proxy published on `3000:80`, no loopback bind.
 * `actionlint` 1.7.12, `cfn-lint` 1.56.2, `shellcheck` 0.11 (style level): clean.
 
-**Not validated:** anything on AWS. The AWS session on the development machine had
-expired, so the stack was not created, no image was pushed, no SSM command was sent,
-and no workflow has run. The first real run is the validation this entry lacks.
+**Not validated at the time of writing:** anything on AWS. Later the same day the
+stack was created in us-west-2 (`ecorestore-demo`, host `32.189.224.38`), the
+parameters, secret, variables and `demo` environment were set, and PR #5 merged. The
+first Deploy run (`34480834081`) failed at the OIDC step in every build job:
+`Not authorized to perform sts:AssumeRoleWithWebIdentity`. CloudTrail showed the
+presented subject as `repo:JayMatsushiba@45748435/ecorestore-network@1358238302:environment:demo`
+— GitHub's immutable subject format, the default for repositories created after
+2026-07-15, which the trust policy's name-only patterns did not match. The template
+now accepts both forms (`GitHubOwnerId`, `GitHubRepositoryId`); the stack was updated
+in place and the run re-run.
 
 ### Architectural, scientific and security decisions
 
