@@ -62,9 +62,32 @@ def _composite(scene_ids: list[str], unit_index: int, snapshot: dict[str, Any]) 
     return median(vals) if vals else None
 
 
+def _check_shape(snapshot: dict[str, Any], pre_windows: list[dict[str, Any]]) -> None:
+    """Reject a document the engine cannot analyse, with a message, rather than
+    fail on an index deep inside a loop. Receipts prove the bytes are the ones
+    sent; they say nothing about whether the arrays inside line up."""
+    n = len(snapshot["units"])
+    if not isinstance(snapshot["observations"], dict):
+        raise ValueError("observations must be an object keyed by scene id")
+    for sid, o in snapshot["observations"].items():
+        for key in ("ndvi", "validFraction", "waterFraction"):
+            if len(o[key]) != n:
+                raise ValueError(f"scene {sid}: {key} has {len(o[key])} entries for {n} units")
+    # The pre-slope divides by the gap between the first and last *valid*
+    # composites, which can be any pair once cloudy windows drop out, so every
+    # pre window needs its own mid-date.
+    seen: dict[float, str] = {}
+    for w in pre_windows:
+        mid = window_mid_year(w)
+        if mid in seen:
+            raise ValueError(f"pre windows {seen[mid]!r} and {w['label']!r} have the same mid-date; no pre-slope is defined")
+        seen[mid] = w["label"]
+
+
 def build_unit_series(snapshot: dict[str, Any], plan: dict[str, Any]) -> list[UnitSeries]:
     pre_windows = plan["windows"]["pre"]
     post_windows = plan["windows"]["post"]
+    _check_shape(snapshot, pre_windows)
     pre_scene_ids = [scenes_in_window(snapshot, plan, w) for w in pre_windows]
     post_scene_ids = [sid for w in post_windows for sid in scenes_in_window(snapshot, plan, w)]
     scene_by_id = {s["sceneId"]: s for s in snapshot["scenes"]}

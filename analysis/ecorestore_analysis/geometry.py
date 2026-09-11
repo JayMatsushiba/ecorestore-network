@@ -3,13 +3,17 @@
 H3 is the index and join key; polygon geometry carries quantities. Areas are
 geodesic (WGS84 ellipsoid via pyproj); the TypeScript graph used turf's
 spherical area, so hectare figures differ by the sphere/ellipsoid ratio
-(~0.1–0.3 % at this latitude) — one reason this is processing graph 2.0.0.
+(~0.1–0.3 % at this latitude) — one reason this is processing graph 2.x.
 
 Rings are built in the projected plane with shapely (annulus =
 buffer(outer) − buffer(inner)), where the TypeScript graph used turf's
 geodesic buffer. Candidate control units at ring edges may therefore differ
 between the graphs; parcel and parcel-cell pixel masks are identical, because
 both projects use the same H3 core and the same point-in-polygon rule.
+
+The projected plane is the UTM zone of the Sentinel-2 tile being read, given
+as an EPSG code by the caller. The TypeScript graph fixes zone 11N; this one
+takes the zone from the data, so a parcel anywhere gets the right grid.
 
 No hashes are computed here. ``geometryHash``, ``h3Root`` and
 ``snapshotHash`` are attached by ``scripts/finalize-acquisition.ts`` — the
@@ -18,7 +22,9 @@ one canonicaliser.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Iterable
 
 import h3
@@ -27,20 +33,31 @@ from pyproj import Geod, Transformer
 from shapely.geometry import MultiPolygon, Polygon, mapping, shape
 from shapely.ops import transform as shp_transform
 
-UTM_11N = "EPSG:32611"
 WGS84 = "EPSG:4326"
 
-_to_utm = Transformer.from_crs(WGS84, UTM_11N, always_xy=True)
-_to_wgs = Transformer.from_crs(UTM_11N, WGS84, always_xy=True)
 _geod = Geod(ellps="WGS84")
 
 
-def project_to_utm(lng: float, lat: float) -> tuple[float, float]:
-    return _to_utm.transform(lng, lat)
+def utm_epsg_for(lng: float, lat: float) -> int:
+    """EPSG code of the WGS84 UTM zone containing a point (326xx north, 327xx south)."""
+    zone = int(math.floor((lng + 180) / 6)) % 60 + 1
+    return (32600 if lat >= 0 else 32700) + zone
 
 
-def unproject_from_utm(x: float, y: float) -> tuple[float, float]:
-    return _to_wgs.transform(x, y)
+@lru_cache(maxsize=8)
+def _transformers(epsg: int) -> tuple[Transformer, Transformer]:
+    return (
+        Transformer.from_crs(WGS84, f"EPSG:{epsg}", always_xy=True),
+        Transformer.from_crs(f"EPSG:{epsg}", WGS84, always_xy=True),
+    )
+
+
+def project_to_utm(lng: float, lat: float, epsg: int) -> tuple[float, float]:
+    return _transformers(epsg)[0].transform(lng, lat)
+
+
+def unproject_from_utm(x: float, y: float, epsg: int) -> tuple[float, float]:
+    return _transformers(epsg)[1].transform(x, y)
 
 
 def polygon_area_ha(geom: Polygon | MultiPolygon) -> float:
@@ -64,13 +81,14 @@ def cell_centroid_lnglat(cell: str) -> tuple[float, float]:
     return (lng, lat)
 
 
-def ring_polygon(parcel: Polygon, inner_m: float, outer_m: float) -> Polygon | MultiPolygon:
+def ring_polygon(parcel: Polygon, inner_m: float, outer_m: float, epsg: int) -> Polygon | MultiPolygon:
     """Annulus between inner_m and outer_m around the parcel, in lng/lat."""
-    utm = shp_transform(_to_utm.transform, parcel)
+    to_utm, to_wgs = _transformers(epsg)
+    utm = shp_transform(to_utm.transform, parcel)
     outer = utm.buffer(outer_m)
     inner = utm.buffer(inner_m) if inner_m > 0 else utm
     annulus = outer.difference(inner)
-    return shp_transform(_to_wgs.transform, annulus)
+    return shp_transform(to_wgs.transform, annulus)
 
 
 @dataclass(frozen=True)
@@ -124,21 +142,22 @@ def pixel_mask(grid: PixelGrid, projected_rings: list[np.ndarray]) -> np.ndarray
     return (R[inside] * grid.width + C[inside]).astype(np.uint32)
 
 
-def project_rings(geom: Polygon) -> list[np.ndarray]:
+def project_rings(geom: Polygon, epsg: int) -> list[np.ndarray]:
+    to_utm = _transformers(epsg)[0]
     rings = [geom.exterior, *geom.interiors]
     out = []
     for ring in rings:
         coords = np.asarray(ring.coords, dtype=np.float64)
-        x, y = _to_utm.transform(coords[:, 0], coords[:, 1])
+        x, y = to_utm.transform(coords[:, 0], coords[:, 1])
         out.append(np.column_stack([x, y]))
     return out
 
 
-def mask_of_geometry(grid: PixelGrid, geom: Polygon | MultiPolygon) -> np.ndarray:
+def mask_of_geometry(grid: PixelGrid, geom: Polygon | MultiPolygon, epsg: int) -> np.ndarray:
     polys = list(geom.geoms) if isinstance(geom, MultiPolygon) else [geom]
     acc: set[int] = set()
     for poly in polys:
-        acc.update(int(i) for i in pixel_mask(grid, project_rings(poly)))
+        acc.update(int(i) for i in pixel_mask(grid, project_rings(poly, epsg)))
     return np.asarray(sorted(acc), dtype=np.uint32)
 
 
@@ -155,11 +174,11 @@ class FrameUnit:
         return {"unitId": self.unit_id, "zone": self.zone, "areaHa": self.area_ha, "pixelCount": self.pixel_count, "centroid": [self.centroid[0], self.centroid[1]]}
 
 
-def acquisition_bbox_utm(parcel_geojson: dict[str, Any], plan: dict[str, Any], margin_m: float = 100) -> tuple[float, float, float, float]:
+def acquisition_bbox_utm(parcel_geojson: dict[str, Any], plan: dict[str, Any], epsg: int, margin_m: float = 100) -> tuple[float, float, float, float]:
     """UTM bbox of the parcel expanded to cover the far ring plus a margin."""
     geom = shape(parcel_geojson)
     min_lng, min_lat, max_lng, max_lat = geom.bounds
-    corners = [project_to_utm(lng, lat) for lng, lat in ((min_lng, min_lat), (max_lng, min_lat), (max_lng, max_lat), (min_lng, max_lat))]
+    corners = [project_to_utm(lng, lat, epsg) for lng, lat in ((min_lng, min_lat), (max_lng, min_lat), (max_lng, max_lat), (min_lng, max_lat))]
     xs = [c[0] for c in corners]
     ys = [c[1] for c in corners]
     pad = plan["controlRule"]["farRing"]["outerM"] + margin_m
@@ -174,12 +193,13 @@ def _intersect(a: np.ndarray, b: set[int]) -> np.ndarray:
     return np.asarray([v for v in a if int(v) in b], dtype=np.uint32)
 
 
-def build_sampling_frame(parcel_geojson: dict[str, Any], plan: dict[str, Any], grid: PixelGrid) -> list[FrameUnit]:
+def build_sampling_frame(parcel_geojson: dict[str, Any], plan: dict[str, Any], grid: PixelGrid, epsg: int) -> list[FrameUnit]:
+    """Parcel, parcel cells and ring units with pixel masks on ``grid``, which is in ``epsg``."""
     parcel = shape(parcel_geojson)
     if not isinstance(parcel, Polygon):
         raise ValueError("parcel geometry must be a Polygon")
     units: list[FrameUnit] = []
-    parcel_px = mask_of_geometry(grid, parcel)
+    parcel_px = mask_of_geometry(grid, parcel, epsg)
     parcel_set = {int(i) for i in parcel_px}
     ring = list(parcel.exterior.coords)  # closed ring, as in the GeoJSON — the reference averages all vertices
     centroid = (sum(p[0] for p in ring) / len(ring), sum(p[1] for p in ring) / len(ring))
@@ -187,20 +207,20 @@ def build_sampling_frame(parcel_geojson: dict[str, Any], plan: dict[str, Any], g
 
     for cell in cells_for_geometry(parcel, plan["controlRule"]["parcelCellResolution"]):
         geom = cell_polygon(cell)
-        px = _intersect(mask_of_geometry(grid, geom), parcel_set)
+        px = _intersect(mask_of_geometry(grid, geom, epsg), parcel_set)
         if len(px) == 0:
             continue
         units.append(_unit_for(cell, "parcel_cell", geom, px))
 
     rings: Iterable[tuple[str, Polygon | MultiPolygon]] = [
-        ("near", ring_polygon(parcel, plan["controlRule"]["nearRing"]["innerM"], plan["controlRule"]["nearRing"]["outerM"])),
-        ("far", ring_polygon(parcel, plan["controlRule"]["farRing"]["innerM"], plan["controlRule"]["farRing"]["outerM"])),
+        ("near", ring_polygon(parcel, plan["controlRule"]["nearRing"]["innerM"], plan["controlRule"]["nearRing"]["outerM"], epsg)),
+        ("far", ring_polygon(parcel, plan["controlRule"]["farRing"]["innerM"], plan["controlRule"]["farRing"]["outerM"], epsg)),
     ]
     for zone, geom in rings:
-        ring_set = {int(i) for i in mask_of_geometry(grid, geom)}
+        ring_set = {int(i) for i in mask_of_geometry(grid, geom, epsg)}
         for cell in cells_for_geometry(geom, plan["controlRule"]["unitResolution"]):
             cell_geom = cell_polygon(cell)
-            px = _intersect(mask_of_geometry(grid, cell_geom), ring_set)
+            px = _intersect(mask_of_geometry(grid, cell_geom, epsg), ring_set)
             if len(px) == 0:
                 continue
             units.append(_unit_for(cell, zone, cell_geom, px))

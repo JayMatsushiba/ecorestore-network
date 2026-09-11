@@ -113,7 +113,7 @@ npm run acquire
 | `docs/ROADMAP.md` | Build sequence, milestones, cut order |
 | `docs/` | Architecture, verification, Guardian, Arc, Graph, Auditor, demo, deployment, x402, development log |
 | `verification/` | Deterministic verification engine, the analysis boundary contract, REAL Tier 0 acquisition (graph 1.0.0), simulated Tiers 1-3, fixtures |
-| `analysis/` | Python analysis service — bit-exact with the TypeScript engine — and the Tier 0 acquisition batch job (graph 2.0.0) |
+| `analysis/` | Python analysis service — bit-exact with the TypeScript engine — and the Tier 0 acquisition batch job (graph 2.1.0) |
 | `verify/` | The verify HTTP service and the shared end-to-end pipeline |
 | `contracts/` | Arc Restoration Deed (Solidity, Foundry) and its TypeScript client |
 | `guardian/` | Verdict VC schema, DID-signed credential, externalDataBlock request, ATS seam |

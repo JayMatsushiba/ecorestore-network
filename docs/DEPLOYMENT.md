@@ -524,7 +524,7 @@ is not running there; no chain is.
 * The Python acquisition job runs (`--profile acquire`). On a smoke run it reproduced the
   committed fixture's grid, unit counts and parcel/parcel-cell pixel masks, and parcel
   NDVI to 4 dp on every scene in common. The committed fixture is still the 1.0.0
-  (TypeScript) acquisition; promoting a 2.0.0 snapshot is a deliberate step that changes
+  (TypeScript) acquisition; promoting a 2.x snapshot is a deliberate step that changes
   every downstream hash and has not been taken.
 * No payment tier exists. No endpoint returns `402`, no Hedera receiving account has
   been created and no facilitator has been selected. x402 is outside M1 — see

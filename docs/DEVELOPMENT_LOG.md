@@ -9,6 +9,125 @@ as written rather than rewritten, because a log records what was true at the tim
 
 ---
 
+## 2026-09-11 — Evaluation of the Python analysis on four real restoration sites; acquisition fixes
+
+### Objective
+
+Evaluate `analysis/` as a land-change pipeline on ground where a restoration actually
+happened, not only on the Kootenay parcel (which carries no intervention). Record what
+the pipeline gets right and wrong as GitHub issues, and fix what is engineering rather
+than methodology. Owner's instruction: evaluate the pipeline against successful
+restoration projects, file issues, fix them on a branch, and open a PR.
+
+### Implementation
+
+Evaluation (not committed; scripts and outputs under `out/eval/`, gitignored):
+
+* Four parcels delineated from REAL Sentinel-2 masks, not drawn by hand: the former
+  Copco Lake (369 ha) and Iron Gate reservoir (247 ha) on the Klamath, from the SCL
+  water mask of July 2023; the former Lake Mills (67 ha) on the Elwha, from the
+  low-NDVI valley floor of July 2018; Agency Lake Ranch / Barnes Ranch on Upper Klamath
+  Lake (2,896 ha), from the area that was pasture in 2023 and water in 2025.
+* Plans identical to the committed one except the windows: pre = summer 2022 and 2023
+  (Elwha: 2018 and 2019), post = summer 2025.
+* `acquire()` run per site, then `analyse()` called directly with dummy receipts.
+
+Fixes on this branch, one commit each:
+
+* `geometry.py` no longer fixes the projection to UTM 11N. Every function that projects
+  takes an EPSG code; `acquire()` takes it from the tile it reads and writes it to the
+  snapshot's `crs` (#17).
+* `stac.py` keeps one item per acquisition when the catalogue holds a reprocessing
+  (#18).
+* `acquire.py` takes `--parcel`, reads the MGRS tile with the most scenes, and spreads
+  `--limit` across the plan's windows (#19).
+* `series.py` checks the observation arrays and the pre windows up front; `server.py`
+  answers `422` for `IndexError` and `ArithmeticError` (#20).
+* The STAC cloud filter is `lte` to match `scenes_in_window()`; an item without cloud
+  cover or datetime is skipped; a bbox outside the raster is a named `ValueError` (#21).
+* `PROCESSING_GRAPH_VERSION` is `2.1.0`. The committed fixture is still graph 1.0.0.
+
+### Tests
+
+* `analysis/tests`: 33 → 55. New: UTM zone derivation and a zone-10 frame; the
+  reprocessing rule against the four real cases (Lake Mills pair, Kootenay adjacent
+  orbits, Kootenay split granules, other tiles); tile choice and its tie-break;
+  `--limit` spread; `_scene_record` fields and skips; windowed reads on a local GeoTIFF
+  including the outside-raster error; the two `422` paths through the HTTP endpoint,
+  with the edited documents re-signed so they reach the engine.
+* Review fixes on the PR (the workflow reviewer posted nothing, #16; the same plugin
+  was run locally): every pre window needs a distinct mid-date, not only the first and
+  last; `observations` that is not an object is a `422`; `spread_limit` counts a scene
+  in two overlapping windows once; `--limit` must be positive; the EPSG fallback reads
+  the zone and hemisphere from the MGRS tile id before the parcel centroid; a
+  `proj:code` that is not `EPSG:<digits>` is unknown rather than a crash; the job warns
+  when the tile does not cover the acquisition bbox.
+* The parity suite is unchanged and green: none of the fixes touches a number the
+  engine returns.
+
+### Validation
+
+* The fixed job, unpatched, acquires the Copco parcel in EPSG:32610 on the same
+  919×663 grid the patched evaluation used.
+* On the Kootenay fixture it selects EPSG:32611 itself and reproduces the committed
+  grid (402×382, same origin), 857 units, the parcel's 4,906 pixels, and parcel NDVI on
+  every scene sampled (6 of 6) to the 4 dp stored.
+* Lake Mills: 54 scenes become 34 after the reprocessing rule; the parcel's pre-level
+  moves from 0.2451 to 0.2453.
+* Vectorised bootstrap fuzzed against the scalar loop on 200 random shapes, including
+  zero near units and zero-weight cells: identical on all.
+
+### Architectural, scientific and security decisions
+
+Within the mandate:
+
+1. **Zone from the data.** The frame's CRS is the CRS of the tile read, not a constant
+   and not the parcel centroid's zone (a Sentinel-2 tile can extend past its zone
+   boundary). The centroid zone is the fallback when the catalogue gives no EPSG.
+2. **One item per acquisition.** Within a (tile, platform, date) group only the highest
+   processing baseline survives; equal baselines all survive, because adjacent-orbit
+   and split-granule pairs are different observations. The Kootenay fixture is
+   unchanged by the rule (72 → 72).
+3. **The graph version moves.** 2.1.0 returns different scenes for some inputs than
+   2.0.0 did; no 2.0.0 snapshot was ever committed.
+4. **The TypeScript graph is not changed.** It is 1.0.0, it produced the committed
+   fixture, and its same two limitations (zone 11N, reprocessing pairs) are recorded in
+   #17 and #18 for a separate decision.
+
+Not decided here — methodology, filed for the owner: the parcel's own water fraction is
+neither reported nor gated (#22); the ring-based control rule finds nothing for a
+degraded parcel inside an intact matrix (#23); SCL is trusted for validity and water
+(#24); parcel and controls are composited from different scene sets (#25); the
+pre-slope uses only the endpoint windows and the parallel-trend p-value ignores
+within-unit correlation (#26); summary and two smaller points (#27).
+
+### Deviations from the documented design
+
+None. The snapshot schema is unchanged; `crs` now carries the zone actually used.
+
+### Unresolved risks
+
+* Three of the four sites return `NOT_EVALUATED`: the parcel's pre-state is 2–18 SD
+  from every ring candidate. The rule is honest, but the pipeline cannot assess a
+  reservoir bed or a de-watered valley floor at all (#23).
+* The one site with matched controls (Agency Lake) is a wetland reconnection, and the
+  pipeline scores it at −0.44 index → [−2,667, −718] ha with the near ring's flooding
+  deducted as leakage. The metric measures greening; the plan does not say which
+  projects it is for (#27).
+* A drained reservoir would read as +0.57 "woody cover" if anything ever matched; the
+  result carries no parcel water fraction (#22).
+* The parity suite asserts equality of `round6(p)` between two OLS implementations that
+  agree to ~1e-10; a p-value on a rounding boundary will break parity without either
+  engine being wrong.
+
+### Next steps
+
+1. Owner decides #22, #23 and #24; #22 option 1 (report the parcel water fraction) is
+   the smallest change and a contract change on both engines.
+2. If the TypeScript graph is to gain the same two rules, bump it to 1.1.0 and
+   re-acquire the fixture in one reviewed step.
+3. Commit the evaluation scripts under `analysis/eval/` if the owner wants the four
+   sites reproducible from the repository.
 ## 2026-09-10 — Application usability: verdict in plain words, map view, About page
 
 ### Objective

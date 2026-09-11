@@ -31,4 +31,6 @@ def numeric_stack() -> dict[str, str]:
 #: Processing-graph version of the Python acquisition pipeline (``acquire.py``).
 #: The TypeScript acquisition graph is ``1.0.0``; this one reads the same COGs
 #: through rasterio and builds the sampling frame with h3 + shapely + pyproj.
-PROCESSING_GRAPH_VERSION = "2.0.0"
+#: 2.1.0: the UTM zone comes from the tile, one item per acquisition when the
+#: catalogue holds a reprocessing, and the tile with the most scenes is read.
+PROCESSING_GRAPH_VERSION = "2.1.0"

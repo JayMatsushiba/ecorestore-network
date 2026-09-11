@@ -13,9 +13,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from ecorestore_analysis.acquire import observe_scene
-from ecorestore_analysis.cog import CogWindowRead
-from ecorestore_analysis.geometry import FrameUnit, PixelGrid, build_sampling_frame, polygon_area_ha
+from ecorestore_analysis.acquire import choose_tile, observe_scene, spread_limit
+from ecorestore_analysis.cog import CogWindowRead, read_cog_window
+from ecorestore_analysis.geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame, polygon_area_ha, utm_epsg_for
 from shapely.geometry import shape
 
 REFERENCE = Path(__file__).parent / "reference"
@@ -80,7 +80,7 @@ def test_frame_parcel_and_cells_match_committed_snapshot(plan, parcel):
     # The 1.0.0 snapshot records the requested bbox; the read window snaps outward to
     # whole 10 m pixels of the tile grid (Sentinel-2 tile origins sit on a 60 m lattice).
     grid = PixelGrid(np.floor(bbox[0] / 10) * 10, np.ceil(bbox[3] / 10) * 10, 10.0, w, h)
-    units = build_sampling_frame(parcel["geometry"], plan, grid)
+    units = build_sampling_frame(parcel["geometry"], plan, grid, 32611)
     by_id = {u.unit_id: u for u in units}
     ref = {u["unitId"]: u for u in snap["units"]}
 
@@ -101,3 +101,104 @@ def test_frame_parcel_and_cells_match_committed_snapshot(plan, parcel):
 def test_area_is_geodesic_not_cell_count(parcel):
     ha = polygon_area_ha(shape(parcel["geometry"]))
     assert ha == pytest.approx(48.95, abs=0.2)  # turf (sphere) gave 48.9486; the ellipsoid differs slightly
+
+
+def test_utm_zone_follows_the_parcel():
+    assert utm_epsg_for(-116.575, 49.129) == 32611  # Creston Valley, BC
+    assert utm_epsg_for(-122.30, 41.98) == 32610  # Copco Lake, CA
+    assert utm_epsg_for(-123.60, 47.97) == 32610  # Elwha, WA
+    assert utm_epsg_for(5.37, 52.55) == 32631  # Marker Wadden, NL
+    assert utm_epsg_for(147.3, -42.9) == 32755  # Tasmania: southern hemisphere
+    assert utm_epsg_for(179.99, 0.0) == 32660 and utm_epsg_for(-179.99, 0.0) == 32601
+
+
+def test_acquisition_bbox_is_in_the_given_zone(plan):
+    # A square around Copco Lake. In zone 10 its easting sits near 558 km; the old
+    # fixed zone 11 put the same ground at a meaningless easting west of the zone.
+    lng, lat = -122.30, 41.98
+    square = {"type": "Polygon", "coordinates": [[[lng - 0.01, lat - 0.01], [lng + 0.01, lat - 0.01], [lng + 0.01, lat + 0.01], [lng - 0.01, lat + 0.01], [lng - 0.01, lat - 0.01]]]}
+    min_x, min_y, max_x, max_y = acquisition_bbox_utm(square, plan, 32610)
+    assert 555_000 < min_x < max_x < 562_000
+    assert 4_645_000 < min_y < max_y < 4_651_000
+    pad = plan["controlRule"]["farRing"]["outerM"] + 100
+    assert max_x - min_x == pytest.approx(2 * pad + 1_660, abs=60)
+
+
+def test_frame_in_another_zone_has_the_same_shape(plan):
+    """The frame builder is zone-agnostic: a parcel in zone 10 on a zone-10 grid yields
+    a parcel unit whose pixel count matches its area at 10 m."""
+    lng, lat = -122.30, 41.98
+    square = {"type": "Polygon", "coordinates": [[[lng - 0.003, lat - 0.002], [lng + 0.003, lat - 0.002], [lng + 0.003, lat + 0.002], [lng - 0.003, lat + 0.002], [lng - 0.003, lat - 0.002]]]}
+    min_x, min_y, max_x, max_y = acquisition_bbox_utm(square, plan, 32610)
+    grid = PixelGrid(np.floor(min_x / 10) * 10, np.ceil(max_y / 10) * 10, 10.0, int((max_x - min_x) / 10) + 2, int((max_y - min_y) / 10) + 2)
+    units = build_sampling_frame(square, plan, grid, 32610)
+    parcel_unit = units[0]
+    assert parcel_unit.unit_id == "parcel"
+    assert parcel_unit.pixel_count * 0.01 == pytest.approx(parcel_unit.area_ha, rel=0.03)
+    assert {u.zone for u in units} == {"parcel", "parcel_cell", "near", "far"}
+
+
+def _scene(scene_id: str, datetime: str) -> dict:
+    return {"sceneId": scene_id, "datetime": datetime}
+
+
+def test_choose_tile_takes_the_tile_with_most_scenes_not_the_first():
+    scenes = [
+        _scene("S2A_10TFM_20230601_0_L2A", "2023-06-01T19:00:00Z"),
+        _scene("S2A_10TEM_20230603_0_L2A", "2023-06-03T19:00:00Z"),
+        _scene("S2B_10TEM_20230608_0_L2A", "2023-06-08T19:00:00Z"),
+        _scene("S2B_10TFM_20230610_0_L2A", "2023-06-10T19:00:00Z"),
+        _scene("S2A_10TEM_20230613_0_L2A", "2023-06-13T19:00:00Z"),
+    ]
+    tile, kept, dropped = choose_tile(scenes)
+    assert tile == "10TEM"
+    assert [s["sceneId"] for s in kept] == ["S2A_10TEM_20230603_0_L2A", "S2B_10TEM_20230608_0_L2A", "S2A_10TEM_20230613_0_L2A"]
+    assert len(dropped) == 2
+
+
+def test_choose_tile_breaks_ties_deterministically():
+    scenes = [_scene("S2A_10TFM_20230601_0_L2A", "2023-06-01T19:00:00Z"), _scene("S2A_10TEM_20230603_0_L2A", "2023-06-03T19:00:00Z")]
+    assert choose_tile(scenes)[0] == "10TEM"
+    assert choose_tile(list(reversed(scenes)))[0] == "10TEM"
+
+
+def test_spread_limit_touches_every_window(plan):
+    windows = [*plan["windows"]["pre"], *plan["windows"]["post"]]  # 2023, 2024, 2025 seasons
+    scenes = [_scene(f"S2A_11UNQ_{y}0{m}05_0_L2A", f"{y}-0{m}-05T18:50:00Z") for y in (2023, 2024, 2025) for m in (6, 7, 8, 9)]
+    chosen = spread_limit(scenes, windows, 5)
+    assert [s["datetime"][:7] for s in chosen] == ["2023-06", "2023-07", "2024-06", "2024-07", "2025-06"]
+    assert spread_limit(scenes, windows, 100) == scenes
+    assert spread_limit(scenes, windows, 0) == []
+
+
+def _write_tif(path, origin_x=500_000, origin_y=5_440_000, res=10, size=8):
+    import rasterio
+    from rasterio.transform import from_origin
+
+    with rasterio.open(path, "w", driver="GTiff", width=size, height=size, count=1, dtype="uint16", crs="EPSG:32611", transform=from_origin(origin_x, origin_y, res, res)) as dst:
+        dst.write(np.arange(size * size, dtype=np.uint16).reshape(size, size), 1)
+
+
+def test_read_cog_window_snaps_outward_to_whole_pixels(tmp_path):
+    tif = tmp_path / "band.tif"
+    _write_tif(tif)
+    r = read_cog_window(str(tif), (500_012, 5_439_955, 500_037, 5_439_988))
+    assert (r.grid.origin_x, r.grid.origin_y, r.grid.resolution) == (500_010, 5_439_990, 10)
+    assert (r.width, r.height) == (3, 4)
+    assert r.data[0, 0] == 1 * 8 + 1  # row 1, col 1 of the source
+
+
+def test_read_cog_window_names_a_bbox_outside_the_raster(tmp_path):
+    tif = tmp_path / "band.tif"
+    _write_tif(tif)
+    with pytest.raises(ValueError, match="does not intersect"):
+        read_cog_window(str(tif), (600_000, 5_500_000, 600_100, 5_500_100))
+
+
+def test_spread_limit_counts_a_scene_in_two_overlapping_windows_once():
+    windows = [{"label": "a", "start": "2023-06-01", "end": "2023-07-31"}, {"label": "b", "start": "2023-07-01", "end": "2023-08-31"}]
+    scenes = [_scene(f"S2A_11UNQ_2023{m:02d}{d:02d}_0_L2A", f"2023-{m:02d}-{d:02d}T18:50:00Z") for m in (6, 7, 8) for d in (5, 15, 25)]
+    assert len(spread_limit(scenes, windows, 5)) == 5
+    assert spread_limit(scenes, windows, 9) == scenes
+    # Identical windows: the same nine scenes, still nine unique picks.
+    assert len(spread_limit(scenes, [windows[0], windows[0]], 4)) == 4

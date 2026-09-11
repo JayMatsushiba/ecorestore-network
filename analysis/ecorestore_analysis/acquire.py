@@ -1,4 +1,4 @@
-"""REAL Tier 0 acquisition — the batch job (processing graph 2.0.0).
+"""REAL Tier 0 acquisition — the batch job (processing graph 2.1.0).
 
 Searches Earth Search for Sentinel-2 L2A scenes over the parcel for every
 pre-registered window, reads the red, NIR and SCL bands over the sampling
@@ -14,6 +14,7 @@ writes the fixture. Python produces observations; it commits nothing.
 
     ecorestore-acquire --out ./out/acquire --limit 5
     ecorestore-acquire --fixtures ../verification/fixtures --out ./out/acquire
+    ecorestore-acquire --fixtures ./my-site --parcel my-parcel.json --out ./out/my-site
 """
 
 from __future__ import annotations
@@ -32,9 +33,10 @@ import numpy as np
 
 from . import PROCESSING_GRAPH_VERSION
 from .cog import CogWindowRead, read_cog_window
-from .geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame
+from .geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame, utm_epsg_for
 from .jsnum import round4
-from .stac import ASSET_HOST, EARTH_SEARCH_URL, S2_L2A_COLLECTION, search_sentinel2
+from .series import in_window
+from .stac import ASSET_HOST, EARTH_SEARCH_URL, S2_L2A_COLLECTION, epsg_from_tile, mgrs_tile, search_sentinel2
 
 
 def observe_scene(red: CogWindowRead, nir: CogWindowRead, scl: CogWindowRead, units: list[FrameUnit], plan: dict[str, Any]) -> dict[str, list]:
@@ -90,22 +92,72 @@ def load_fixture(fixtures: Path, name: str) -> dict[str, Any]:
     return json.loads((fixtures / name).read_text())
 
 
-def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | None, concurrency: int, log=print) -> Path:
-    parcel = load_fixture(fixtures, "kootenay-parcel.json")
+def choose_tile(scenes: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split the search results into the tile to read and the rest.
+
+    Every scene must share one pixel grid, and grids differ between MGRS
+    tiles, so the job reads one tile. It takes the tile with the most scenes
+    (ties: the smallest tile id) rather than whichever tile the catalogue
+    returned first, and drops the others before downloading a byte.
+    """
+    counts: dict[str, int] = {}
+    for s in scenes:
+        counts[mgrs_tile(s["sceneId"])] = counts.get(mgrs_tile(s["sceneId"]), 0) + 1
+    tile = min(counts, key=lambda t: (-counts[t], t))
+    kept = [s for s in scenes if mgrs_tile(s["sceneId"]) == tile]
+    dropped = [s for s in scenes if mgrs_tile(s["sceneId"]) != tile]
+    return tile, kept, dropped
+
+
+def spread_limit(scenes: list[dict[str, Any]], windows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    """The first ``limit`` scenes taken round-robin across the plan's windows.
+
+    A smoke run with ``--limit 5`` should touch every window, not only the
+    first five dates of the first pre window. Order within the result is the
+    catalogue order, so the first scene still defines the grid.
+    """
+    per_window = [[s for s in scenes if in_window(s["datetime"], w)] for w in windows]
+    chosen: set[str] = set()
+    i = 0
+    while len(chosen) < limit and any(per_window):
+        bucket = per_window[i % len(per_window)]
+        if bucket:
+            # Overlapping windows hold the same scene in two buckets; it is
+            # one pick, not two.
+            chosen.add(bucket.pop(0)["sceneId"])
+        i += 1
+    return [s for s in scenes if s["sceneId"] in chosen]
+
+
+def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | None, concurrency: int, log=print, parcel_file: str = "kootenay-parcel.json") -> Path:
+    parcel = load_fixture(fixtures, parcel_file)
     plan = load_fixture(fixtures, "analysis-plan.json")
-    bbox_utm = acquisition_bbox_utm(parcel["geometry"], plan)
+    windows = [*plan["windows"]["pre"], *plan["windows"]["post"]]
     ring = parcel["geometry"]["coordinates"][0]
     lngs = [p[0] for p in ring]
     lats = [p[1] for p in ring]
     bbox = (min(lngs), min(lats), max(lngs), max(lats))
-    log(f"parcel {parcel['parcelId']}: acquisition bbox UTM {tuple(round(v, 1) for v in bbox_utm)}")
 
-    scenes = search_sentinel2(bbox, [*plan["windows"]["pre"], *plan["windows"]["post"]], plan["index"]["maxSceneCloudCoverPct"])
-    if limit:
-        scenes = scenes[:limit]
-    log(f"STAC: {len(scenes)} Sentinel-2 L2A scenes under {plan['index']['maxSceneCloudCoverPct']}% cloud")
-    if not scenes:
+    found = search_sentinel2(bbox, windows, plan["index"]["maxSceneCloudCoverPct"])
+    log(f"STAC: {len(found)} Sentinel-2 L2A scenes under {plan['index']['maxSceneCloudCoverPct']}% cloud")
+    if not found:
         raise SystemExit("no scenes found")
+    tile, scenes, dropped = choose_tile(found)
+    if dropped:
+        log(f"tile {tile}: {len(scenes)} scenes; dropping {len(dropped)} from other tiles ({', '.join(sorted({mgrs_tile(s['sceneId']) for s in dropped}))})")
+    if limit is not None:
+        if limit < 1:
+            raise SystemExit(f"--limit must be at least 1, got {limit}")
+        scenes = spread_limit(scenes, windows, limit)
+
+    # The frame is built in the UTM zone of the tile being read; every scene
+    # of one tile shares it. When the catalogue gives no EPSG the tile id
+    # still names the zone and hemisphere; the parcel centroid is the last
+    # resort. A scene that still disagrees is skipped before any band is
+    # downloaded.
+    epsg = next((s["epsg"] for s in scenes if s["epsg"]), 0) or epsg_from_tile(tile) or utm_epsg_for((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+    bbox_utm = acquisition_bbox_utm(parcel["geometry"], plan, epsg)
+    log(f"parcel {parcel['parcelId']}: EPSG:{epsg}, acquisition bbox {tuple(round(v, 1) for v in bbox_utm)}")
 
     def read_bands(scene: dict[str, Any]) -> tuple[CogWindowRead, CogWindowRead, CogWindowRead]:
         a = scene["assets"]
@@ -114,7 +166,13 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
     # First scene defines the grid; every other scene must match it (same MGRS tile).
     first = read_bands(scenes[0])
     grid: PixelGrid = first[0].grid
-    units = build_sampling_frame(parcel["geometry"], plan, grid)
+    covered = (grid.origin_x <= bbox_utm[0], grid.origin_y - grid.height * grid.resolution <= bbox_utm[1], grid.origin_x + grid.width * grid.resolution >= bbox_utm[2], grid.origin_y >= bbox_utm[3])
+    if not all(covered):
+        # The read window is clamped to the tile; ring units past its edge are
+        # lost silently otherwise. Every later scene matches this grid, so the
+        # mismatch check never sees it.
+        log(f"  WARNING tile {tile} does not cover the acquisition bbox on the {', '.join(n for n, ok in zip(('west', 'south', 'east', 'north'), covered) if not ok)} side; the frame is clipped to the tile")
+    units = build_sampling_frame(parcel["geometry"], plan, grid, epsg)
     counts = {z: sum(1 for u in units if u.zone == z) for z in ("parcel_cell", "near", "far")}
     log(f"frame: {len(units)} units ({counts['parcel_cell']} parcel cells, {counts['near']} near, {counts['far']} far) on a {grid.width}x{grid.height} px grid")
 
@@ -123,6 +181,9 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
 
     def work(i_scene: tuple[int, dict[str, Any]]):
         i, scene = i_scene
+        if scene["epsg"] and scene["epsg"] != epsg:
+            log(f"  skip {scene['sceneId']}: EPSG:{scene['epsg']}, frame is EPSG:{epsg}")
+            return None
         bands = first if i == 0 else read_bands(scene)
         g = bands[0].grid
         if (g.origin_x, g.origin_y, g.width, g.height) != (grid.origin_x, grid.origin_y, grid.width, grid.height):
@@ -147,7 +208,7 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
         "processingGraphVersion": PROCESSING_GRAPH_VERSION,
         "acquiredAt": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         "parcelId": parcel["parcelId"],
-        "crs": "EPSG:32611",
+        "crs": f"EPSG:{epsg}",
         "window": {"bbox": list(bbox_utm), "pixelWindow": [0, 0, grid.width, grid.height], "grid": grid.to_dict()},
         "scenes": kept,
         "units": [u.to_dict() for u in units],
@@ -171,18 +232,20 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="REAL Tier 0 acquisition (processing graph 2.0.0)")
-    ap.add_argument("--fixtures", default=None, help="directory holding kootenay-parcel.json and analysis-plan.json (default: /fixtures, else ../verification/fixtures)")
+    ap = argparse.ArgumentParser(description="REAL Tier 0 acquisition (processing graph 2.1.0)")
+    ap.add_argument("--fixtures", default=None, help="directory holding the parcel file and analysis-plan.json (default: /fixtures, else ../verification/fixtures)")
+    ap.add_argument("--parcel", default="kootenay-parcel.json", help="parcel file inside --fixtures (default: kootenay-parcel.json)")
     ap.add_argument("--out", default=os.environ.get("ACQUIRE_OUT", "./out/acquire"), help="output directory (env ACQUIRE_OUT)")
     ap.add_argument("--cache", default=os.environ.get("ACQUIRE_CACHE_DIR"), help="COG window cache directory (env ACQUIRE_CACHE_DIR)")
-    ap.add_argument("--limit", type=int, default=None, help="only the first N scenes (smoke test)")
+    ap.add_argument("--limit", type=int, default=None, help="only N scenes, spread across the plan's windows (smoke test)")
     ap.add_argument("--concurrency", type=int, default=4)
     args = ap.parse_args(argv)
     fixtures = Path(args.fixtures) if args.fixtures else (Path("/fixtures") if Path("/fixtures").is_dir() else Path(__file__).resolve().parents[2] / "verification" / "fixtures")
-    if not (fixtures / "analysis-plan.json").exists():
-        sys.exit(f"fixtures not found at {fixtures}")
+    for name in ("analysis-plan.json", args.parcel):
+        if not (fixtures / name).exists():
+            sys.exit(f"{name} not found in {fixtures}")
     t0 = time.perf_counter()
-    acquire(fixtures, Path(args.out), Path(args.cache) if args.cache else None, args.limit, args.concurrency)
+    acquire(fixtures, Path(args.out), Path(args.cache) if args.cache else None, args.limit, args.concurrency, parcel_file=args.parcel)
     print(f"done in {time.perf_counter() - t0:.1f} s")
 
 

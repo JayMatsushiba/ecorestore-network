@@ -66,6 +66,8 @@ def read_cog_window(url: str, bbox_utm: tuple[float, float, float, float], cache
         c1 = min(src.width, int(np.ceil((max_x - ox) / res)))
         r0 = max(0, int(np.floor((oy - max_y) / res)))
         r1 = min(src.height, int(np.ceil((oy - min_y) / res)))
+        if c1 <= c0 or r1 <= r0:
+            raise ValueError(f"bbox {bbox_utm} does not intersect {url} (raster bounds {tuple(round(v, 1) for v in src.bounds)}, {src.crs})")
         data = src.read(1, window=Window(c0, r0, c1 - c0, r1 - r0))
     grid = PixelGrid(ox + c0 * res, oy - r0 * res, res, int(data.shape[1]), int(data.shape[0]))
     if cp is not None:

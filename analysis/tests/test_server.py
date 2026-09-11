@@ -1,6 +1,9 @@
+import json
+
 from fastapi.testclient import TestClient
 
 from ecorestore_analysis import ENGINE, numeric_stack
+from ecorestore_analysis.hashing import keccak256_hex
 from ecorestore_analysis.server import app
 
 from conftest import diff_paths, load_case
@@ -68,3 +71,58 @@ def test_identical_requests_get_identical_bodies():
     assert first.content == second.content
     # Timing is reported, just not in the body.
     assert "x-analysis-elapsed-seconds" in first.headers
+
+
+def _reissue(req: dict, key: str, edit) -> dict:
+    """Edit one canonical document and re-sign its receipt, so the request
+    reaches the analysis rather than failing on the hash."""
+    doc = json.loads(req[key])
+    edit(doc)
+    body = json.dumps(doc)
+    return {**req, key: body, ("planHash" if key == "planCanonical" else "snapshotHash"): keccak256_hex(body.encode())}
+
+
+def test_duplicate_pre_windows_are_a_422_not_a_500():
+    req, _ = load_case("real")
+
+    def dup(plan):
+        plan["windows"]["pre"] = [plan["windows"]["pre"][0], {**plan["windows"]["pre"][0], "label": "again"}]
+
+    r = client.post("/analyse", json=_reissue(req, "planCanonical", dup))
+    assert r.status_code == 422, r.text
+    assert "same mid-date" in r.json()["detail"]
+
+
+def test_short_observation_arrays_are_a_422_not_a_500():
+    req, _ = load_case("real")
+
+    def truncate(t0):
+        sid = next(iter(t0["observations"]))
+        t0["observations"][sid]["ndvi"] = t0["observations"][sid]["ndvi"][:3]
+
+    r = client.post("/analyse", json=_reissue(req, "tier0Canonical", truncate))
+    assert r.status_code == 422, r.text
+    assert "ndvi has 3 entries" in r.json()["detail"]
+
+
+def test_equal_mid_dates_anywhere_in_the_pre_windows_are_a_422():
+    req, _ = load_case("real")
+
+    def three(plan):
+        first, second = plan["windows"]["pre"]
+        plan["windows"]["pre"] = [first, second, {**second, "label": "again"}]
+
+    r = client.post("/analyse", json=_reissue(req, "planCanonical", three))
+    assert r.status_code == 422, r.text
+    assert "same mid-date" in r.json()["detail"]
+
+
+def test_observations_that_are_not_an_object_are_a_422():
+    req, _ = load_case("real")
+
+    def listify(t0):
+        t0["observations"] = []
+
+    r = client.post("/analyse", json=_reissue(req, "tier0Canonical", listify))
+    assert r.status_code == 422, r.text
+    assert "observations must be an object" in r.json()["detail"]
