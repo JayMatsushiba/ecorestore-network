@@ -121,6 +121,136 @@ None. The snapshot schema is unchanged; `crs` now carries the zone actually used
    re-acquire the fixture in one reviewed step.
 3. Commit the evaluation scripts under `analysis/eval/` if the owner wants the four
    sites reproducible from the repository.
+## 2026-09-10 — Application usability: verdict in plain words, map view, About page
+
+### Objective
+
+Make the application readable by the people it is for: a restoration team watching its
+own project, and a buyer deciding whether an outcome would survive an audit. Close the
+three UI issues: #12 (dashboard audit, ten findings), #11 (About page) and #10 (web map).
+Owner's instruction: improve usability, resolve the UI issues, file anything else as an
+issue and leave it for a later sprint.
+
+### Implementation
+
+**Dashboard (#12).** The page now states its own verdict above the numbers
+(`app/src/copy.ts`, `verdictFor()`), one headline and one explanation per
+`verificationStatus`, covering all six statuses the engine can return. `statusReason`
+stays underneath as the engine record. The three scenario tabs name the lesson and the
+rule's behaviour (*Real data · settles nothing*, *Injected effect · settles the lower
+bound*, *Trend test fails · refuses to score*) under one line, *One committed rule,
+three runs*; the provenance detail stays in the banner. The cards are grouped into three
+bands with headings at real size: *What was claimed, and what settled* (weightier),
+*How that number was reached* (four numbered steps) and *What is on record*. The
+`parallelTrend.criterion` field now reaches the page (`app/src/types.ts`) and prints
+beside the verdict and beside the `parallel_trend` gate, so a FAIL at p 0.76 reads as a
+tightened threshold rather than an inverted test. The claim-to-settlement chart is an
+HTML table: the claim is a reference line above it, each row is an operation so the
+sign and the word agree, and a zero settlement is a marked tick carrying its value. The
+palette moves both control rings into one cool neutral family, separated by weight and
+dash, and reserves amber for simulated provenance; the parcel line turns amber only when
+its Tier 0 is simulated. A build-state strip states what ran live, what is prepared and
+deliberately unsent, and why, derived from the bundle's own fields. Both SVG charts sit
+in an `overflow-x: auto` container and hold a minimum width under 700 px, with SVG text
+at 13 viewBox units so no label drops below about 11 effective pixels. The hero numbers
+are glossed in place (*would survive an audit*, *at risk of restatement*). The loading
+copy names the data, not the scenario id, and defines nothing by abbreviation; the
+results region is a `role="status"` live region; *Re-run verification* is a button
+beside the status it belongs to.
+
+**About page (#11).** `app/src/About.tsx`, reached at `/about` through a hand-rolled
+two-route switch (`app/src/route.ts`, `pushState` and `popstate`, no router
+dependency). It answers three questions in order: what this is for, how it works, what
+you are looking at. It names each component and its one job, states both authority
+rules, states that Tier 0 is real and Tiers 1–3 are simulated, and carries build state
+in one table with `RUNS` / `PREPARED` / `NOT BUILT` markers in the existing badge
+treatment. `docs/ARCHITECTURE.md` §8 now says the page mirrors it.
+
+**Map (#10).** `verify/spatial.ts` adds a `spatial` block to the assurance bundle
+envelope, never to `VerificationResult`: the parcel polygon, both ring polygons from
+`ringPolygon()`, the Tier 0 read window in its source CRS and in WGS84, the matched
+control cells with boundaries from `cellBoundaryLngLat()`, and the Tier 1–3 evidence
+locations as cell centroids, labelled `SIMULATED`. Coordinates are rounded to six
+decimals (about 11 cm). `app/src/Map.tsx` draws it as an SVG over its own graticule
+and scale bar, with a layer toggle and a provenance badge per layer; simulated layers
+are hatched or dashed, not only coloured. Hovering a cell shows its id and which ring's
+mean it feeds. A `details` block reads the map as text. A bundle without the block gets
+an explicit empty state. The three committed bundles in `app/public/demo/` were
+regenerated with `DEMO_FIXED_TIME=2026-09-10T00:00:00.000Z npm run demo`; the diff is
+purely additive.
+
+### Tests / validation
+
+* `verify/spatial.test.ts` — five cases: the block carries parcel, rings, window and
+  the matched ids the result cites; ring extents agree with the plan radii within 2%;
+  the WGS84 read window contains the far ring; cell boundaries equal `geometry.ts`
+  output; and `resultHash` is unchanged against the committed bundle.
+* Root: `npm run typecheck` clean; `npm test` 12 files, 73 tests passing.
+* `app/`: `npm run lint` clean (the pre-existing `exhaustive-deps` warning on the
+  trajectory chart is gone: the margins are module constants); `npm run build` passes.
+* Rendered in headless Chromium over the DevTools protocol at 1440 px and 420 px, all
+  three runs and the About page: no horizontal overflow at either width, live region
+  present, criterion rendered, 63 map paths drawn, `/about` served as a deep link by
+  `vite preview`.
+
+### Architectural, scientific and security decisions
+
+* No basemap and no client-side raster (`DECISIONS.md` §2). The map draws vectors
+  only; a link opens the location in OpenStreetMap.
+* Geometry on the envelope, not in the hashed result (`DECISIONS.md` §2).
+* Matched cell boundaries are serialised server-side rather than derived in the browser
+  with `h3-js`. Sixty cells cost about 8 KB; adding `h3-js` to the application would cost
+  more, and the application keeps its two dependencies.
+* In the `synthetic` run the control cells inherit the snapshot's `SIMULATED` label,
+  following the rule in `models.ts` that every downstream artefact of a perturbed
+  snapshot inherits it, even though the perturbation touches parcel observations only.
+* The parcel is drawn in the REAL blue, never in a colour a verdict uses.
+
+### Deviations from the documented design
+
+* #10 asked to derive cell boundaries in the browser; they are serialised instead (above).
+* #10 asked to link scene hover to the map; the bundle has no per-scene geometry, so the
+  map says so instead of implying it. Per-cell series are not in the bundle either, so
+  selecting a cell names the mean it feeds rather than highlighting a series.
+* #12 proposed tab labels with settled quantities in them; the tabs carry the rule's
+  behaviour instead, so a re-run with different data cannot leave a stale number in a tab.
+
+### Review round
+
+The repository's Claude Code Review workflow ran twice on the pull request and posted
+nothing: 7 turns, one permission denial, no comments each time (issue #16). A local
+review of the branch at medium effort returned eight findings; all eight were fixed:
+
+* The About route unmounted the dashboard and re-ran verification on return. The
+  dashboard now stays mounted and hidden behind the About page.
+* The trajectory legend hard-coded `REAL` on the control series while the map marked
+  the same cells `SIMULATED` in the synthetic run. The chart takes the bundle's control
+  provenance.
+* The About page said indexed history exists in the present tense. Reworded.
+* The bare `.band` layout rule also matched the legend swatch class. Renamed.
+* The build-state strip said "unsent" even when Guardian had acknowledged delivery, and
+  its "why" sentence named no actor. The Guardian row is conditional and the verify
+  service is the actor.
+* "2.23 ha released" read as funds moved. Headlines state the rule's decision ("The
+  rule releases…"), and the delivery card is "Verdict delivery status".
+* The back link used a relative `href`. It uses the route helper.
+* Tab outcome phrases were fixed per scenario and could contradict a live result. Once
+  a run has loaded, its tab derives the phrase from `verificationStatus`.
+
+### Unresolved risks
+
+* All three committed bundles still carry `contract.chain: null`, so no run shows
+  settlement completing. Filed as an issue.
+* The committed bundles carry the host's absolute `outboxPath`. Filed as an issue.
+* The About page's status table is hand-written; it drifts if `ARCHITECTURE.md` §8 moves
+  and nobody follows the pointer.
+* The map's equirectangular projection is exact enough at a 4 km extent and would not be
+  at a continental one.
+
+### Next steps
+
+#4, Arc Testnet deployment, remains the open M1 deliverable. #8 (project switcher) and
+#9 (origination design) are unchanged and sequenced behind it.
 
 ---
 

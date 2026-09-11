@@ -56,6 +56,7 @@ docker compose up --build
 docker compose -f docker-compose.yml up --build
 
 open http://localhost:3001            # the verification console
+open http://localhost:3001/about      # what it is for, how it works, what is built
 curl -s localhost:8090/health         # analysis engine, Guardian and chain reachability
 curl -s -X POST localhost:8090/api/verify/synthetic | jq .result.verificationStatus
 
