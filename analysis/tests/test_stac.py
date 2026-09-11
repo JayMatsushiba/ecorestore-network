@@ -1,6 +1,6 @@
 """Scene selection rules that never touch the network."""
 
-from ecorestore_analysis.stac import _scene_record, drop_reprocessed, mgrs_tile
+from ecorestore_analysis.stac import _scene_record, drop_reprocessed, epsg_from_tile, mgrs_tile
 
 
 class _Asset:
@@ -20,6 +20,21 @@ def test_scene_record_reads_the_fields_it_commits_to():
     rec = _scene_record(_Item("S2A_10TEM_20230721_0_L2A", {"datetime": "2023-07-21T19:03:00Z", "platform": "sentinel-2a", "eo:cloud_cover": 0.5, "s2:processing_baseline": "05.09", "proj:code": "EPSG:32610"}))
     assert rec["epsg"] == 32610 and rec["cloudCoverPct"] == 0.5 and rec["processingBaseline"] == "05.09"
     assert rec["stacAdvertisedReflectance"] == {"scale": 0.0001, "offset": -0.1}
+
+
+def test_scene_record_tolerates_an_odd_proj_code():
+    base = {"datetime": "2023-07-21T19:03:00Z", "eo:cloud_cover": 1.0}
+    assert _scene_record(_Item("x", {**base, "proj:code": "epsg:32610"}))["epsg"] == 32610
+    assert _scene_record(_Item("x", {**base, "proj:code": "urn:ogc:def:crs:OGC:1.3:CRS84"}))["epsg"] == 0
+    assert _scene_record(_Item("x", {**base, "proj:epsg": 32611, "proj:code": "garbage"}))["epsg"] == 32611
+
+
+def test_epsg_from_tile():
+    assert epsg_from_tile("10TEM") == 32610
+    assert epsg_from_tile("11UNQ") == 32611
+    assert epsg_from_tile("55GEN") == 32755  # Tasmania: band G is south
+    assert epsg_from_tile("31UFT") == 32631
+    assert epsg_from_tile("not-a-tile") == 0 and epsg_from_tile("61TEM") == 0
 
 
 def test_scene_record_skips_items_it_cannot_filter_or_place():

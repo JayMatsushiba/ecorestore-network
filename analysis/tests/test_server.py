@@ -103,3 +103,26 @@ def test_short_observation_arrays_are_a_422_not_a_500():
     r = client.post("/analyse", json=_reissue(req, "tier0Canonical", truncate))
     assert r.status_code == 422, r.text
     assert "ndvi has 3 entries" in r.json()["detail"]
+
+
+def test_equal_mid_dates_anywhere_in_the_pre_windows_are_a_422():
+    req, _ = load_case("real")
+
+    def three(plan):
+        first, second = plan["windows"]["pre"]
+        plan["windows"]["pre"] = [first, second, {**second, "label": "again"}]
+
+    r = client.post("/analyse", json=_reissue(req, "planCanonical", three))
+    assert r.status_code == 422, r.text
+    assert "same mid-date" in r.json()["detail"]
+
+
+def test_observations_that_are_not_an_object_are_a_422():
+    req, _ = load_case("real")
+
+    def listify(t0):
+        t0["observations"] = []
+
+    r = client.post("/analyse", json=_reissue(req, "tier0Canonical", listify))
+    assert r.status_code == 422, r.text
+    assert "observations must be an object" in r.json()["detail"]

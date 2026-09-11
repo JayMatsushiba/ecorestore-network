@@ -7,6 +7,7 @@ derivation.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pystac_client import Client
@@ -28,7 +29,8 @@ def _scene_record(item: Any) -> dict[str, Any] | None:
         return None  # cannot be filtered or placed in a window
     epsg = p.get("proj:epsg")
     if epsg is None and isinstance(p.get("proj:code"), str):
-        epsg = int(p["proj:code"].replace("EPSG:", ""))
+        m = re.fullmatch(r"\s*EPSG:(\d+)\s*", p["proj:code"], re.IGNORECASE)
+        epsg = int(m.group(1)) if m else 0  # 0: unknown; acquire falls back to the tile
     return {
         "sceneId": item.id,
         "datetime": str(p["datetime"]),
@@ -44,6 +46,18 @@ def _scene_record(item: Any) -> dict[str, Any] | None:
 def mgrs_tile(scene_id: str) -> str:
     """The MGRS tile in an Earth Search id such as ``S2A_10TEM_20230721_0_L2A``."""
     return scene_id.split("_")[1]
+
+
+def epsg_from_tile(tile: str) -> int:
+    """EPSG code of an MGRS tile's UTM zone: ``10TEM`` → 32610; band letters
+    C–M are south of the equator (327xx). 0 when the id is not an MGRS tile."""
+    m = re.fullmatch(r"(\d{1,2})([C-HJ-NP-X])[A-Z]{2}", tile)
+    if not m:
+        return 0
+    zone, band = int(m.group(1)), m.group(2)
+    if not 1 <= zone <= 60:
+        return 0
+    return (32700 if band <= "M" else 32600) + zone
 
 
 def _baseline_key(baseline: str) -> tuple[int, ...]:

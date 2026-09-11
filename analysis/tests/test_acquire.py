@@ -193,3 +193,12 @@ def test_read_cog_window_names_a_bbox_outside_the_raster(tmp_path):
     _write_tif(tif)
     with pytest.raises(ValueError, match="does not intersect"):
         read_cog_window(str(tif), (600_000, 5_500_000, 600_100, 5_500_100))
+
+
+def test_spread_limit_counts_a_scene_in_two_overlapping_windows_once():
+    windows = [{"label": "a", "start": "2023-06-01", "end": "2023-07-31"}, {"label": "b", "start": "2023-07-01", "end": "2023-08-31"}]
+    scenes = [_scene(f"S2A_11UNQ_2023{m:02d}{d:02d}_0_L2A", f"2023-{m:02d}-{d:02d}T18:50:00Z") for m in (6, 7, 8) for d in (5, 15, 25)]
+    assert len(spread_limit(scenes, windows, 5)) == 5
+    assert spread_limit(scenes, windows, 9) == scenes
+    # Identical windows: the same nine scenes, still nine unique picks.
+    assert len(spread_limit(scenes, [windows[0], windows[0]], 4)) == 4

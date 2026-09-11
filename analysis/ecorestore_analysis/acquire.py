@@ -36,7 +36,7 @@ from .cog import CogWindowRead, read_cog_window
 from .geometry import FrameUnit, PixelGrid, acquisition_bbox_utm, build_sampling_frame, utm_epsg_for
 from .jsnum import round4
 from .series import in_window
-from .stac import ASSET_HOST, EARTH_SEARCH_URL, S2_L2A_COLLECTION, mgrs_tile, search_sentinel2
+from .stac import ASSET_HOST, EARTH_SEARCH_URL, S2_L2A_COLLECTION, epsg_from_tile, mgrs_tile, search_sentinel2
 
 
 def observe_scene(red: CogWindowRead, nir: CogWindowRead, scl: CogWindowRead, units: list[FrameUnit], plan: dict[str, Any]) -> dict[str, list]:
@@ -117,14 +117,16 @@ def spread_limit(scenes: list[dict[str, Any]], windows: list[dict[str, Any]], li
     catalogue order, so the first scene still defines the grid.
     """
     per_window = [[s for s in scenes if in_window(s["datetime"], w)] for w in windows]
-    chosen: list[dict[str, Any]] = []
+    chosen: set[str] = set()
     i = 0
     while len(chosen) < limit and any(per_window):
         bucket = per_window[i % len(per_window)]
         if bucket:
-            chosen.append(bucket.pop(0))
+            # Overlapping windows hold the same scene in two buckets; it is
+            # one pick, not two.
+            chosen.add(bucket.pop(0)["sceneId"])
         i += 1
-    return [s for s in scenes if any(s is c for c in chosen)]
+    return [s for s in scenes if s["sceneId"] in chosen]
 
 
 def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | None, concurrency: int, log=print, parcel_file: str = "kootenay-parcel.json") -> Path:
@@ -143,13 +145,17 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
     tile, scenes, dropped = choose_tile(found)
     if dropped:
         log(f"tile {tile}: {len(scenes)} scenes; dropping {len(dropped)} from other tiles ({', '.join(sorted({mgrs_tile(s['sceneId']) for s in dropped}))})")
-    if limit:
+    if limit is not None:
+        if limit < 1:
+            raise SystemExit(f"--limit must be at least 1, got {limit}")
         scenes = spread_limit(scenes, windows, limit)
 
     # The frame is built in the UTM zone of the tile being read; every scene
-    # of one tile shares it. A scene that still disagrees is skipped before any
-    # band is downloaded.
-    epsg = next((s["epsg"] for s in scenes if s["epsg"]), 0) or utm_epsg_for((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+    # of one tile shares it. When the catalogue gives no EPSG the tile id
+    # still names the zone and hemisphere; the parcel centroid is the last
+    # resort. A scene that still disagrees is skipped before any band is
+    # downloaded.
+    epsg = next((s["epsg"] for s in scenes if s["epsg"]), 0) or epsg_from_tile(tile) or utm_epsg_for((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
     bbox_utm = acquisition_bbox_utm(parcel["geometry"], plan, epsg)
     log(f"parcel {parcel['parcelId']}: EPSG:{epsg}, acquisition bbox {tuple(round(v, 1) for v in bbox_utm)}")
 
@@ -160,6 +166,12 @@ def acquire(fixtures: Path, out_dir: Path, cache_dir: Path | None, limit: int | 
     # First scene defines the grid; every other scene must match it (same MGRS tile).
     first = read_bands(scenes[0])
     grid: PixelGrid = first[0].grid
+    covered = (grid.origin_x <= bbox_utm[0], grid.origin_y - grid.height * grid.resolution <= bbox_utm[1], grid.origin_x + grid.width * grid.resolution >= bbox_utm[2], grid.origin_y >= bbox_utm[3])
+    if not all(covered):
+        # The read window is clamped to the tile; ring units past its edge are
+        # lost silently otherwise. Every later scene matches this grid, so the
+        # mismatch check never sees it.
+        log(f"  WARNING tile {tile} does not cover the acquisition bbox on the {', '.join(n for n, ok in zip(('west', 'south', 'east', 'north'), covered) if not ok)} side; the frame is clipped to the tile")
     units = build_sampling_frame(parcel["geometry"], plan, grid, epsg)
     counts = {z: sum(1 for u in units if u.zone == z) for z in ("parcel_cell", "near", "far")}
     log(f"frame: {len(units)} units ({counts['parcel_cell']} parcel cells, {counts['near']} near, {counts['far']} far) on a {grid.width}x{grid.height} px grid")

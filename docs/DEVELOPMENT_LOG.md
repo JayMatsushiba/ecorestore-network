@@ -49,12 +49,19 @@ Fixes on this branch, one commit each:
 
 ### Tests
 
-* `analysis/tests`: 33 → 50. New: UTM zone derivation and a zone-10 frame; the
+* `analysis/tests`: 33 → 55. New: UTM zone derivation and a zone-10 frame; the
   reprocessing rule against the four real cases (Lake Mills pair, Kootenay adjacent
   orbits, Kootenay split granules, other tiles); tile choice and its tie-break;
   `--limit` spread; `_scene_record` fields and skips; windowed reads on a local GeoTIFF
   including the outside-raster error; the two `422` paths through the HTTP endpoint,
   with the edited documents re-signed so they reach the engine.
+* Review fixes on the PR (the workflow reviewer posted nothing, #16; the same plugin
+  was run locally): every pre window needs a distinct mid-date, not only the first and
+  last; `observations` that is not an object is a `422`; `spread_limit` counts a scene
+  in two overlapping windows once; `--limit` must be positive; the EPSG fallback reads
+  the zone and hemisphere from the MGRS tile id before the parcel centroid; a
+  `proj:code` that is not `EPSG:<digits>` is unknown rather than a crash; the job warns
+  when the tile does not cover the acquisition bbox.
 * The parity suite is unchanged and green: none of the fixes touches a number the
   engine returns.
 
