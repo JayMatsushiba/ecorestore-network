@@ -1,29 +1,31 @@
 # AWS overlay — the same stack as docker-compose.yml, from prebuilt images, behind an
 # edge proxy. Applied by deploy/host/deploy.sh on the demonstration host:
 #
-#   docker compose -f docker-compose.yml -f deploy/docker-compose.aws.yml \
-#                  [-f docker-compose.override.yml]   # only while Guardian is running
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.aws.yml
 #
 # What changes relative to the local stack, and nothing else:
-#   * analysis / verify / frontend come from ECR at ${IMAGE_TAG} (the deployed commit)
-#     instead of being built on the host;
+#   * chain / bootstrap / api come from the ECR `app` image and frontend from the
+#     `frontend` image, both at ${IMAGE_TAG} (the deployed commit), instead of being
+#     built on the host;
 #   * the frontend's host port is removed and `caddy` publishes 80/443 instead,
-#     terminating TLS automatically when DOMAIN is set;
-#   * GUARDIAN_PUBLIC_URL defaults to the host's public Guardian address.
-# The trust boundaries are unchanged: analysis stays on the internal-only network,
-# verify is the only service with keys, the frontend still knows only verify.
+#     terminating TLS automatically when DOMAIN is set.
+# The trust boundaries are unchanged: the API holds no key, the frontend knows only
+# the API, and the chain is still Hardhat's in-memory demo network — not Arc.
 services:
-  analysis:
-    image: ${ECR_REGISTRY}/ecorestore/analysis:${IMAGE_TAG}
+  chain:
+    image: ${ECR_REGISTRY}/ecorestore/app:${IMAGE_TAG}
     build: !reset null
     pull_policy: always
 
-  verify:
-    image: ${ECR_REGISTRY}/ecorestore/verify:${IMAGE_TAG}
+  bootstrap:
+    image: ${ECR_REGISTRY}/ecorestore/app:${IMAGE_TAG}
     build: !reset null
     pull_policy: always
-    environment:
-      GUARDIAN_PUBLIC_URL: ${GUARDIAN_PUBLIC_URL:-}
+
+  api:
+    image: ${ECR_REGISTRY}/ecorestore/app:${IMAGE_TAG}
+    build: !reset null
+    pull_policy: always
 
   frontend:
     image: ${ECR_REGISTRY}/ecorestore/frontend:${IMAGE_TAG}
@@ -33,13 +35,13 @@ services:
 
   # The only thing on the host that listens to the internet. With DOMAIN set Caddy
   # obtains and renews a Let's Encrypt certificate on its own; without it the site is
-  # served on plain HTTP at the instance's public address.
+  # served on plain HTTP at the instance's public address. Its volumes are the only
+  # ones deploy.sh keeps across deploys (certificates are rate-limited to obtain).
   caddy:
     image: caddy:2-alpine
     depends_on:
       frontend:
         condition: service_healthy
-    networks: [edge]
     ports:
       - "80:80"
       - "443:443"

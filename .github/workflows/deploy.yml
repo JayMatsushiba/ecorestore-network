@@ -8,6 +8,10 @@
 # deploy/README.md. GitHub authenticates to AWS with OIDC (no long-lived AWS keys in
 # GitHub), and reaches the host through SSM (no SSH port, no key pair).
 #
+# What gets deployed is the local demo stack from docker-compose.yml — Hardhat's
+# in-memory chain, MockUSDC, MockGuardianAdapter, a local Graph Node, synthetic
+# fixtures — on a public URL. Not Arc, not real USDC, not Hedera Guardian.
+#
 # Repository configuration this workflow reads:
 #   secrets.AWS_DEPLOY_ROLE_ARN   IAM role assumed via OIDC (stack output DeployRoleArn)
 #   vars.AWS_REGION               region of the stack
@@ -16,8 +20,9 @@
 #                                 or https://<domain> once DNS points at the host);
 #                                 required — the run fails rather than skip the smoke test
 #
-# Application secrets never pass through GitHub. The host reads them from SSM
-# Parameter Store at deploy time (deploy/host/deploy.sh).
+# No application secret exists for this stack. The host reads its one parameter
+# (the ECR registry) and the optional DOMAIN from SSM Parameter Store at deploy time
+# (deploy/host/deploy.sh).
 name: Deploy
 
 on:
@@ -31,9 +36,7 @@ permissions:
 
 # One deployment at a time. GitHub keeps one running and one pending run per group
 # and replaces the pending one with a newer run, so intermediate commits may be skipped
-# but the newest is always deployed and a running deploy is never cancelled. The group
-# is not shared with guardian.yml — a push must not displace a queued Guardian `down`;
-# on the host the two scripts serialise with a file lock instead.
+# but the newest is always deployed and a running deploy is never cancelled.
 concurrency:
   group: deploy-app
   cancel-in-progress: false
@@ -55,15 +58,16 @@ jobs:
       fail-fast: true
       matrix:
         image:
-          - name: analysis
-            context: ./analysis
-            dockerfile: ./analysis/Dockerfile
-          - name: verify
+          # One runtime image serves the chain, bootstrap and api services.
+          - name: app
             context: .
-            dockerfile: ./verify/Dockerfile
+            dockerfile: ./Dockerfile
+            build-args: ""
+          # Same-origin API base: the browser calls /api/ on whatever host serves it.
           - name: frontend
             context: ./app
             dockerfile: ./app/Dockerfile
+            build-args: VITE_API_BASE_URL=
     steps:
       - uses: actions/checkout@v4
 
@@ -84,6 +88,7 @@ jobs:
         with:
           context: ${{ matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
+          build-args: ${{ matrix.image.build-args }}
           push: true
           provenance: false
           tags: |
@@ -113,11 +118,10 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # Take the host lock before touching the checkout, so a concurrent Guardian
-          # command cannot move it between checkout and deploy; deploy.sh sees
-          # ECORESTORE_HOST_LOCK and does not re-acquire. The checkout is advanced to
-          # the deployed commit so the script that runs is the one committed alongside
-          # these images.
+          # Take the host lock before touching the checkout, so nothing can move it
+          # between checkout and deploy; deploy.sh sees ECORESTORE_HOST_LOCK and does
+          # not re-acquire. The checkout is advanced to the deployed commit so the
+          # script that runs is the one committed alongside these images.
           script="set -euo pipefail
           exec 9>/var/lock/ecorestore-host.lock
           flock -w 900 9 || { echo 'host lock busy' >&2; exit 1; }
@@ -167,10 +171,17 @@ jobs:
             exit 1
           fi
           for _ in $(seq 1 12); do
-            if curl -fsS --max-time 15 "$DEMO_URL/health" -o health.json; then break; fi
+            if curl -fsS --max-time 15 "$DEMO_URL/api/health" -o health.json; then break; fi
             sleep 5
           done
-          jq . health.json
-          jq -e '.ok == true and .service == "ecorestore-verify" and .analysis.reachable == true' health.json >/dev/null
+          jq -e '.status == "OK"' health.json >/dev/null
+          # The deed is there once Graph Node has indexed the bootstrap settlement.
+          for _ in $(seq 1 24); do
+            if curl -fsS --max-time 15 "$DEMO_URL/api/deed" -o deed.json \
+               && jq -e '.status == "OK"' deed.json >/dev/null; then break; fi
+            sleep 5
+          done
+          jq '{status, deployment}' deed.json
+          jq -e '.status == "OK"' deed.json >/dev/null
           curl -fsS --max-time 15 "$DEMO_URL/" | grep -qi '<div id="root">'
           echo "deployed ${{ github.sha }} to $DEMO_URL"

@@ -76,6 +76,18 @@ Conditions:
 
 Resources:
   # ---------------------------------------------------------------- images ----
+  # `app` (chain, bootstrap, api) and `frontend` are what deploy.yml builds now.
+  # `analysis` and `verify` belong to the stack shape deployed before this one;
+  # they are kept so a stack update does not delete their images (EmptyOnDelete)
+  # until that removal is done deliberately.
+  AppRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: ecorestore/app
+      ImageTagMutability: MUTABLE
+      EmptyOnDelete: true
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"keep the last 10","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":10},"action":{"type":"expire"}}]}'
   AnalysisRepository:
     Type: AWS::ECR::Repository
     Properties:
@@ -116,7 +128,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub ${AWS::StackName}-github-deploy
-      Description: Assumed by GitHub Actions (deploy.yml, guardian.yml) via OIDC.
+      Description: Assumed by GitHub Actions (deploy.yml) via OIDC.
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -169,6 +181,7 @@ Resources:
                   - ecr:PutImage
                   - ecr:DescribeImages
                 Resource:
+                  - !GetAtt AppRepository.Arn
                   - !GetAtt AnalysisRepository.Arn
                   - !GetAtt VerifyRepository.Arn
                   - !GetAtt FrontendRepository.Arn
