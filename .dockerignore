@@ -1,0 +1,24 @@
+# Build context for the root Dockerfile: sources and lockfiles only.
+.git
+.github
+.claude
+node_modules
+**/node_modules
+app
+analysis
+deploy
+docs
+proposals
+out
+contracts/out
+contracts/.artifacts
+contracts/.cache
+cache
+artifacts
+subgraph/generated
+subgraph/build
+subgraph/tests/.bin
+subgraph/tests/.latest.json
+subgraph/deployment.local.json
+guardian/outbox
+*.md

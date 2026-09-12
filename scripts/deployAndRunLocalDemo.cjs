@@ -152,7 +152,8 @@ async function main() {
     parcelH3Root: outcome.verificationResult.parcelH3Root,
     settledQuantity: outcome.verificationResult.settledQuantity,
   };
-  const outPath = path.join(__dirname, "..", "subgraph", "deployment.local.json");
+  // DEMO_DEPLOYMENT_FILE: docker-compose.yml's shared record location.
+  const outPath = process.env.DEMO_DEPLOYMENT_FILE ?? path.join(__dirname, "..", "subgraph", "deployment.local.json");
   fs.writeFileSync(outPath, JSON.stringify(deploymentInfo, null, 2));
   console.log("Wrote", outPath);
 }

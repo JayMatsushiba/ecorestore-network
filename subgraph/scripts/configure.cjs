@@ -14,7 +14,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const deploymentPath = path.join(__dirname, "..", "deployment.local.json");
+// DEMO_DEPLOYMENT_FILE: docker-compose.yml's shared record location.
+const deploymentPath = process.env.DEMO_DEPLOYMENT_FILE ?? path.join(__dirname, "..", "deployment.local.json");
 const manifestPath = path.join(__dirname, "..", "subgraph.yaml");
 
 if (!fs.existsSync(deploymentPath)) {

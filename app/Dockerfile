@@ -1,9 +1,13 @@
-# Ecorestore frontend — the React verification console, built with Vite and
-# served by nginx, which also proxies /api/ to the verify service.
+# Ecorestore frontend — the React demo UI (app/), built with Vite and served
+# by nginx, which also proxies /api/ to the demo API server (server/).
 #
-# Build context is app/ (see docker-compose.yml). The committed demo bundles
-# in public/demo/ ship with the page as the offline fallback.
+# Build context is app/ (see docker-compose.yml). VITE_API_BASE_URL is baked
+# into the bundle at build time; the empty default means "same origin", i.e.
+# nginx's /api/ proxy, so the browser never needs to know where the API runs
+# and the same image serves behind any hostname.
 FROM node:22-slim AS build
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund

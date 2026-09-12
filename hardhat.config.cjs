@@ -49,5 +49,12 @@ module.exports = {
   },
   networks: {
     hardhat: {},
+    // The persistent local demo node (`npx hardhat node`) that
+    // scripts/deployAndRunLocalDemo.cjs targets with --network localhost.
+    // HARDHAT_RPC_URL lets docker-compose.yml point that at the `chain`
+    // container; unset, this is Hardhat's own default for "localhost".
+    localhost: {
+      url: process.env.HARDHAT_RPC_URL ?? "http://127.0.0.1:8545",
+    },
   },
 };

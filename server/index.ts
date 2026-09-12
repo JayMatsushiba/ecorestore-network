@@ -102,8 +102,12 @@ function buildGuardianOutcome(verificationResult: VerificationResult) {
   };
 }
 
-const deploymentPath = fileURLToPath(new URL("../subgraph/deployment.local.json", import.meta.url));
-const graphProvider = new TheGraphProvider();
+// Both overridable so docker-compose.yml can point this container at the
+// shared deployment record and the `graph-node` container; the defaults are
+// the hand-started local stack from README.md.
+const deploymentPath =
+  process.env.DEMO_DEPLOYMENT_FILE ?? fileURLToPath(new URL("../subgraph/deployment.local.json", import.meta.url));
+const graphProvider = new TheGraphProvider(process.env.GRAPH_QUERY_URL);
 
 async function handleProject(query: URLSearchParams) {
   const { key, project } = resolveFixture(query);
