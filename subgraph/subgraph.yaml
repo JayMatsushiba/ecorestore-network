@@ -1,0 +1,48 @@
+specVersion: 1.0.0
+description: >-
+  Ecorestore Network M5 subgraph — indexes RestorationDeed.sol events from a
+  local persistent Hardhat node. LOCAL DEVELOPMENT ONLY: not deployed to any
+  hosted or decentralized Graph Network service. See docs/GRAPH.md.
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: RestorationDeed
+    network: hardhat
+    source:
+      # Placeholder — overwritten by `npm run configure` (scripts/configure.cjs)
+      # with the actual locally-deployed contract address and deployment
+      # block before `graph codegen`/`graph build`/`graph deploy`. Never a
+      # real mainnet/testnet address.
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+      abi: RestorationDeed
+      startBlock: 2
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Project
+        - RestorationDeed
+        - Funding
+        - Cancellation
+        - Verification
+        - Settlement
+        - Refund
+      abis:
+        - name: RestorationDeed
+          file: ./abis/RestorationDeed.json
+      eventHandlers:
+        - event: DeedCreated(indexed uint256,indexed bytes32,bytes32,indexed address,address,address,uint256,uint256,uint8)
+          handler: handleDeedCreated
+        - event: DeedFunded(indexed uint256,indexed address,uint256)
+          handler: handleDeedFunded
+        - event: DeedCancelled(indexed uint256)
+          handler: handleDeedCancelled
+        - event: VerificationSubmitted(indexed uint256,indexed bytes32,bool,uint256,uint256)
+          handler: handleVerificationSubmitted
+        - event: SettlementExecuted(indexed uint256,indexed bytes32,indexed address,uint256,uint256)
+          handler: handleSettlementExecuted
+        - event: RefundExecuted(indexed uint256,indexed address,uint256)
+          handler: handleRefundExecuted
+      file: ./src/mapping.ts

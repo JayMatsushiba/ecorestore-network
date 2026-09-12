@@ -1,0 +1,20 @@
+{
+  "name": "ecorestore-subgraph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ecorestore Network M5 subgraph — indexes RestorationDeed events via a local Graph Node. Isolated AssemblyScript/WASM toolchain, deliberately separate from the root ESM/TypeScript project (see docs/GRAPH.md).",
+  "scripts": {
+    "configure": "node scripts/configure.cjs",
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "test": "node scripts/test-docker.cjs",
+    "create-local": "graph create --node http://localhost:8020/ ecorestore/restoration-deed",
+    "remove-local": "graph remove --node http://localhost:8020/ ecorestore/restoration-deed",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 ecorestore/restoration-deed --version-label v0.0.1"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "0.98.1",
+    "@graphprotocol/graph-ts": "0.38.2",
+    "matchstick-as": "0.6.0"
+  }
+}

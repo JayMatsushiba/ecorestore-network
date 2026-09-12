@@ -1,19 +1,16 @@
 # Ecorestore Network — Demonstration Plan
 
+> **Status note:** this document describes the full intended demo flow. As of this note, deterministic verification (M1), Guardian (M2), Arc settlement (M3/M3.1), the M1→M2→Arc local vertical integration (M4), and local Graph Node indexing + Auditor correlation (M5) are implemented, tested, and confirmed complete — see `contracts/tests/endToEnd.test.cjs` and `graph/tests/e2e.test.ts` for the executed end-to-end chains. Guardian is a Mock adapter, Arc runs on a local Hardhat network, and the Graph runs on a local Docker Graph Node — none of this is live Hedera/Arc/Graph Network infrastructure. UI (M6, the only step below still future work) remains unimplemented; `app/` is intentionally absent. See `docs/DEVELOPMENT_LOG.md` for the authoritative current status.
+
 ## 1. Demonstration Principle
 
-The demo uses one British Columbia restoration project with a **mixed evidence
-provenance that must never be blurred**.
+The demo uses one synthetic British Columbia restoration project.
 
-**Tier 0 is real.** Sentinel-2 L2A, Sentinel-1, Landsat and ICESat-2 acquisitions for
-the parcel and both control rings, shown with their STAC scene IDs and processing graph
-version. The satellite layer is the core scientific claim and is not fabricated.
+All environmental measurements are synthetic.
 
-**Tiers 1-3 are simulated.** Wherever they appear the application must visibly state:
+The application must visibly state:
 
-> SIMULATED DEMONSTRATION DATA — NOT REAL FIELD, SENSOR OR REGULATORY MEASUREMENT.
-
-Real and simulated evidence must be visually distinguishable at all times.
+> SYNTHETIC DEMONSTRATION DATA — NOT REAL FIELD, SATELLITE, SENSOR OR REGULATORY MEASUREMENT.
 
 ---
 
@@ -23,12 +20,9 @@ Working name:
 
 **Kootenay Riparian Restoration — British Columbia**
 
-The parcel is a real location with real satellite coverage. The restoration project,
-the deed, the claim and all Tier 1-3 evidence are constructed for the demonstration.
+The location is used as a synthetic geographic context.
 
-Tier 0 indices are genuine measurements of that ground. No claim is made that a
-restoration intervention took place there, that the Tier 1-3 evidence is real, or
-that any displayed outcome constitutes certification.
+No claim is made that the displayed measurements represent actual conditions at the site.
 
 ---
 
@@ -37,43 +31,31 @@ that any displayed outcome constitutes certification.
 ```text
 Sponsor selects project
         ↓
-Reviews parcel, tenure attestation, encumbrance declaration,
-and the committed analysis plan
+Reviews parcel and evidence
         ↓
-Restoration Deed is funded in USDC
+Restoration Deed is funded
         ↓
-Mobilisation tranche draws against verified effort — the restorer is paid to start
+Evidence is submitted
         ↓
-Evidence is submitted   (Tier 0 REAL, Tiers 1-3 SIMULATED and labelled)
+Auditor investigates
         ↓
-Auditor investigates, querying project history via The Graph
-        ↓
-Control set is DRAWN by the pre-registered rule — not chosen
+Deterministic verification runs
         ↓
 Parallel-trend diagnostic
         ↓
-Difference-in-differences against the far ring
+Additionality calculation
         ↓
-Leakage deduction from near/far ring divergence
-        ↓
-Biophysical additionality
-        ↓
-Uncertainty, with empirical coverage reported
-        ↓
-Issuance gates: native species fraction, no net habitat loss, condition floor
+Uncertainty calculation
         ↓
 Lower-bound settlement quantity
         ↓
-Arc settlement; benefit share routes to the steward address
+Guardian verification
         ↓
-Verdict signed as a VC; outcome issued into the vintage partition
-with setDocument(VC)      [Guardian drops into this slot in production]
+Arc settlement
         ↓
-Persistence tranche scheduled; monitoring commitment runs past it
+Outcome displayed
         ↓
-Assurance bundle exported
-        ↓
-History available through The Graph
+History available through Graph
 ```
 
 ---
@@ -120,20 +102,19 @@ This is a critical trust property.
 
 ---
 
-## 6. Data Provenance Rules
+## 6. Synthetic Data Rules
 
 Never:
 
-* imply simulated values are real satellite observations;
-* cite simulated values as field measurements;
+* imply synthetic values are real satellite observations;
+* cite synthetic values as field measurements;
 * describe the demonstration as regulatory certification;
 * call the outcome a regulatory biodiversity credit.
 
 Use:
 
-* simulated dataset / simulated observation (Tiers 1-3);
-* real Sentinel-2 acquisition, with scene IDs (Tier 0) — Sentinel-1 is not ingested and
-  must not be shown as acquired;
+* synthetic dataset;
+* synthetic observation;
 * demonstration outcome;
 * prototype verification.
 
@@ -141,26 +122,15 @@ Use:
 
 ## 7. Demo Priority
 
-If time becomes constrained, **cut in this order**: the rotating globe, then secondary
-UI views, then x402, then ATS lifecycle depth, then the Subgraph.
+If time becomes constrained:
 
-**Never cut** additionality, leakage, uncertainty, pre-registration, or the
-`INSUFFICIENT_EVIDENCE` path. Those are the thesis.
+1. deterministic verification;
+2. additionality;
+3. uncertainty;
+4. Arc settlement;
+5. Guardian;
+6. Graph;
+7. Auditor;
+8. UI polish.
 
 Do not cut the scientific core to add cosmetic features.
-
-## 8. The two UI views that must ship
-
-1. **Additionality view** — parcel trajectory against the far-ring control envelope,
-   with the near ring shown separately so leakage is visible. The gap between the lines
-   *is* the settled quantity.
-2. **Assurance export** — the disclosure-ready bundle: quantities with bounds, empirical
-   coverage, evidence provenance, STAC scene IDs, processing graph version, control-set
-   and ring geometry, analysis plan hash and run index, obligation status, transaction
-   references, verdict VC.
-
-Plus the **assurance-adjusted comparison**, generated from the result — on current data
-*"2.2271 ha defensible vs. 42 ha at risk"* — because the value proposition is insurance
-against restatement, not units per dollar.
-A buyer told they get a third of the credits buys elsewhere; a buyer told their units
-survive assurance does not.

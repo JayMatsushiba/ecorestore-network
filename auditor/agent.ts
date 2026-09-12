@@ -1,118 +1,206 @@
 /**
- * Restoration Auditor — orchestration and explanation boundary (docs/AUDITOR.md).
+ * Ecorestore Network — Restoration Auditor (M5)
  *
- * The Auditor explains the deterministic result; it never produces a number
- * that reaches settlement. This module contains no LLM call and no API key.
- * The `AuditorNarrator` interface is the seam an LLM narrator would implement
- * at M5; the default narrator is a deterministic template so the boundary can
- * be tested now.
+ * The Auditor retrieves on-chain-indexed history through a `GraphProvider`
+ * (graph/provider.ts) and, when the caller supplies the real off-chain M1
+ * `VerificationResult` and/or M2 `GuardianCredential` alongside it,
+ * cross-checks the two for consistency. It computes nothing scientific and
+ * nothing financial itself — every quantity it compares was already
+ * produced by `verifyProject()` (M1), Guardian (M2), or RestorationDeed.sol
+ * (M3/M3.1) before this module ever sees it (docs/AUDITOR.md, docs/
+ * ARCHITECTURE.md §2).
  *
- * Nothing here can:
- *   - alter a VerificationResult (results are consumed read-only);
- *   - select or re-select the control set (drawn by the committed rule);
- *   - release funds (only the contract does, on the verifier's submission).
+ * AUTHORITY BOUNDARY:
+ *  - The Auditor may retrieve, correlate, and explain. It does not
+ *    calculate M1 scientific truth, modify a VerificationResult, choose a
+ *    settlement quantity, authorize a verification, authorize a
+ *    settlement, or release funds. Nothing in this file writes to the
+ *    Graph, Guardian, or RestorationDeed — every function here is
+ *    read-only.
+ *  - A detected anomaly is reported, never auto-repaired. There is no
+ *    financial action anywhere in this module.
+ *
+ * KNOWN LIMITATION carried from the Graph layer (docs/GRAPH.md):
+ * `methodologyVersion` is not indexed on-chain (no event emits it, and the
+ * one eth_call attempt to read it from contract storage reproducibly
+ * failed against this project's local Hardhat node — a real upstream
+ * graph-node/Hardhat RPC incompatibility, not a design choice). The
+ * methodology cross-check below therefore compares the off-chain M1
+ * result against the off-chain M2 credential only; it cannot independently
+ * verify either against the on-chain deed's methodologyVersion, because
+ * the Graph does not expose that field. On-chain methodology enforcement
+ * still happens — at the contract level, in `submitVerification`
+ * (`VerificationIdentityMismatch`) — this module just cannot observe it
+ * after the fact through the Graph.
  */
-import type { EvidenceBundle, VerificationResult } from '../verification/models.js';
 
-export interface ProjectHistory {
-  /** Runs recorded on-chain for the deed (VerificationRunRecorded events). */
-  verificationRunCount: number;
-  /** Verdicts actually submitted to the contract. */
-  submittedResultCount: number;
-  priorReversals: number;
-  priorClaims: Array<{ claimed: number; settled: number }>;
-}
+import type { GraphProvider } from "../graph/provider.js";
+import { GraphUnavailableError } from "../graph/provider.js";
+import type { DeedHistory } from "../graph/types.js";
+import { scaleQuantity } from "../arc/identifiers.js";
+import type { GuardianCredential } from "../guardian/models.js";
+import type { VerificationResult } from "../verification/models.js";
+
+export type AnomalyCode =
+  | "DEED_VERIFICATION_ID_MISMATCH"
+  | "SETTLED_WITHOUT_SETTLEMENT_EVENT"
+  | "SETTLEMENT_AMOUNT_MISMATCH"
+  | "SETTLEMENT_WITHOUT_ELIGIBLE_VERIFICATION"
+  | "METHODOLOGY_MISMATCH"
+  | "QUANTITY_MISMATCH";
 
 export interface Anomaly {
-  code: string;
-  severity: 'info' | 'warning' | 'critical';
-  detail: string;
+  readonly code: AnomalyCode;
+  readonly message: string;
 }
 
-export interface AuditorNarrator {
-  narrate(result: VerificationResult, anomalies: Anomaly[]): string;
-}
+export type AuditStatus = "CONSISTENT" | "ANOMALOUS" | "NOT_FOUND" | "DATA_UNAVAILABLE";
 
 export interface AuditReport {
-  resultHash: VerificationResult['resultHash'];
-  verificationStatus: VerificationResult['verificationStatus'];
-  settledQuantity: number;
-  anomalies: Anomaly[];
-  narrative: string;
-  boundary: {
-    llmUsed: false;
-    note: string;
-  };
+  readonly status: AuditStatus;
+  readonly deedId: string;
+  readonly history: DeedHistory | null;
+  readonly anomalies: readonly Anomaly[];
+  readonly explanation: string;
 }
 
-/** Rule-based anomaly detection over the result, the evidence and indexed history. */
-export function detectAnomalies(result: VerificationResult, evidence: EvidenceBundle, history: ProjectHistory): Anomaly[] {
-  const out: Anomaly[] = [];
-  const hidden = history.verificationRunCount - history.submittedResultCount;
-  if (hidden >= 3) {
-    out.push({ code: 'RUN_COUNT', severity: 'critical', detail: `${history.verificationRunCount} verification runs recorded behind ${history.submittedResultCount} submitted result(s) — possible specification search despite pre-registration` });
-  } else if (hidden > 0) {
-    out.push({ code: 'RUN_COUNT', severity: 'info', detail: `${hidden} recorded run(s) without a submitted result` });
-  }
-  if (history.priorReversals > 0) out.push({ code: 'PRIOR_REVERSAL', severity: 'warning', detail: `${history.priorReversals} prior reversal(s) on this parcel` });
-  const overshoots = history.priorClaims.filter((c) => c.settled > 0 && c.claimed / c.settled > 2).length;
-  if (overshoots >= 2) out.push({ code: 'REPEATED_OVERCLAIM', severity: 'warning', detail: `${overshoots} prior claims exceeded their settled quantity by more than 2x` });
-
-  const m = result.measured;
-  if (result.claimedQuantity > 0 && m.parcelChangeHa > 0 && result.claimedQuantity / m.parcelChangeHa > 1.5) {
-    out.push({ code: 'CLAIM_EXCEEDS_GROSS', severity: 'warning', detail: `claim ${result.claimedQuantity} ha exceeds gross measured parcel gain ${m.parcelChangeHa.toFixed(2)} ha by more than 50%` });
-  }
-  if (m.controlChangeFarRingHa > 0 && m.parcelChangeHa > 0 && m.controlChangeFarRingHa / m.parcelChangeHa > 0.5) {
-    out.push({ code: 'REGIONAL_GREENING', severity: 'info', detail: `far-ring controls account for ${((m.controlChangeFarRingHa / m.parcelChangeHa) * 100).toFixed(0)}% of the gross parcel change — regional, not project, effect` });
-  }
-  if (m.leakageHa > 0) out.push({ code: 'LEAKAGE', severity: 'info', detail: `near ring degraded relative to far ring; ${m.leakageHa.toFixed(2)} ha deducted as leakage` });
-  const cov = result.uncertainty.empiricalCoverage;
-  if (cov.empirical !== null && cov.empirical < cov.nominal - 0.05) {
-    out.push({ code: 'COVERAGE_BELOW_NOMINAL', severity: 'warning', detail: `empirical coverage ${cov.empirical} against nominal ${cov.nominal} over ${cov.placebos} placebos — the interval method is not yet calibrated for this metric` });
-  }
-  const flat = evidence.tier2.nodes.filter((n) => n.flatlined);
-  if (flat.length) out.push({ code: 'IOT_FLATLINE', severity: 'info', detail: `${flat.map((n) => n.nodeId).join(', ')} flatlined through recorded rainfall (SIMULATED Tier 2) — excluded from corroboration` });
-  if (result.tier0Provenance.provenance !== 'REAL') out.push({ code: 'SYNTHETIC_TIER0', severity: 'critical', detail: `Tier 0 is SIMULATED: ${result.tier0Provenance.note ?? ''}` });
-  for (const g of result.qualityGate.gates) if (g.status === 'FAIL') out.push({ code: `GATE_${g.name.toUpperCase()}`, severity: 'critical', detail: g.detail });
-  return out;
+export interface AuditInput {
+  readonly graphProvider: GraphProvider;
+  readonly deedId: string;
+  /** The real M1 result this deed's verification should trace back to, if the caller has it. */
+  readonly verificationResult?: VerificationResult;
+  /** The real M2 credential issued for that result, if the caller has it. */
+  readonly credential?: GuardianCredential;
 }
 
-export const templateNarrator: AuditorNarrator = {
-  narrate(r, anomalies) {
-    const m = r.measured;
-    const ci = r.uncertainty.interval;
-    const lines: string[] = [];
-    lines.push(`Claim: ${r.claimedQuantity} ${r.metric.unit} of ${r.metric.id} over ${r.window.start} → ${r.window.end} (run ${r.runIndex}, plan ${short(r.analysisPlanHash)}).`);
-    lines.push(`Tier 0 (${r.tier0Provenance.provenance}): ${r.stacSceneIds.length} Sentinel-2 scenes, processing graph ${r.processingGraphVersion}.`);
-    lines.push(`Gross parcel change: ${m.parcelChangeHa.toFixed(2)} ha (ΔNDVI ${m.parcelChangeIndex}). Far-ring controls, drawn by the committed rule: ${m.controlChangeFarRingHa.toFixed(2)} ha. Near ring: ${m.controlChangeNearRingHa.toFixed(2)} ha.`);
-    lines.push(`Parallel-trend diagnostic: ${r.parallelTrend.status} (p = ${r.parallelTrend.pValue}, n = ${r.parallelTrend.nObservations}).`);
-    lines.push(`Difference-in-differences: ${(m.didIndex * (m.parcelChangeHa / (m.parcelChangeIndex || 1))).toFixed(2)} ha; leakage deducted: ${m.leakageHa.toFixed(2)} ha; biophysical additionality: ${m.additionalBiophysicalHa.toFixed(2)} ha.`);
-    lines.push(`${Math.round(ci.confidenceLevel * 100)}% interval [${ci.lower.toFixed(2)}, ${ci.upper.toFixed(2)}] ha; empirical coverage ${r.uncertainty.empiricalCoverage.empirical ?? 'n/a'} over ${r.uncertainty.empiricalCoverage.placebos} placebos.`);
-    lines.push(`Result: ${r.verificationStatus} — ${r.statusReason}. Settled quantity: ${r.settledQuantity} ha (${r.settlementBasis}).`);
-    if (r.verificationStatus === 'PARTIAL') {
-      lines.push(`The claim of ${r.claimedQuantity} ha is not dishonest and the measurement is not wrong; ${(r.claimedQuantity - r.settledQuantity).toFixed(2)} ha of it is regional change, leakage and uncertainty, none of which is paid.`);
+/** Mirrors RestorationDeed.sol's Math.mulDiv(settledQuantityScaled, unitPriceUSDC, 10**quantityDecimals) exactly, to detect indexing/data corruption — not to compute a new financial quantity. */
+function expectedSettlementAmount(settledQuantityScaled: bigint, unitPriceUSDC: bigint, quantityDecimals: number): bigint {
+  return (settledQuantityScaled * unitPriceUSDC) / 10n ** BigInt(quantityDecimals);
+}
+
+/**
+ * Audits one deed's indexed on-chain history, optionally cross-checked
+ * against the real off-chain M1/M2 objects that should have produced it.
+ * Read-only; never throws for a data inconsistency (that becomes an
+ * `Anomaly`) — it only throws for a truly unexpected internal error. A
+ * Graph outage becomes `status: "DATA_UNAVAILABLE"`, not a thrown error to
+ * the caller.
+ */
+export async function auditDeed(input: AuditInput): Promise<AuditReport> {
+  const { graphProvider, deedId, verificationResult, credential } = input;
+
+  let history: DeedHistory | null;
+  try {
+    history = await graphProvider.getDeedHistory(deedId);
+  } catch (err) {
+    if (err instanceof GraphUnavailableError) {
+      return {
+        status: "DATA_UNAVAILABLE",
+        deedId,
+        history: null,
+        anomalies: [],
+        explanation: `Could not audit deed ${deedId}: the Graph is unavailable (${err.message}). No financial or scientific conclusion can be drawn from missing data; this is reported, not repaired.`,
+      };
     }
-    if (anomalies.length) lines.push(`Anomalies: ${anomalies.map((a) => `[${a.severity}] ${a.code}: ${a.detail}`).join(' | ')}`);
-    lines.push(r.simulatedTiersBanner);
-    return lines.join('\n');
-  },
-};
+    throw err;
+  }
 
-export function audit(result: VerificationResult, evidence: EvidenceBundle, history: ProjectHistory, narrator: AuditorNarrator = templateNarrator): AuditReport {
-  const anomalies = detectAnomalies(result, evidence, history);
-  return {
-    resultHash: result.resultHash,
-    verificationStatus: result.verificationStatus,
-    settledQuantity: result.settledQuantity,
-    anomalies,
-    narrative: narrator.narrate(result, anomalies),
-    boundary: {
-      llmUsed: false,
-      note: 'Narrative is a deterministic template. An LLM narrator (M5) would implement AuditorNarrator and could only rephrase; every number above is copied from the canonical result.',
-    },
-  };
-}
+  if (history === null) {
+    return {
+      status: "NOT_FOUND",
+      deedId,
+      history: null,
+      anomalies: [],
+      explanation: `No indexed history exists for deed ${deedId}. Either it was never created on-chain, or the subgraph has not indexed it yet.`,
+    };
+  }
 
-function short(h: string): string {
-  return `${h.slice(0, 10)}…`;
+  const anomalies: Anomaly[] = [];
+  const { deed, verifications, settlements } = history;
+
+  // Deed <-> Verification identity (task acceptance criterion I).
+  let matchedVerification = null;
+  if (deed.verificationId !== null) {
+    matchedVerification = verifications.find((v) => v.verificationId === deed.verificationId) ?? null;
+    if (matchedVerification === null) {
+      anomalies.push({
+        code: "DEED_VERIFICATION_ID_MISMATCH",
+        message: `Deed ${deedId} references verificationId ${deed.verificationId}, but no Verification with that id is indexed for this deed.`,
+      });
+    }
+  }
+
+  // Deed state <-> settlement event (task acceptance criterion I).
+  if (deed.status === "SETTLED") {
+    if (settlements.length === 0) {
+      anomalies.push({
+        code: "SETTLED_WITHOUT_SETTLEMENT_EVENT",
+        message: `Deed ${deedId} has status SETTLED but no Settlement event is indexed for it.`,
+      });
+    } else {
+      for (const settlement of settlements) {
+        if (deed.settlementAmount !== null && settlement.settlementAmount !== deed.settlementAmount) {
+          anomalies.push({
+            code: "SETTLEMENT_AMOUNT_MISMATCH",
+            message: `Settlement ${settlement.id} paid ${settlement.settlementAmount}, but deed ${deedId}'s recorded settlementAmount is ${deed.settlementAmount}.`,
+          });
+        }
+        if (
+          deed.settledQuantityScaled !== null &&
+          expectedSettlementAmount(
+            BigInt(deed.settledQuantityScaled),
+            BigInt(deed.unitPriceUSDC),
+            deed.quantityDecimals,
+          ).toString() !== settlement.settlementAmount
+        ) {
+          anomalies.push({
+            code: "SETTLEMENT_AMOUNT_MISMATCH",
+            message: `Settlement ${settlement.id}'s amount (${settlement.settlementAmount}) does not match settledQuantityScaled x unitPriceUSDC / 10^quantityDecimals recomputed from indexed deed fields.`,
+          });
+        }
+
+        const settlementVerification = verifications.find((v) => v.verificationId === settlement.verificationId);
+        if (settlementVerification !== undefined && !settlementVerification.financiallyEligible) {
+          anomalies.push({
+            code: "SETTLEMENT_WITHOUT_ELIGIBLE_VERIFICATION",
+            message: `Settlement ${settlement.id} references verification ${settlement.verificationId}, which is indexed as financiallyEligible=false. A settlement should never exist for an ineligible verification.`,
+          });
+        }
+      }
+    }
+  }
+
+  // Off-chain M1 result <-> on-chain indexed quantity (task acceptance criterion I / §10).
+  if (verificationResult !== undefined && matchedVerification !== null) {
+    const expectedScaled = scaleQuantity(verificationResult.settledQuantity, deed.quantityDecimals).toString();
+    if (expectedScaled !== matchedVerification.settledQuantityScaled) {
+      anomalies.push({
+        code: "QUANTITY_MISMATCH",
+        message: `Off-chain M1 settledQuantity (${verificationResult.settledQuantity}, scaled = ${expectedScaled}) does not match the on-chain indexed settledQuantityScaled (${matchedVerification.settledQuantityScaled}) for verification ${matchedVerification.verificationId}.`,
+      });
+    }
+  }
+
+  // Off-chain M1 result <-> off-chain M2 credential methodology (see the
+  // module-level KNOWN LIMITATION note: this cannot also be checked
+  // against the on-chain deed, since methodologyVersion is not indexed).
+  if (verificationResult !== undefined && credential !== undefined) {
+    if (verificationResult.methodologyVersion !== credential.methodologyVersion) {
+      anomalies.push({
+        code: "METHODOLOGY_MISMATCH",
+        message: `Off-chain M1 methodologyVersion (${verificationResult.methodologyVersion}) does not match the M2 GuardianCredential's methodologyVersion (${credential.methodologyVersion}).`,
+      });
+    }
+  }
+
+  const status: AuditStatus = anomalies.length > 0 ? "ANOMALOUS" : "CONSISTENT";
+  const explanation =
+    status === "CONSISTENT"
+      ? `Deed ${deedId} (status ${deed.status}) is internally consistent across ${verifications.length} verification(s) and ${settlements.length} settlement(s) indexed by the Graph.` +
+        (verificationResult !== undefined
+          ? ` Its indexed settled quantity traces back to the supplied M1 result (${verificationResult.settledQuantity}).`
+          : "")
+      : `Deed ${deedId} (status ${deed.status}) has ${anomalies.length} anomal${anomalies.length === 1 ? "y" : "ies"}: ${anomalies.map((a) => a.code).join(", ")}.`;
+
+  return { status, deedId, history, anomalies, explanation };
 }
