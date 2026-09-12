@@ -25,3 +25,25 @@ subgraph/deployment.local.json
 
 # Editor/OS noise
 .DS_Store
+
+# Local environment files — app/.env holds VITE_API_BASE_URL (README
+# "Troubleshooting"); nothing secret belongs in one, but they are per-machine.
+.env
+.env.*
+!.env.example
+
+# Output from local runs and from main's stack shape (out/eval holds the
+# evaluation results behind issues #17-#27; keep it, never commit it).
+out/
+contracts/out/
+guardian/outbox/
+*.log
+
+# Claude Code worktrees (they carry their own copies of the test suites).
+.claude/worktrees/
+
+# Python caches, if main's analysis service is ever checked out here.
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
