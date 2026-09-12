@@ -499,3 +499,59 @@ None. M6 added only the presentation layer explicitly scoped to this milestone.
 ### Recommended next step
 
 M7 — see `docs/M6_M7_READINESS_REPORT.md` for the complete prioritized backlog and deployment-readiness assessment.
+
+---
+
+## M6.1 — Containerised demo stack and continuous deployment to the AWS demonstration host
+
+**Date:** 2026-09-12
+**Scope:** `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `scripts/bootstrap-stack.sh`, `scripts/http-probe.cjs` (new); `app/Dockerfile`, `app/nginx.conf`, `app/.dockerignore` (new); `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `deploy/` (restored from `main` and retargeted); four one-line environment overrides in `hardhat.config.cjs`, `server/index.ts`, `scripts/deployAndRunLocalDemo.cjs`, `subgraph/scripts/configure.cjs`; `vitest.config.ts` (excludes `.claude/`); `docs/AWS_DEPLOYMENT.md` rewritten; `deploy/README.md`, `README.md`, `CLAUDE.md` updated. No file under `verification/`, `guardian/`, `arc/`, `integration/`, `contracts/`, `subgraph/src`, `auditor/` or `app/src` was modified.
+
+**Objective:** make this branch deployable to the existing AWS demonstration host through the CI/CD pipeline `main` already has, instead of the manual SSH/pm2/nginx procedure the previous `docs/AWS_DEPLOYMENT.md` described (which could not be applied: the host has no SSH port, and the branch had deleted every pipeline file `main` relies on, so merging would have triggered no deployment and was blocked by branch protection).
+
+### What was built
+
+* **One Compose stack for the whole demo** (`docker-compose.yml`): the persistent Hardhat chain, Graph Node with Postgres and IPFS (settings from `subgraph/docker-compose.yml`), a one-shot `bootstrap` service, the read-only API (`server/`) and nginx serving the React build with `/api/` proxied to the API. Only the frontend publishes a host port (3001), so it runs beside the hand-started stack.
+* **`bootstrap`** (`scripts/bootstrap-stack.sh`) does what README "Running the Demo" steps 2 and 4 do by hand: `npm run demo:local` (the real M1 → M2 → Arc settlement of the synthetic fixture on the chain) then configure/codegen/build/create/deploy of the subgraph. It computes nothing itself. It is idempotent: if the deployment record already names a contract that exists on the current chain, the settlement is skipped. `api` depends on it completing, so `docker compose up --wait` returns only after the deed is settled and the subgraph deployed.
+* **One runtime image** (`Dockerfile`, `node:22-slim`, runs as `node`) serves `chain`, `bootstrap` and `api`; contracts are compiled at build time from the local `solc` package, no network. The frontend image builds the app with an empty `VITE_API_BASE_URL` (same origin) so the bundle no longer hardcodes `localhost:4000`; verified by grepping the built assets.
+* **Environment overrides, defaults unchanged:** `HARDHAT_RPC_URL` (Hardhat's `localhost` network), `GRAPH_QUERY_URL` (the API's Graph endpoint), `DEMO_DEPLOYMENT_FILE` (where the demo record is written and read; a shared volume in the stack).
+* **CI** (`ci.yml`): `typescript` (typecheck + vitest), `frontend` (lint + tests + build), `contracts` (the Hardhat suite), `images` (compose config with the AWS overlay + build). The `analysis` job from `main` is gone; there is no analysis service on this branch.
+* **CD** (`deploy.yml`, `deploy/host/deploy.sh`): unchanged OIDC → ECR → SSM mechanics; the matrix now builds `ecorestore/app` and `ecorestore/frontend`. The host script takes the stack down including the chain, Graph Node and record volumes (Hardhat's chain is in-memory, so every deploy is a fresh chain and the old index is meaningless), keeps Caddy's volumes, and waits until `/api/deed` reports `OK` through Caddy. The workflow's smoke test checks `/api/health`, `/api/deed == OK` and the page.
+* **CloudFormation:** adds the `ecorestore/app` ECR repository and the deploy role's push permission on it. The `analysis` and `verify` repositories are retained until their removal is decided.
+* **Removed:** the Guardian operator workflow, host script and public overlay — nothing in this stack talks to a Hedera Guardian quickstart.
+
+### Tests run and results (actual, this session, development host)
+
+| Suite | Command | Result |
+|---|---|---|
+| Root typecheck | `npm run typecheck` | exit 0 |
+| Root vitest | `npm test` | 13 files, 104/104 passed (after excluding `.claude/` worktree copies, which had made 17 files fail locally; those directories do not exist in CI) |
+| Contracts | `npm run test:contracts` | 84 passing |
+| Frontend | `cd app && npm run lint && npm test && npm run build` | lint 0 errors (1 pre-existing warning), 9/9 tests, build OK |
+| Compose | `docker compose config --quiet`; with the AWS overlay; `docker compose build` | all OK |
+| Stack | `docker compose up -d --wait` | every service healthy; `bootstrap` exited 0 after settling the deed and deploying the subgraph |
+| Through the frontend proxy | `/api/health` | `{"status":"OK"}` |
+| | `/api/deed` | `OK` on the first poll; deedId 0, settledQuantity 18.1815 — the **synthetic** partial-settlement fixture |
+| | `/api/audit?fixture=partial` | `CONSISTENT`, 0 anomalies |
+| | `/` | contains `<div id="root">` |
+
+Not run: the subgraph Matchstick suite and `npm run test:e2e:graph` (unchanged code, and the latter needs the hand-started stack on the ports my compose stack does not publish). Not run: the AWS deploy itself — see "Unresolved" below.
+
+### Decisions
+
+* **Retarget the existing pipeline rather than write a new one.** OIDC trust, ECR, SSM, Caddy and branch protection already worked for `main`'s previous stack shape; only the images, compose file and smoke test are different.
+* **Fresh chain per deploy** (see above). Keeping Graph Node's store across a chain reset would leave an index of blocks that no longer exist.
+* **Same-origin API base** for the built frontend instead of baking a hostname in; the previous guide's suggested value would have produced `/api/api/...` paths.
+* **Authority boundaries unchanged.** The API is still read-only and keyless; the UI still knows only the API; the chain container is Hardhat's public test accounts; nothing in the image or on the host is a secret.
+
+### Deviations from Idea 0.2
+
+None. This is hosting of the existing demo; no methodology, settlement, trust-boundary or token semantics changed.
+
+### Unresolved / next steps
+
+1. **The AWS deploy has not run from this branch.** Two operator steps precede the first one: re-run `aws cloudformation deploy` on the existing stack (adds the `app` repository), and merge to `main`. The host currently serves the stack `main` deployed on 2026-09-11; the first deploy from this branch replaces it.
+2. **Main's required status checks still list `analysis`**, which no longer reports; the rule must be changed to `typescript`, `frontend`, `contracts`, `images` (the command is in `deploy/README.md` §4) or the PR cannot merge. This session was not permitted to change repository settings.
+3. After a host reboot the containers restart on an empty chain; a **Deploy** run is needed to bootstrap it. A systemd unit or a restart-aware bootstrap could remove that step.
+4. The API still has no authentication on a public URL (readiness report BLOCKER list).
+5. `main`'s `analysis`/`verify` ECR repositories and the Guardian checkout on the host are unused by this stack and can be removed deliberately.

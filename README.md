@@ -54,7 +54,7 @@ M6 — React UI (presentation only)               app/, server/
 | M5 Graph indexing + Auditor | **Implemented, real Graph Node** — local Docker stack only |
 | M6 React UI | **Implemented** — consumes the real pipeline via a thin local API server |
 | Hosted / decentralized Graph Network | **Deferred** |
-| AWS / production hosting | **Deferred** |
+| AWS demo hosting | **Pipeline built** — `main` deploys this local demo stack to one EC2 host (`docs/AWS_DEPLOYMENT.md`); production hosting **deferred** |
 | Live Hedera Guardian | **Deferred** |
 | Arc Testnet/Mainnet deployment | **Deferred** |
 | Production USDC | **Deferred** — `MockUSDC` only |
@@ -119,7 +119,21 @@ The UI's fixture toggle (top-right of every page) lets you switch between the re
 
 ## Starting the Local Stack
 
-Each of these runs in its own terminal and is left running.
+**Containers (one command):** the whole stack — chain, Graph Node, the demo
+settlement and subgraph deploy, the API and the UI — as one Compose project.
+Requires Docker; publishes only the UI, on port 3001, so it can run beside the
+hand-started stack below.
+
+```bash
+docker compose up --build        # then open http://localhost:3001
+docker compose down -v           # full reset: fresh chain, empty index
+```
+
+This is what `docs/AWS_DEPLOYMENT.md` puts on the demonstration host. It is still
+the local demo (in-memory Hardhat chain, MockUSDC, MockGuardianAdapter, synthetic
+fixtures); nothing about it is more real in a container.
+
+**By hand:** each of these runs in its own terminal and is left running.
 
 ```bash
 # 1. Persistent local blockchain (NOT the ephemeral network `npm test` uses)
