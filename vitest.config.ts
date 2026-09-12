@@ -33,6 +33,9 @@ export default defineConfig({
       "contracts/**",
       "subgraph/**",
       "app/**",
+      // Claude Code worktrees checked out under .claude/ (gitignored, absent
+      // in CI) carry their own copies of these suites.
+      ".claude/**",
       "**/e2e.test.ts",
       "**/*.e2e.test.ts",
     ],
