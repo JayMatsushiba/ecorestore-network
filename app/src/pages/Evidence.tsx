@@ -2,6 +2,7 @@ import { api } from "../api/client";
 import { AsyncBlock } from "../components/AsyncBlock";
 import { useApi } from "../hooks/useApi";
 import { useFixture } from "../fixtureContext";
+import { formatEvidenceSource, formatMetricLabel } from "../format";
 import type { EvidenceObservation } from "../api/types";
 
 function groupByParcel(evidence: EvidenceObservation[]): Map<string, EvidenceObservation[]> {
@@ -30,7 +31,7 @@ export function Evidence() {
       <AsyncBlock state={state} subsystem="Evidence data">
         {(data) => (
           <div className="panel">
-            <h2>Observations — {data.metric.replaceAll("_", " ")}</h2>
+            <h2>Observations — {formatMetricLabel(data.metric)}</h2>
             {Array.from(groupByParcel(data.evidence)).map(([parcelId, obs]) => (
               <div key={parcelId} style={{ marginBottom: 18 }}>
                 <h3>{parcelId}</h3>
@@ -39,7 +40,7 @@ export function Evidence() {
                     <tr>
                       <th>Period</th>
                       <th>Observed at</th>
-                      <th>Value</th>
+                      <th>Value (%)</th>
                       <th>Source</th>
                     </tr>
                   </thead>
@@ -49,7 +50,7 @@ export function Evidence() {
                         <td>{o.period.replace("_", "-")}</td>
                         <td>{o.observedAt}</td>
                         <td>{o.value.toFixed(1)}</td>
-                        <td>{o.source.replaceAll("_", " ")} (synthetic)</td>
+                        <td>{formatEvidenceSource(o.source)} (synthetic)</td>
                       </tr>
                     ))}
                   </tbody>

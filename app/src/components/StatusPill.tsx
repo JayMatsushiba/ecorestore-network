@@ -10,6 +10,7 @@ const TONE_BY_STATUS: Record<string, Tone> = {
   FUNDED: "neutral",
   CREATED: "neutral",
   CREDENTIAL_ISSUED: "ok",
+  OUTCOME_RECORDED: "ok",
   VERIFICATION_AUTHORIZED: "ok",
   VERIFICATION_SUBMITTED: "neutral",
   EVIDENCE_SUBMITTED: "neutral",

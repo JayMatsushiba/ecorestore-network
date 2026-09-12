@@ -37,9 +37,13 @@ function UncertaintyBar({ result }: { result: VerificationResult }) {
 function Pipeline({ result }: { result: VerificationResult }) {
   const steps: { label: string; ok: boolean; note: string }[] = [
     { label: "Control matching", ok: result.diagnostics.eligibleControlParcelIds.length > 0, note: `${result.diagnostics.eligibleControlParcelIds.length} eligible control(s)` },
-    { label: "Parallel-trend diagnostic", ok: result.parallelTrendStatus === "PASS", note: result.parallelTrendStatus },
-    { label: "Quality gate", ok: result.qualityGateStatus === "PASS", note: result.qualityGateStatus },
-    { label: "Verification status", ok: result.verificationStatus === "VERIFIED" || result.verificationStatus === "PARTIAL", note: result.verificationStatus },
+    { label: "Parallel-trend diagnostic", ok: result.parallelTrendStatus === "PASS", note: result.parallelTrendStatus.replaceAll("_", " ") },
+    { label: "Quality gate", ok: result.qualityGateStatus === "PASS", note: result.qualityGateStatus.replaceAll("_", " ") },
+    {
+      label: "Verification status",
+      ok: result.verificationStatus === "VERIFIED" || result.verificationStatus === "PARTIAL",
+      note: result.verificationStatus.replaceAll("_", " "),
+    },
   ];
   return (
     <div className="pipeline">

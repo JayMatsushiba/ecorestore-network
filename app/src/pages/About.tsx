@@ -66,7 +66,11 @@ export function About() {
               <td>Deferred</td>
             </tr>
             <tr>
-              <td>AWS / production hosting</td>
+              <td>AWS demo hosting</td>
+              <td>CI/CD pipeline built (deploys this local demo stack to one EC2 host)</td>
+            </tr>
+            <tr>
+              <td>Production hosting</td>
               <td>Deferred</td>
             </tr>
             <tr>

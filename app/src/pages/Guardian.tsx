@@ -13,8 +13,8 @@ export function GuardianPage() {
       <h1>Guardian</h1>
       <p className="page__lede">
         Hedera Guardian's role is environmental methodology, verification workflow, and credential issuance — never
-        the scientific calculation and never financial settlement. This page shows the real M2 workflow output for a
-        Mock Guardian adapter (<code>MockGuardianAdapter</code>), not a live Hedera Guardian deployment.
+        scientific calculation and never financial settlement. This page shows the real M2 workflow output for a
+        mock Guardian adapter (<code>MockGuardianAdapter</code>), not a live Hedera Guardian deployment.
       </p>
 
       <AsyncBlock state={state} subsystem="Guardian workflow">
@@ -85,12 +85,12 @@ export function GuardianPage() {
             <div className="panel">
               <h2>Financial eligibility</h2>
               <p>
-                Guardian marks a submission <strong>financially eligible</strong> if and only if
-                <code> qualityGateStatus === "PASS"</code> — it never independently decides eligibility. Current
-                quality gate: <StatusPill status={data.verificationResult.qualityGateStatus} />
+                Guardian marks a submission <strong>financially eligible</strong> if and only if <code>qualityGateStatus === "PASS"</code>{" "}
+                — it never independently decides eligibility. Current quality gate:{" "}
+                <StatusPill status={data.verificationResult.qualityGateStatus} />
               </p>
               <p className="boundary-note">
-                {data.real} are real. {data.mock}.
+                Real: {data.real}. Mock: {data.mock}.
               </p>
             </div>
           </>

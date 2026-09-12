@@ -3,6 +3,7 @@ import { AsyncBlock } from "../components/AsyncBlock";
 import { useApi } from "../hooks/useApi";
 import { useFixture } from "../fixtureContext";
 import { StatusPill } from "../components/StatusPill";
+import { formatMetricLabel } from "../format";
 
 export function Overview() {
   const { fixture } = useFixture();
@@ -41,11 +42,11 @@ export function Overview() {
               </div>
               <div className="field">
                 <span className="field__label">Metric</span>
-                <span className="field__value">{data.metric}</span>
+                <span className="field__value">{formatMetricLabel(data.metric)}</span>
               </div>
               <div className="field">
                 <span className="field__label">Claimed restoration outcome</span>
-                <span className="field__value">{data.project.claimedQuantity.toFixed(2)} ha-equivalent</span>
+                <span className="field__value">{data.project.claimedQuantity.toFixed(2)} ha</span>
               </div>
               <div className="field">
                 <span className="field__label">Observation window</span>
