@@ -4,10 +4,15 @@
 # run it too, through deploy.yml, which calls this workflow before building images
 # (workflow_call), so a red suite never ships.
 #
-# Nothing here touches AWS, Guardian, a chain or the network beyond package installs.
+# Nothing here touches AWS, a chain or the network beyond package installs: the
+# contract suite runs on Hardhat's in-process network, and `images` only builds.
 #
 # The job names are the status checks main's branch protection requires; renaming one
 # means updating the rule (deploy/README.md, "Branch protection").
+#
+# Not run here: the subgraph's Matchstick suite (`cd subgraph && npm test`), which
+# needs `graph test --docker`, and the Graph Node end-to-end test
+# (`npm run test:e2e:graph`), which needs the running stack — see docs/GRAPH.md.
 name: CI
 
 on:
@@ -52,36 +57,25 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
+      - run: npm test
       - run: npm run build
-
-  analysis:
-    name: analysis
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: analysis
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: analysis/pyproject.toml
-      - run: pip install -e '.[test]'
-      - run: python -m pytest -q
 
   contracts:
     name: contracts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: actions/setup-node@v4
         with:
-          version: stable
-      - run: forge test --root contracts -vv
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Hardhat + Mocha against the ephemeral in-process network; solc comes from
+      # the local `solc` package (hardhat.config.cjs), so no compiler download.
+      - run: npm run test:contracts
 
   images:
-    # The three images build from a clean checkout. Nothing is pushed; deploy.yml
+    # The two images build from a clean checkout. Nothing is pushed; deploy.yml
     # rebuilds with the registry cache and pushes on main only.
     name: images
     runs-on: ubuntu-latest

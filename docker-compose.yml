@@ -1,112 +1,151 @@
-# Ecorestore Network — first containerised prototype (docs/DEPLOYMENT.md §7).
+# Ecorestore Network — the whole local demo as one Compose stack.
 #
-#   docker compose up --build                      with Guardian (docker-compose.override.yml is
-#                                                  merged automatically and joins its network)
-#   docker compose -f docker-compose.yml up --build  standalone: Guardian requests go to the outbox
-#   docker compose --profile chain up --build      also start anvil and settle on a local chain
-#   docker compose --profile acquire run --rm acquire --limit 5
-#                                                  batch job: re-acquire REAL Tier 0 (network)
+# The same pieces README.md "Starting the Local Stack" runs by hand, wired
+# together: a persistent Hardhat chain; Graph Node with Postgres and IPFS; a
+# one-shot bootstrap that runs the real M1 -> M2 -> Arc settlement against the
+# chain and deploys the subgraph (scripts/bootstrap-stack.sh); the read-only
+# demo API (server/); and nginx serving the React build (app/), which proxies
+# /api/ to the API. deploy/docker-compose.aws.yml layers prebuilt images and a
+# Caddy edge on top for the demonstration host; nothing else changes there.
 #
-# Then open http://localhost:${FRONTEND_PORT:-3001}
+#   docker compose up --build        # then open http://localhost:3001
+#   docker compose down -v           # full reset (fresh chain, empty index)
 #
-# Trust boundaries are enforced by the network topology, not by convention:
-#   analysis   internal-only network — no egress, no Guardian, no RPC, no keys
-#   verify     the only service that holds VERIFIER_SEED and reaches Guardian / a chain
-#   frontend   talks to verify only, through nginx
+# EVERYTHING HERE IS THE LOCAL DEMO. Hardhat's in-memory chain with its
+# well-known public test accounts, MockUSDC, MockGuardianAdapter, a local
+# Graph Node, synthetic fixture data. Not Arc, not real USDC, not Hedera
+# Guardian, not the Graph Network. The chain lives in memory: once the
+# `chain` container restarts, the indexed history no longer matches it, so
+# reset with `down -v` rather than restarting services one by one.
+#
+# Only the frontend publishes a host port, so this stack can run beside the
+# hand-started one from README.md (Hardhat on 8545, Graph Node on 8000-8040).
 name: ecorestore
 
+x-app: &app
+  build:
+    context: .
+  image: ecorestore/app:local
+  environment: &app-env
+    HARDHAT_RPC_URL: http://chain:8545
+    DEMO_DEPLOYMENT_FILE: /state/deployment.local.json
+    GRAPH_QUERY_URL: http://graph-node:8000/subgraphs/name/ecorestore/restoration-deed
+
 services:
-  analysis:
-    build: ./analysis
-    image: ecorestore/analysis
-    networks: [internal]
-    expose: ["8000"]
-    environment:
-      ANALYSIS_PORT: "8000"
-    restart: unless-stopped
-
-  verify:
-    build:
-      context: .
-      dockerfile: verify/Dockerfile
-    image: ecorestore/verify
-    depends_on:
-      analysis:
-        condition: service_healthy
-    networks: [internal, edge]
-    ports:
-      - "127.0.0.1:${VERIFY_PORT:-8090}:8080"
-    environment:
-      ANALYSIS_URL: http://analysis:8000
-      VERIFIER_SEED: ${VERIFIER_SEED:-ecorestore-demo-verifier}
-      GUARDIAN_URL: ${GUARDIAN_URL:-}
-      GUARDIAN_PUBLIC_URL: ${GUARDIAN_PUBLIC_URL:-}
-      GUARDIAN_POLICY_ID: ${GUARDIAN_POLICY_ID:-}
-      GUARDIAN_BLOCK_TAG: ${GUARDIAN_BLOCK_TAG:-}
-      GUARDIAN_POLICY_TAG: ${GUARDIAN_POLICY_TAG:-}
-      DEMO_RPC_URL: ${DEMO_RPC_URL:-}
-      DEMO_MNEMONIC: ${DEMO_MNEMONIC:-}
-      GUARDIAN_OUTBOX_DIR: /app/guardian/outbox
-    volumes:
-      # Staged (not submitted) Guardian requests land on the host for inspection.
-      - ./guardian/outbox:/app/guardian/outbox
-    restart: unless-stopped
-
-  frontend:
-    build: ./app
-    image: ecorestore/frontend
-    depends_on:
-      verify:
-        condition: service_healthy
-    networks: [edge]
-    ports:
-      - "127.0.0.1:${FRONTEND_PORT:-3001}:80"
-    restart: unless-stopped
-
-  # Optional local chain. `docker compose --profile chain up` and set
-  # DEMO_RPC_URL=http://anvil:8545 in .env for verify to settle on it.
-  anvil:
-    profiles: [chain]
-    image: ghcr.io/foundry-rs/foundry:latest
-    # The image's entrypoint is `sh -c`, which would run only the first word of a list command.
-    entrypoint: ["anvil"]
-    command: ["--host", "0.0.0.0", "--chain-id", "31337", "--silent"]
-    networks: [internal]
-    expose: ["8545"]
+  # The persistent local demo chain (Hardhat JSON-RPC). Not Arc.
+  chain:
+    <<: *app
+    command: ["npx", "hardhat", "node", "--hostname", "0.0.0.0"]
     healthcheck:
-      test: ["CMD-SHELL", "cast chain-id --rpc-url http://127.0.0.1:8545 >/dev/null 2>&1 || exit 1"]
+      test: ["CMD", "node", "scripts/http-probe.cjs", "http://127.0.0.1:8545", "eth_chainId"]
       interval: 5s
-      timeout: 3s
-      retries: 10
+      timeout: 5s
+      retries: 24
+    restart: unless-stopped
 
-  # Batch job, not a runtime service: regenerates the REAL Tier 0 snapshot from
-  # Earth Search into ./out/acquire/. Promoting the output to
-  # verification/fixtures/ is a deliberate, reviewed step — see docs/DEPLOYMENT.md §7.
-  acquire:
-    profiles: [acquire]
-    build: ./analysis
-    image: ecorestore/analysis
-    entrypoint: ["ecorestore-acquire"]
-    # Arguments given to `docker compose run acquire …` (e.g. --limit 5) are appended.
-    # Runs as the host user so the bind-mounted ./out/acquire stays writable; set
-    # ACQUIRE_UID/ACQUIRE_GID in .env if `id -u` is not 1000.
-    user: "${ACQUIRE_UID:-1000}:${ACQUIRE_GID:-1000}"
+  # Graph Node's store. Settings from subgraph/docker-compose.yml (docs/GRAPH.md).
+  postgres:
+    image: postgres:14
     environment:
-      ACQUIRE_OUT: /out
-      ACQUIRE_CACHE_DIR: /cache
-      HOME: /tmp
-    networks: [egress]
+      POSTGRES_USER: graph-node
+      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_DB: graph-node
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    command: ["postgres", "-cshared_preload_libraries=pg_stat_statements", "-cmax_connections=200"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U graph-node"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     volumes:
-      - ./verification/fixtures:/fixtures:ro
-      - ./out/acquire:/out
-      - acquire-cache:/cache
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
 
-networks:
-  # No default gateway: containers here cannot reach anything outside compose.
-  internal:
-    internal: true
-  edge: {}
-  egress: {}
+  ipfs:
+    image: ipfs/kubo:v0.17.0
+    volumes:
+      - ipfs-data:/data/ipfs
+    restart: unless-stopped
+
+  # Local Graph Node indexing the chain container. "hardhat" is the network
+  # label subgraph.yaml uses; deliberately not "mainnet".
+  graph-node:
+    image: graphprotocol/graph-node:v0.45.0
+    depends_on:
+      chain:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      ipfs:
+        condition: service_started
+    environment:
+      postgres_host: postgres
+      postgres_user: graph-node
+      postgres_pass: let-me-in
+      postgres_db: graph-node
+      ipfs: "ipfs:5001"
+      ethereum: "hardhat:http://chain:8545"
+      GRAPH_LOG: info
+    healthcheck:
+      # 8020 is the admin JSON-RPC that `graph create`/`graph deploy` use.
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8020"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    restart: unless-stopped
+
+  # One-shot: real settlement on the chain, then subgraph deploy. Exits 0 when
+  # done; `api` waits for that. Writes the deployment record to the shared
+  # /state volume so the API can find the deed.
+  bootstrap:
+    <<: *app
+    command: ["bash", "scripts/bootstrap-stack.sh"]
+    environment:
+      <<: *app-env
+      GRAPH_NODE_ADMIN_URL: http://graph-node:8020/
+      IPFS_URL: http://ipfs:5001
+    depends_on:
+      chain:
+        condition: service_healthy
+      graph-node:
+        condition: service_healthy
+    volumes:
+      - demo-state:/state
+    restart: "no"
+
+  # The thin read-only HTTP layer over the real M1-M5 functions. No key.
+  api:
+    <<: *app
+    command: ["npx", "tsx", "server/index.ts"]
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      graph-node:
+        condition: service_healthy
+    volumes:
+      - demo-state:/state:ro
+    healthcheck:
+      test: ["CMD", "node", "scripts/http-probe.cjs", "http://127.0.0.1:4000/api/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # nginx: the React build, plus /api/ proxied to `api`.
+  frontend:
+    build:
+      context: ./app
+      args:
+        VITE_API_BASE_URL: ""
+    image: ecorestore/frontend:local
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3001}:80"
+    restart: unless-stopped
 
 volumes:
-  acquire-cache: {}
+  demo-state: {}
+  postgres-data: {}
+  ipfs-data: {}

@@ -51,40 +51,9 @@ It may eventually include:
 * imagery;
 * derived spatial products.
 
-**Tier 0 is real.** Sentinel-2 L2A, Sentinel-1, Landsat and ICESat-2 acquisitions for
-the parcel and both control rings, with STAC scene IDs and processing graph version
-recorded in every result.
+During M1, evidence is synthetic and controlled.
 
-**Tiers 1-3 are simulated** from realistic parameters and must be explicitly marked as
-simulated wherever they appear.
-
-*(This amends an earlier all-synthetic framing; the reason is recorded in
-`DECISIONS.md` §2.)*
-
-### Datasets
-
-**Two columns, and they mean different things.** *Kind* is whether the dataset is real
-observation or simulated for the demonstration. *Acquired* is whether this repository has
-actually ingested it. Only Sentinel-2 L2A is acquired today; every other real dataset is
-planned, and no result depends on one.
-
-| Dataset | Use | Kind | Acquired |
-|---|---|---|---|
-| Sentinel-2 L2A | Optical indices, 10 m | REAL observation | **Yes** — 72 scenes, Earth Search STAC |
-| Sentinel-1 GRD (+SLC) | SAR backscatter; coherence only where interpretable | REAL observation | No — planned |
-| Landsat 5/7/8/9 | Long baseline, 1984– | REAL observation | No — planned |
-| ICESat-2 | Canopy structure (GEDI unusable at this latitude) | REAL observation | No — planned |
-| ESA WorldCover | Land cover transitions | REAL observation | No — planned |
-| Dynamic World | Near-real-time land cover context | REAL observation | No — planned |
-| SRTM / Copernicus DEM | Terrain covariates for control matching | REAL observation | No — planned |
-| WorldClim / ERA5 | Climate covariates for control matching | REAL observation | No — planned |
-| Biodiversity Intactness 100 m v1.1 | Ecological value prior for parcel scoring | REAL observation | No — planned |
-| Drone orthomosaic, crown detections | Tier 1 calibration | **SIMULATED, LABELLED** | Generated |
-| Soil moisture, water table, acoustic | Tier 2 condition signal | **SIMULATED, LABELLED** | Generated |
-| Plot surveys, planting records, geotagged photos | Tier 3 claims | **SIMULATED, LABELLED** | Generated |
-
-Control matching currently uses pre-level and pre-slope only. The terrain, soil and
-climate covariates above are specified, not yet joined.
+Synthetic evidence must be explicitly marked as synthetic.
 
 ---
 
@@ -112,65 +81,21 @@ Regional or background change must be accounted for.
 
 ---
 
-## 6. Matched Controls — two rings
+## 6. Matched Controls
 
 Control parcels represent the counterfactual.
 
-Controls are selected on land cover, elevation, slope, aspect, soil, climate and
-pre-treatment index trajectory. Matching on the pre-treatment trend is what
-distinguishes a genuine control from a merely adjacent one.
+Controls should be selected using relevant characteristics such as:
 
-**The control set is drawn by the pre-registered rule (§6.1), never chosen at
-verification time.**
+* land cover;
+* elevation;
+* slope;
+* aspect;
+* soil;
+* climate;
+* pre-treatment trajectory.
 
-**Two rings, because leakage biases the estimate upward:**
-
-* **near ring** — matched, immediately adjacent, leakage-exposed;
-* **far ring** — matched, buffered beyond plausible displacement distance.
-
-Excluding grazing, fuelwood collection or cultivation from a funded parcel displaces
-that pressure to adjacent land. Because controls are drawn from nearby parcels,
-displaced pressure degrades the controls at the same time the parcel improves, and the
-DiD **overstates** additionality on both sides at once. This is the one place the design
-is not conservative, so it is handled explicitly rather than assumed away by a buffer.
-
-**The DiD estimate uses the far ring. The divergence between rings is a direct leakage
-estimate**, reported in the result and deducted.
-
-### 6.1 Pre-registration
-
-**Why it exists.** Nothing otherwise fixes *when* the analysis choices are made. If the
-control set were selected and the analysis run at verification time, by a service the
-restorer pays per request, the result would be:
-
-> a researcher-degrees-of-freedom problem with money attached: run the verification
-> against several candidate control sets, several observation windows, several index
-> choices, and submit the favourable one. Every number in the verdict stays honest; the
-> estimator is still biased.
-
-That is the failure this section prevents, and it is why metered verification cannot ship
-without the coupling in `X402.md` §5.
-
-The analysis plan hash is committed at `createDeed()`, before any outcome is
-observable:
-
-```text
-metric_id + version
-observation windows              fixed dates, not "a 6-month window"
-control selection RULE           covariates, calipers, k, exclusion buffer
-                                 — the rule, never the selected parcels
-index and masking chain version
-confidence level
-parallel-trend diagnostic + its pass criterion
-leakage ring geometry            near-ring and far-ring radii
-```
-
-Re-runs are permitted, but **every run is recorded on-chain and the result cites its
-run index.** A parcel with eleven runs and one submitted result is visible.
-
-Without this, the control set is selected and the analysis run at verification time by
-a service the restorer pays per request — a researcher-degrees-of-freedom problem with
-money attached. Every number stays honest; the estimator is still biased.
+Potential treatment spillover or contamination must exclude a control.
 
 ---
 
@@ -210,20 +135,11 @@ The implementation must define the exact mathematical form and version it.
 
 ---
 
-## 9. Additionality — two distinct things
+## 9. Additionality
+
+Additionality distinguishes intervention-attributable change from change that would plausibly have occurred without the intervention.
 
 The system must not settle against gross parcel greening alone.
-
-**Biophysical additionality** — the DiD adjustment against the far ring, less the
-leakage deduction. *This is what the engine measures.*
-
-**Financial additionality** — would this have happened without the payment? *This is
-not measurable from imagery.* It is addressed procedurally by the encumbrance registry
-(`ARC.md`), which records legal obligations, public subsidy and existing claims at
-parcel registration and attaches an `obligation_status` to the outcome.
-
-Conflating the two is the criticism levelled hardest at credit markets. The vocabulary
-is kept split everywhere in the code and the interface.
 
 ---
 
@@ -233,28 +149,14 @@ The engine must represent uncertainty explicitly.
 
 The result must contain an interval rather than only a point estimate.
 
-Sources, in order of typical magnitude for a DiD estimate:
+Potential sources include:
 
-1. **control-matching error**;
-2. **index → physical-quantity model transfer error**;
-3. leakage estimation error;
-4. mixed pixels at parcel boundaries;
-5. residual cloud and cloud-shadow contamination;
-6. atmospheric correction residuals, BRDF and view-angle effects;
-7. co-registration error.
-
-The first two dominate. Listing atmospheric and co-registration terms first, as earlier
-drafts did, gets the ordering backwards.
-
-### 10.1 Empirical coverage
-
-Analytically propagated intervals are routinely mis-calibrated, and the entire financial
-argument rests on the bound meaning what it says. The result therefore reports an
-**empirical coverage figure alongside the nominal one**: on held-out ground-truth plots,
-does the nominal 95% interval contain truth approximately 95% of the time?
-
-If coverage is materially below nominal, the settlement rule is not yet sound. That must
-be reported, not hidden.
+* observation error;
+* residual cloud contamination;
+* spatial boundary error;
+* control matching uncertainty;
+* model uncertainty;
+* measurement uncertainty.
 
 ---
 
@@ -269,38 +171,6 @@ settledQuantity = lowerBound(uncertaintyInterval)
 ```
 
 The point estimate is not the settlement authority.
-
-### Conservatism and pricing are separated
-
-The lower-bound rule on its own places 100% of measurement uncertainty on the restorer.
-The stated benefit — restorers are incentivised to fund better measurement — holds only
-for the **controllable** fraction. Most of the interval is not controllable:
-
-* **Biome.** Cloud frequency, canopy density, phenological noise and index saturation are
-  properties of where the ecosystem is.
-* **Parcel size.** Mixed-pixel boundary error scales with perimeter-to-area, so small
-  parcels have structurally wider relative intervals.
-* **Ecosystem type.** Peatland and dryland — the two biomes where restoration need is
-  highest and measurement is hardest — are penalised hardest.
-
-Net effect, uncorrected: the mechanism pays best for large, uniform, temperate,
-dense-canopy plantings. That is the easiest thing to measure and the thing most likely to
-be a monoculture — the opposite of the NbS priority ordering.
-
-**The fix is one deed parameter.** Price per unit is set against the **ex-ante expected
-interval width for that biome and parcel-size class** — a difficulty premium. The restorer
-then bears only the *deviation from expectation*, which is the controllable part, and the
-incentive to improve measurement survives intact.
-
-The equilibrium, stated honestly: if price does not adjust for expected uncertainty,
-buyers bid for easily-measured projects and the clearing price for hard-to-measure biomes
-collapses. **A lower-bound rule without a difficulty premium is partly self-cancelling.**
-
-The two rules are therefore inseparable. Settlement pays the lower bound
-(`DECISIONS.md` §5); pricing compensates for the expected width of that bound. Implementing
-the first without the second reproduces the outcome the design exists to avoid.
-
-*Not implemented. The difficulty premium is a pricing parameter; no deed carries one yet.*
 
 ---
 
@@ -335,25 +205,16 @@ The canonical result should contain, at minimum:
 ```text
 projectId
 parcelH3Root
-geometryHash
-analysisPlanHash          §6.1
-runIndex                  §6.1
 methodologyVersion
-processingGraphVersion
-stacSceneIds              real Tier 0 provenance
 metric
 claimedQuantity
 observedChange
-controlChangeFarRing
-controlChangeNearRing
-leakageEstimate
-additionalityAdjusted     biophysical
+controlChange
+additionalityAdjusted
 uncertainty
-empiricalCoverage         §10.1
 lowerBound
 parallelTrendStatus
 qualityGateStatus
-obligationStatus          §9
 verificationStatus
 evidenceHash
 evidenceCid
@@ -384,96 +245,127 @@ AI may not:
 
 ---
 
-## 15. Implementation state (2026-09-10)
+## 15. M1 Objective
 
-`verification/engine.ts` implements §2–§13 as a pure function of
-`(plan, evidence, runIndex)` against the committed REAL Sentinel-2 snapshot
-(`verification/fixtures/tier0-kootenay-riparian-001.json`, 72 scenes) and simulated
-Tiers 1–3. Its status set is `VERIFIED | PARTIAL | NOT_ADDITIONAL |
-INSUFFICIENT_EVIDENCE | GATE_FAILED | INVALID_RESULT`, mirrored by the contract.
+M1 implements the complete deterministic synthetic verification pipeline and tests its failure modes.
 
-Two points where the implementation goes beyond this document, both recorded as
-provisional in the analysis plan and in `docs/DEVELOPMENT_LOG.md`:
+No blockchain integration is required to consider M1 complete.
 
-- **Control-matching error** (§10 item 1) is represented by a far-ring residual draw
-  in each bootstrap iteration. Without it, placebo coverage was 0.33.
-- **Empirical coverage** (§10.1) is estimated by placebo-in-space over far-ring units
-  on real data, because no held-out ground-truth plots exist for a simulated
-  intervention. The result labels the basis.
+---
 
-Not yet implemented: Sentinel-1 / Landsat / ICESat-2 ingest, covariate matching beyond
-pre-level and pre-slope, the polygon intersection check at issuance.
+## 16. M1 Implementation Notes
 
-### The analysis boundary (2026-09-10)
+This section documents what the M1 deterministic engine (`verification/`) actually implements, as run against the synthetic fixtures in `verification/fixtures.ts`. It supersedes §15 as the record of what M1 delivered.
 
-§2's pipeline is split at one seam, defined in `verification/analysis-contract.ts`:
+### 16.1 Synthetic dataset
+
+All M1 fixtures represent one fictional project, "Kootenay Riparian Restoration," British Columbia — **synthetic demonstration data, not a real place or project** (see the header comment in `verification/fixtures.ts`). The metric used throughout is `canopy_cover_fraction_pct` (fractional canopy cover, 0-100), with two pre-treatment observations per parcel (to establish a two-point pre-treatment trend slope) and one post-treatment observation.
+
+Six fixtures exercise the pipeline's decision paths:
+
+| Fixture | Demonstrates |
+|---|---|
+| `FIXTURE_PARTIAL_SETTLEMENT` | Primary demo case: quality gate PASSes, settled quantity (~18.18 ha) is below the claim (35.0 ha) -> `PARTIAL`. |
+| `FIXTURE_FULL_SETTLEMENT` | Same evidence, lower claim (10.0 ha) fully covered by the settled quantity -> `VERIFIED`. |
+| `FIXTURE_PARALLEL_TREND_FAIL` | Treated parcel's pre-treatment slope (+5.0 pp/yr) diverges sharply from its controls' (+1.0 pp/yr) -> parallel-trend `FAIL` -> `INSUFFICIENT_EVIDENCE`, `settledQuantity: 0`. |
+| `FIXTURE_MISSING_POST_EVIDENCE` | Treated parcel has no post-treatment observation -> blocked at the input-validation gate. |
+| `FIXTURE_INVALID_CLAIM` | `claimedQuantity <= 0` -> blocked at the input-validation gate. |
+| `FIXTURE_INSUFFICIENT_CONTROLS` | Only one eligible (matched, uncontaminated) control remains after exclusion, below `minimumControlCount: 2` -> blocked before the parallel-trend diagnostic ever runs. |
+
+None of these numbers are reused from earlier proposal drafts; they were authored fresh for M1.
+
+### 16.2 Control matching (`calculations/controlMatching.ts`)
+
+Rule-based, not production causal inference (propensity-score or synthetic-control matching over a full historical panel is future work). A candidate is eligible only if:
+
+1. it carries no `contaminationReason`, and
+2. its declared characteristics match the treated parcel — identical `landCover`, `climateZone`, `soilType`, and `aspect`; elevation and slope within the configured tolerance (`matchingTolerance`, default ±150 m / ±8°).
+
+### 16.3 Contamination rule
+
+A `Parcel.contaminationReason` (`known_concurrent_intervention`, `adjacent_to_treated_parcel_with_plausible_spillover`, or `shared_hydrology_with_treated_parcel`) unconditionally excludes a candidate, even when its characteristics match perfectly. Contaminated candidates are reported separately from non-matching ones in `VerificationDiagnostics` so a reviewer can see *why* each candidate was excluded.
+
+### 16.4 Parallel-trend diagnostic (`calculations/parallelTrend.ts`)
+
+A **hard gate**. "Trend" is a two-point linear slope (metric units per year) between the earliest and latest pre-treatment observation for a parcel — not a fitted multi-point regression. The treated parcel's slope is compared to the mean slope across eligible controls:
 
 ```text
-analysis   unit series → controls by the committed rule → parallel-trend diagnostic
-           → DiD → leakage → bootstrap interval → placebo coverage        (numbers)
-verify     evidence and issuance gates → status → provenance → evidence commitment
-           → canonical VerificationResult → resultHash                     (the document)
+divergenceRatio = |treatedSlope - meanControlSlope| / max(|meanControlSlope|, parallelTrendMinimumSlopeDenominator)
+status = divergenceRatio <= parallelTrendToleranceRatio ? PASS : FAIL
 ```
 
-Two implementations of the analysis side exist and must agree exactly:
+If the treated parcel's slope, or *any* eligible control's slope, cannot be computed (fewer than two dated pre-treatment observations), the diagnostic returns `INSUFFICIENT_EVIDENCE` rather than dropping that control silently or guessing. `FAIL` and `INSUFFICIENT_EVIDENCE` are both treated as non-PASS by the quality gate — neither is sufficient support for a settlement quantity, and the engine does not compute DiD, additionality, or uncertainty past this gate (see `engine.ts`'s `buildBlockedResult`).
 
-- `verification/engine.ts` `analyseTier0()` — the reference, in-process, used by the
-  test suite and by `verify()`.
-- `analysis/` — the Python service (numpy, scipy, FastAPI), used by the container stack
-  through `verifyWith()`. Its test suite replays five reference cases dumped from the
-  TypeScript side (`real`, `synthetic`, `trend-failure`, `few-scenes`, `few-controls`)
-  and asserts equality of every number. The seeded generator is ported exactly and the
-  bootstrap consumes its stream in the reference order; the regression uses numpy and
-  scipy and agrees to well inside the six decimals reported.
+### 16.5 Difference-in-Differences (`calculations/differenceInDifferences.ts`)
 
-The result names the engine that produced it (`analysisEngine`), so two results that
-agree on every scientific quantity still differ in `resultHash` if different runtimes
-computed them. That is deliberate: the determinism guarantee is per runtime
-(`DEPLOYMENT.md` §5), and the runtime is therefore part of the commitment.
+```text
+DiD = (treatedPost - treatedPre) - (controlPost - controlPre)
+```
 
-A named runtime is only worth as much as the environment behind the name, so
-`analysis/constraints.txt` pins the whole resolved dependency set — NumPy and SciPy
-included — and the image installs against it. Without the pins two rebuilds could
-resolve different numeric libraries and return different floats under an unchanged
-`analysisEngine`, which is the one thing the identity is there to prevent. Moving a pin
-means re-running the parity suite inside the image and bumping the engine version; the
-service reports the versions it actually loaded at `GET /health` (`numericStack`), so
-drift is visible without waiting for the next parity run.
+`treatedPre` / `controlPre` are each parcel's *latest* pre-treatment observation (closest to treatment start). `treatedPost` / `controlPost` are the mean of that parcel's post-treatment observation(s). The control-side level is the **average of each eligible control's own (pre, post) change**, not the change between the group's averaged levels — for equal-sized control groups these coincide, but the implementation always computes it the first way for clarity about what it represents.
 
-The client binds to the engine identity it read from `/health` and rejects an
-`/analyse` response that answers as anything else. A rollout between the two calls would
-otherwise let a result commit to one engine while the caller reported another, and
-`analysisEngine` is inside the hash.
+### 16.6 Additionality (`calculations/additionality.ts`)
 
-The committed parity references are checked against the live TypeScript engine by
-`verification/analysis-reference.test.ts`, which recomputes all five cases and fails on
-any drift. Without it a change to `analyseTier0()` would leave the Python suite green
-against stale files while the two live engines disagreed — the references would be
-testing history rather than the engine. The case definitions are shared with the dump
-script so the check cannot drift from what it is checking.
+The DiD estimate is a percentage-point change. It is converted to hectares by scaling against the treated parcel's declared `areaHectares`, assuming the percentage-point change is uniform across the parcel:
 
-The analysis response body is the `AnalysisOutput` of the contract and nothing else —
-no timing, no host, no request id. Two identical requests get byte-identical bodies,
-because the caller assembles a hashed document out of what it receives and an
-undeclared field on that boundary is a hazard rather than a convenience. Elapsed time
-is reported in the `x-analysis-elapsed-seconds` header.
+```text
+additionalityAdjustedHectares = (DiD / 100) * treatedParcel.areaHectares
+```
 
-Tier 0 acquisition also has a second implementation, processing graph `2.0.0`
-(`analysis/ecorestore_analysis/acquire.py`: pystac-client, rasterio, h3, shapely,
-pyproj). On the same grid it reproduces the committed 1.0.0 fixture's parcel and
-parcel-cell pixel masks exactly and parcel NDVI to 4 dp; ring candidates at the buffer
-edge and unit areas (ellipsoidal rather than spherical) differ slightly, which is why it
-carries a new graph version. The committed fixture is still 1.0.0.
+A production system would derive this from actual per-cell area rather than a single scalar.
 
-The acquisition job emits the parcel geometry and H3 resolution it actually read
-alongside the unhashed snapshot, and `acquire:finalize` refuses to attach the
-repository parcel's `geometryHash` and `h3Root` unless that geometry hashes to the same
-identity. A matching `parcelId` is not a matching parcel — the job can be pointed at any
-fixture directory — and binding a snapshot to an identity it was not derived from would
-make the provenance commitment assert something untrue. The handoff field is stripped
-before canonicalisation and never enters the hash.
+### 16.7 Uncertainty (simplified prototype model)
 
-Scene order is `(datetime, sceneId)` in both acquisition implementations. Granules of
-one pass share an acquisition datetime, and the scene array is canonicalised into
-`snapshotHash`, so datetime alone would leave the commitment dependent on the
-catalogue's paging order.
+`calculations/uncertainty.ts` implements a **fixed relative-fraction margin**, not a statistically fitted confidence interval:
+
+```text
+margin = |pointEstimate| * relativeUncertaintyFraction
+lowerBound = pointEstimate - margin
+upperBound = pointEstimate + margin
+```
+
+`relativeUncertaintyFraction` (default `0.15`) and `confidenceLevel` (default `0.85`, carried through as a declared label only — this model does not derive the margin from it) are both `MethodologyConfiguration` parameters, versioned via `uncertaintyModel: "m1-fixed-fraction-v0.1"`. This does **not** model atmospheric correction residuals, control-matching error, or the other sources listed in §10 above. Swapping in a validated statistical model later does not require changing the engine's pipeline shape — only `computeUncertainty`'s implementation and the config's `uncertaintyModel` id.
+
+### 16.8 Conservative settlement (lower-bound rule)
+
+```text
+settledQuantity = qualityGateStatus === "PASS" ? max(0, uncertainty.lowerBound) : 0
+```
+
+The `max(0, ...)` clamp prevents a negative "gain" (which is not a settleable restoration outcome in this prototype) from propagating as a negative settlement quantity. On any blocked path (insufficient evidence, insufficient eligible controls, or a non-PASS parallel-trend result) `settledQuantity` is unconditionally `0`.
+
+### 16.9 Quality gates (`calculations/qualityGate.ts`)
+
+```text
+!hasSufficientEvidence                    -> INSUFFICIENT_EVIDENCE
+parallelTrendStatus !== PASS              -> INSUFFICIENT_EVIDENCE
+uncertaintyStatus !== VALID               -> INVALID_RESULT
+otherwise                                 -> PASS
+```
+
+`hasSufficientEvidence` is `false` both when the input-validation checks fail (missing observations, non-positive claim, malformed window) and when fewer than `minimumControlCount` eligible controls remain after matching and contamination exclusion — both are evidence-sufficiency problems, distinct from a parallel-trend failure, and are reported as such in `VerificationDiagnostics` (eligible/excluded control lists are always populated even on a blocked path, so a reviewer can see *why*).
+
+`VerificationStatus` adds one more distinction on top of `QualityGateStatus`: when the gate is `PASS`, the result is `VERIFIED` if `settledQuantity >= claimedQuantity`, else `PARTIAL`. This distinction is not specified verbatim by the M1 prompt; it was added because §14's canonical result carries both `claimedQuantity` and `settledQuantity`, and collapsing every `PASS` into a single status would discard the over/under-claim signal those two fields exist to carry.
+
+### 16.10 Methodology version
+
+`verification/config.ts` defines `M1_METHODOLOGY_VERSION = "ecorestore-m1-v0.1"` and a single `DEFAULT_METHODOLOGY_CONFIG` constant bundling every tunable parameter (matching tolerance, trend tolerance, uncertainty fraction, minimum control count, confidence level). A second constant, `STRICT_METHODOLOGY_CONFIG`, exists purely to test that engine behavior is actually driven by configuration rather than hard-coded values — it is not a claim of a second validated methodology.
+
+### 16.11 Spatial identity and evidence hash simplifications
+
+- `calculations/spatialIdentity.ts` derives `parcelH3Root` via a 32-bit FNV-1a hash of the parcel id — a deterministic placeholder, **not** an H3 cell-set Merkle root. No H3 library or Merkle tree is implemented in M1 (see M1 prompt §5).
+- `calculations/evidenceHash.ts` derives `evidenceHash` via a SHA-256 digest (Node's built-in `node:crypto`) over a canonicalized, sorted JSON encoding of the evidence array — reproducible and order-insensitive, but **not** a CID and not linked to any real content-addressed storage (no IPFS/Filecoin integration exists in M1).
+
+### 16.12 Known limitations
+
+- Single metric (`canopy_cover_fraction_pct`), single treated parcel per project, single evidence source per observation (all fixtures use `synthetic_satellite_optical`) — the multi-tier evidence fusion described in the proposal is not implemented.
+- Control matching is rule-based on four categorical fields plus two numeric tolerances; it does not implement propensity-score matching, synthetic controls, or any weighting scheme.
+- The parallel-trend diagnostic uses a two-point slope, not a regression over a multi-point historical baseline.
+- The uncertainty model is a fixed relative-fraction margin, explicitly not a validated statistical confidence interval — see §16.7.
+- `parcelH3Root` and `evidenceHash` are non-cryptographic/placeholder identifiers appropriate only for a prototype (see §16.11); they must not be treated as production spatial-identity or content-addressing guarantees.
+- `evidenceCid` exists on `VerificationResult` as a reserved field but is never populated in M1 (no storage integration).
+- No seasonal decomposition, cloud/shadow masking, or any of the Tier 0 satellite-processing detail from the proposal is implemented — evidence is synthetic scalar values, not derived from imagery.
+
+### 16.13 M1 completion statement
+
+M1 implements the complete deterministic synthetic verification pipeline described in §2-§14 above, including the hard parallel-trend gate (§7) and the conservative lower-bound settlement rule (§11), against six synthetic Kootenay fixtures, with 45 passing automated tests. No blockchain, Guardian, Arc, Graph, or AI integration exists in this milestone — see CLAUDE.md and the M1 prompt §16 "Architecture Boundaries".

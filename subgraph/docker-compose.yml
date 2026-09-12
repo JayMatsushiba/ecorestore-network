@@ -1,0 +1,68 @@
+# Ecorestore Network — M5 Local Graph Node Stack
+#
+# LOCAL DEVELOPMENT ONLY. Not a hosted or decentralized Graph Network
+# deployment. Versions are pinned (not `:latest`) for reproducibility —
+# see docs/GRAPH.md for why each was chosen. Graph Node reaches the host's
+# persistent Hardhat JSON-RPC node (started separately via
+# `npx hardhat node --hostname 0.0.0.0`, NOT the ephemeral in-process
+# network `npm test`/`npm run test:contracts` use) through
+# `host.docker.internal`, which is the exact pattern graph-node's own
+# reference docker-compose.yml uses for connecting to a host-local chain.
+name: ecorestore-graph-node
+
+services:
+  ipfs:
+    image: ipfs/kubo:v0.17.0
+    ports:
+      - "5001:5001"
+    volumes:
+      - ipfs-data:/data/ipfs
+
+  postgres:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: graph-node
+      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_DB: graph-node
+      # Required by graph-node's Postgres schema (see graph-node's own
+      # docker/docker-compose.yml, "POSTGRES_INITDB_ARGS").
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    command: ["postgres", "-cshared_preload_libraries=pg_stat_statements", "-cmax_connections=200"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  graph-node:
+    image: graphprotocol/graph-node:v0.45.0
+    ports:
+      - "8000:8000" # GraphQL HTTP
+      - "8001:8001" # GraphQL WebSocket
+      - "8020:8020" # JSON-RPC (subgraph create/deploy)
+      - "8030:8030" # Subgraph indexing status API
+      - "8040:8040" # Prometheus metrics
+    depends_on:
+      - ipfs
+      - postgres
+    extra_hosts:
+      # Docker Desktop for Windows/Mac provides this out of the box; listed
+      # explicitly for portability with Docker Desktop configurations where
+      # it is not automatic.
+      - "host.docker.internal:host-gateway"
+    environment:
+      postgres_host: postgres
+      postgres_user: graph-node
+      postgres_pass: let-me-in
+      postgres_db: graph-node
+      ipfs: "ipfs:5001"
+      # "hardhat" is a label graph-node uses to route to the configured
+      # JSON-RPC endpoint — it does not need to match any real network
+      # name, and deliberately does not say "mainnet" so indexed data is
+      # never mistaken for real-chain history. Must match subgraph.yaml's
+      # dataSources[].network.
+      ethereum: "hardhat:http://host.docker.internal:8545"
+      GRAPH_LOG: info
+
+volumes:
+  ipfs-data:
+  postgres-data:

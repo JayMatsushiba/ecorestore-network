@@ -1,0 +1,155 @@
+# Ecorestore Network — M5 Subgraph Schema
+#
+# Indexes RestorationDeed.sol's events only (docs/GRAPH.md has the full,
+# exact event-to-entity mapping and field-source classification). This
+# schema does not, and must not, represent:
+#   - M1 scientific evidence/observations/DiD/additionality/uncertainty
+#   - M2 Guardian credential contents
+#   - the evidenceHash checked by submitVerification (it is never emitted
+#     to any event and not stored in contract state — genuinely
+#     unavailable to this subgraph, not merely omitted)
+#   - regulatory carbon/biodiversity credit status
+#   - retirement (no on-chain retirement mechanism exists yet — DEFERRED)
+#
+# All identifiers that originate on-chain (deedId, verificationId,
+# projectId, parcelH3Root, methodologyVersion, addresses) are Bytes/BigInt,
+# never re-encoded as arbitrary UUIDs.
+
+enum DeedStatus {
+  CREATED
+  FUNDED
+  VERIFIED
+  SETTLED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+"""
+An on-chain project identity, keyed by the projectId hash used across
+verification/, guardian/, and RestorationDeed.sol. This is an INDEXED
+REPRESENTATION of on-chain identity only — it is not the M1 project model
+and carries no scientific data. Multiple deeds (e.g. a resubmission after
+a refund) sharing the same projectId resolve to the same Project entity.
+"""
+type Project @entity(immutable: false) {
+  id: Bytes! # projectId
+  parcelH3Root: Bytes! # from the deed that first created this Project
+  deeds: [RestorationDeed!]! @derivedFrom(field: "project")
+  createdAt: BigInt!
+  createdBlock: BigInt!
+  createdTxHash: Bytes!
+}
+
+"""
+The current indexed state of one RestorationDeed. Identity/terms fields
+are set once at DeedCreated and are immutable on-chain thereafter. Does
+NOT include methodologyVersion: it is not emitted by any event, and an
+eth_call to getDeed() to read it from contract storage was attempted and
+reproducibly failed against this project's local Hardhat node — see
+docs/GRAPH.md "methodologyVersion — not indexed" for the exact upstream
+incompatibility and why an eth_call is not a safe way to obtain it here.
+The Auditor correlates methodologyVersion off-chain from the M2
+GuardianCredential via verificationId instead. All other fields are
+updated by later events as the deed's on-chain state machine advances.
+"""
+type RestorationDeed @entity(immutable: false) {
+  id: ID! # deedId.toString() — unique per contract instance
+  deedId: BigInt!
+  project: Project!
+  projectId: Bytes!
+  parcelH3Root: Bytes!
+  sponsor: Bytes!
+  beneficiary: Bytes!
+  authorizedVerifier: Bytes!
+  escrowAmount: BigInt!
+  unitPriceUSDC: BigInt!
+  quantityDecimals: Int!
+  fundedAmount: BigInt!
+  verificationId: Bytes # set once a verification is submitted
+  settledQuantityScaled: BigInt # set only if the submitted verification was financially eligible
+  settlementAmount: BigInt # set only if the submitted verification was financially eligible
+  releasedAmount: BigInt # set only once settleDeed() succeeds
+  status: DeedStatus!
+  fundings: [Funding!]! @derivedFrom(field: "deed")
+  cancellations: [Cancellation!]! @derivedFrom(field: "deed")
+  verifications: [Verification!]! @derivedFrom(field: "deed")
+  settlements: [Settlement!]! @derivedFrom(field: "deed")
+  refunds: [Refund!]! @derivedFrom(field: "deed")
+  createdAt: BigInt!
+  createdBlock: BigInt!
+  createdTxHash: Bytes!
+  updatedAt: BigInt!
+  updatedBlock: BigInt!
+  updatedTxHash: Bytes!
+}
+
+"""Immutable record of one DeedFunded event."""
+type Funding @entity(immutable: true) {
+  id: Bytes! # <txHash>-<logIndex>
+  deed: RestorationDeed!
+  sponsor: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  logIndex: BigInt!
+}
+
+"""Immutable record of one DeedCancelled event."""
+type Cancellation @entity(immutable: true) {
+  id: Bytes! # <txHash>-<logIndex>
+  deed: RestorationDeed!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  logIndex: BigInt!
+}
+
+"""
+Immutable record of one VerificationSubmitted event. `id` is the on-chain
+verificationId itself (bytes32) — genuinely globally unique and
+replay-protected (contract-wide `consumedVerificationIds`), so it is a
+canonical domain identity, not merely a per-event record key. Does NOT
+carry evidenceHash, projectId, parcelH3Root, or methodologyVersion — none
+of those are emitted by this event; identity fields live on the related
+RestorationDeed instead.
+"""
+type Verification @entity(immutable: true) {
+  id: Bytes! # verificationId
+  deed: RestorationDeed!
+  verificationId: Bytes!
+  financiallyEligible: Boolean!
+  settledQuantityScaled: BigInt!
+  settlementAmount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  logIndex: BigInt!
+}
+
+"""Immutable record of one SettlementExecuted event."""
+type Settlement @entity(immutable: true) {
+  id: Bytes! # <txHash>-<logIndex>
+  deed: RestorationDeed!
+  verification: Verification!
+  beneficiary: Bytes!
+  settlementAmount: BigInt!
+  refundedRemainder: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  logIndex: BigInt!
+}
+
+"""Immutable record of one RefundExecuted event."""
+type Refund @entity(immutable: true) {
+  id: Bytes! # <txHash>-<logIndex>
+  deed: RestorationDeed!
+  sponsor: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+  logIndex: BigInt!
+}

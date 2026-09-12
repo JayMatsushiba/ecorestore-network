@@ -1,4 +1,5 @@
 node_modules
 dist
-Dockerfile
-.dockerignore
+.env
+.env.*
+!.env.example

@@ -1,31 +1,56 @@
 {
+  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
+    // File Layout
+    // "rootDir": "./src",
+    // "outDir": "./dist",
+
+    // Environment Settings
+    // See also https://aka.ms/tsconfig/module
     "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "target": "es2023",
-    "lib": ["es2023"],
+    "target": "esnext",
     "types": ["node"],
-    "strict": true,
+    // For nodejs:
+    // "lib": ["esnext"],
+    // "types": ["node"],
+    // and npm install -D @types/node
+
+    // Other Outputs
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+
+    // Style Options
+    // "noImplicitReturns": true,
+    // "noImplicitOverride": true,
+    // "noUnusedLocals": true,
+    // "noUnusedParameters": true,
+    // "noFallthroughCasesInSwitch": true,
+    // "noPropertyAccessFromIndexSignature": true,
+
+    // Recommended Options
+    "strict": true,
+    "jsx": "react-jsx",
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "resolveJsonModule": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true
   },
-  "include": [
-    "verification/**/*.ts",
-    "guardian/**/*.ts",
-    "auditor/**/*.ts",
-    "contracts/**/*.ts",
-    "scripts/**/*.ts",
-    "verify/**/*.ts",
-    "vitest.config.ts"
-  ],
-  "exclude": ["node_modules", "app", "contracts/lib", "contracts/out"]
+  // subgraph/ is a separate AssemblyScript/WASM project with its own
+  // toolchain (graph-cli's `codegen`/`build`/`test`, not plain tsc) and its
+  // own package.json — see docs/GRAPH.md. Its .ts files use AssemblyScript
+  // syntax (i32, changetype<T>, etc.) that is not valid TypeScript under
+  // this config, so it must never be picked up by the root `tsc --noEmit`.
+  //
+  // app/ is a separate Vite/React project (M6) with its own package.json
+  // and its own tsconfig hierarchy (bundler moduleResolution, no explicit
+  // .js extensions on relative imports) — incompatible with this root
+  // config's NodeNext resolution. Typecheck it via `cd app && npm run
+  // build` (tsc -b, per its own tsconfig), not the root `tsc --noEmit`.
+  "exclude": ["node_modules", "subgraph", "app"]
 }
