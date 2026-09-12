@@ -555,3 +555,36 @@ None. This is hosting of the existing demo; no methodology, settlement, trust-bo
 3. After a host reboot the containers restart on an empty chain; a **Deploy** run is needed to bootstrap it. A systemd unit or a restart-aware bootstrap could remove that step.
 4. The API still has no authentication on a public URL (readiness report BLOCKER list).
 5. `main`'s `analysis`/`verify` ECR repositories and the Guardian checkout on the host are unused by this stack and can be removed deliberately.
+
+---
+
+## M6.2 — Financial/Provenance did not reflect the contract audit
+
+**Date:** 2026-09-12
+**Scope:** `app/src/components/AuditSummary.tsx` (new), `app/src/pages/{Financial,Provenance,AuditorPage}.tsx`, `app/src/pages/FinancialProvenance.test.tsx` (new). No file under `verification/`, `guardian/`, `arc/`, `contracts/`, `auditor/`, or `server/` was modified — this was a UI wiring gap, not a backend defect.
+
+### Bug report and root cause
+
+Reported: selecting the "Failure" verification case in the UI's case selector did not produce a visibly different, reliable result on the Financial and Provenance pages.
+
+Confirmed by inspection and by a throwaway RTL test exercising both fixtures against mocked API responses: `auditDeed()` (M5) and every server route it depends on (`/api/audit`, `/api/deed`, `/api/arc-payload-preview`) already compute the correct, differing result per fixture — `CONSISTENT`/`ANOMALOUS` and eligible/ineligible were verified correct at the API layer for both `partial` and `trendFail` via direct HTTP calls. The bug was entirely in the UI: `Financial.tsx`'s primary "on-chain deed" panel and all of `Provenance.tsx` render only `api.deed()`, which is fixture-independent by design (docs/DEMO.md — only one deed is ever actually funded and settled on-chain). Neither page called `/api/audit`, so neither page showed any indication of whether the selected case matched the deed — switching to the Failure case looked identical to Success on both pages, which is what "unreliable" meant here: the divergence existed only on the separate Auditor page.
+
+### Fix
+
+Added a shared `AuditSummary` component (status pill, deedId, explanation, anomaly list — the same rendering `AuditorPage.tsx` already had) and added a "Contract audit" panel, backed by `api.audit(fixture)`, to both `Financial.tsx` and `Provenance.tsx`. `AuditorPage.tsx` was refactored to use the same component instead of duplicating the markup. Both pages also gained a short note explaining that the deed/timeline panels themselves are fixed to the one real settled deed and will not change with the selector — the audit panel is what shows whether the current selection is consistent with it.
+
+### Deviations from Idea 0.2 / prior docs
+
+None. No authority boundary, settlement logic, or verification methodology changed — `auditDeed()` was already read-only and this only surfaces its existing output in two more places.
+
+### Tests run and results
+
+- `npm run typecheck` (root): 0 errors.
+- `npm test` (root): 104/104 passed (unchanged — no root code touched).
+- `cd app && npx vitest run`: 11/11 passed (9 pre-existing + 2 new, `FinancialProvenance.test.tsx`, asserting `CONSISTENT` for the success case and `ANOMALOUS` with the real anomaly code for the failure case on both pages).
+- `cd app && npx oxlint`: same 3 pre-existing warnings, none new.
+- `cd app && npm run build`: OK.
+
+### Known limitations
+
+Still true, unchanged from M6.1: only one deed is ever actually created/funded/settled on-chain in this local demo; the Failure case is demonstrated off-chain (Guardian fails closed before Arc, shown in Financial's Arc-payload-preview panel) and, now, as a visible audit mismatch — not as a second real on-chain deed. Building a genuine second on-chain deed for the failure path is a larger scope change deferred to M7, not attempted here.

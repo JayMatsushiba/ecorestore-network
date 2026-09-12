@@ -1,8 +1,8 @@
 import { api } from "../api/client";
 import { AsyncBlock } from "../components/AsyncBlock";
+import { AuditSummary } from "../components/AuditSummary";
 import { useApi } from "../hooks/useApi";
 import { useFixture } from "../fixtureContext";
-import { StatusPill } from "../components/StatusPill";
 
 export function AuditorPage() {
   const { fixture } = useFixture();
@@ -22,31 +22,8 @@ export function AuditorPage() {
           <>
             <div className="panel">
               <h2>Audit report</h2>
-              <div className="field-grid">
-                <div className="field">
-                  <span className="field__label">Status</span>
-                  <StatusPill status={data.status} />
-                </div>
-                <div className="field">
-                  <span className="field__label">Deed ID</span>
-                  <span className="field__value">{data.deedId ?? "—"}</span>
-                </div>
-              </div>
-              <p style={{ marginTop: 12 }}>{data.explanation}</p>
+              <AuditSummary data={data} />
             </div>
-
-            {data.anomalies.length > 0 && (
-              <div className="panel">
-                <h2>Anomalies</h2>
-                <ul className="anomaly-list">
-                  {data.anomalies.map((a, i) => (
-                    <li key={i}>
-                      <strong>{a.code.replaceAll("_", " ")}</strong>: {a.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
             <div className="panel">
               <h2>Authority boundary</h2>
