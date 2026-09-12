@@ -65,16 +65,22 @@ const DEED_HISTORY_FIELDS = `
     sponsor
     amount
     timestamp
+    blockNumber
+    transactionHash
   }
   refunds {
     id
     sponsor
     amount
     timestamp
+    blockNumber
+    transactionHash
   }
   cancellations {
     id
     timestamp
+    blockNumber
+    transactionHash
   }
 `;
 
@@ -137,6 +143,8 @@ function toDeedHistory(raw: any): DeedHistory {
       sponsor: f.sponsor,
       amount: f.amount,
       timestamp: f.timestamp,
+      blockNumber: f.blockNumber,
+      transactionHash: f.transactionHash,
     })),
     refunds: (raw.refunds ?? []).map((r: any) => ({
       id: r.id,
@@ -144,11 +152,15 @@ function toDeedHistory(raw: any): DeedHistory {
       sponsor: r.sponsor,
       amount: r.amount,
       timestamp: r.timestamp,
+      blockNumber: r.blockNumber,
+      transactionHash: r.transactionHash,
     })),
     cancellations: (raw.cancellations ?? []).map((c: any) => ({
       id: c.id,
       deedId: raw.id,
       timestamp: c.timestamp,
+      blockNumber: c.blockNumber,
+      transactionHash: c.transactionHash,
     })),
   };
 }

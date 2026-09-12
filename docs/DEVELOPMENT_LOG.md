@@ -409,3 +409,93 @@ None beyond those already recorded in the M1-M4 entries. M5 did not alter any sc
 ### Recommended next step
 
 M6 — React UI + Demo, per the project's milestone sequence (not started, per this milestone's own scope boundary).
+
+---
+
+## M6 — React UI, Operational Demo & M7 Readiness
+
+**Date:** 2026-09-11
+**Scope:** `app/` (new — Vite/React/TypeScript), `server/` (new — thin HTTP API over the real M1-M5 code), `graph/theGraphProvider.ts` and `graph/types.ts` (one bug fix — see below), `tsconfig.json`/`vitest.config.ts` (excluded `app/`, same isolation pattern as `subgraph/`), `package.json` (`server` script), documentation (`README.md` rewritten as an operational guide, `docs/DEMO.md` §8, `docs/ARCHITECTURE.md` §10, `docs/M6_M7_READINESS_REPORT.md` new). No file under `verification/`, `guardian/`, `arc/`, `integration/`, `contracts/`, `subgraph/`, or `auditor/agent.ts` itself was modified — confirmed by full regression (104/104 root vitest, 84/84 Hardhat, 9/9 subgraph, 5/5 Graph E2E, all unchanged from M5 except the one graph/ fix below).
+
+**Objective:** build the React presentation layer on top of the real M1-M5 system, actually run the complete local demo (not just compile it), verify UI output against authoritative backend values, and produce the M6→M7 readiness report.
+
+### A note on repository state at the start of this session
+
+This session began on branch `v2_build_shants`, whose git log shows substantial prior real history (AWS CI/CD, Docker, a Python analysis pipeline, an earlier React app) — but the actual HEAD commit ("M5- UI done", authored by the project owner) had replaced that entire tree with the M0-M5 backend implementation from a prior session (verified directly via `git ls-tree HEAD` and a zero-diff against `origin/v2_build_shants`). `app/` was empty and `CLAUDE.md` matched the M0-M5 session's version exactly. Per CLAUDE.md's own instruction to trust the actual implementation over any other signal, this session treated that state as authoritative and proceeded — this note exists so a future session doesn't rediscover the same discrepancy from scratch.
+
+### What was built
+
+- **`app/`** — Vite + React 19 + TypeScript, `react-router-dom` (`HashRouter`, so no server-side history-fallback config is needed for a static build). Eight pages: Overview, Evidence, Verification, Guardian, Financial / Deed, Provenance, Auditor, About. A shared `FixtureProvider` context lets the demo switch between the real success fixture (`FIXTURE_PARTIAL_SETTLEMENT`) and the real failure fixture (`FIXTURE_PARALLEL_TREND_FAIL`) across the Verification/Guardian/Auditor pages. Restrained, earth-toned CSS (no component library, no charting library) — a plain uncertainty-interval bar and a pipeline-stage strip are the only custom visualizations, both driven entirely by real `VerificationResult` fields.
+- **`server/index.ts`** — plain `node:http` (no Express — five simple GET routes didn't justify a new dependency), CORS-open for local dev only. Routes: `/api/project`, `/api/evidence`, `/api/verification`, `/api/guardian`, `/api/deed`, `/api/audit`, `/api/arc-payload-preview`. Every route calls the real M1/M2/M4/M5 function directly; `/api/deed` and `/api/audit` return a structured `{status: "UNAVAILABLE", reason: "..."}` (naming the actual unreachable subsystem and the fix command) rather than a generic error or fabricated data when the Graph Node isn't running.
+- **`app/src/components/AsyncBlock.tsx`** — the one shared data-loading component; renders a subsystem-named loading/error state, never a generic "Something went wrong."
+- Component tests (`app/`, vitest + `@testing-library/react` + jsdom): `StatusPill`, `AsyncBlock` (loading/error/data states), `Overview` (real fetched data rendering, and demo-API-unreachable handling) — 9 tests.
+
+### The actual demo was run, not just compiled
+
+Per the M6 prompt's hard acceptance gate: a persistent Hardhat node was started, `npm run demo:local` ran the real M1→M2→Arc chain against it, the Docker Graph Node stack was brought up and the subgraph deployed, the API server and Vite dev server were started, and a **headless Chromium browser (Playwright, installed in an isolated temp directory — not added to any project's `package.json`)** loaded every page against the real running stack. Result: zero console errors, zero page errors, zero failed network requests, across all 8 pages, in both the success and failure verification cases, plus a full-page reload. See `docs/DEMO.md` §8 and `docs/M6_M7_READINESS_REPORT.md` §2-3 for the complete record and screenshots taken during this run.
+
+### A real integration bug was found during UI verification, and fixed
+
+The Provenance page's timeline showed a `DeedFunded` entry with `block –` and no transaction hash. Root cause: `graph/theGraphProvider.ts`'s GraphQL query for `fundings`/`refunds`/`cancellations` never requested `blockNumber`/`transactionHash`, even though `subgraph/schema.graphql` (M5) already stores them on every event entity. This was an M5 oversight, not an M6 regression — `graph/types.ts`'s `IndexedFunding`/`IndexedRefund`/`IndexedCancellation` interfaces simply never declared those fields either. **Fixed** (not merely documented): extended the GraphQL query and the three TypeScript interfaces; re-verified visually with a fresh Playwright screenshot showing correct block numbers (3, 6, 7, 8 in order) and real transaction hashes. Root M5/M6 regression suites (104 root vitest tests, 5 Graph E2E tests) still pass unchanged after the fix — the fix only added previously-unfetched fields, it didn't change any existing field's value.
+
+### An unrelated tooling mistake, caught and corrected before it reached git
+
+While setting up Playwright for browser verification, an `npm install` was accidentally run against the **root** project instead of an isolated scratch directory, adding `playwright` to the root `package.json`/`package-lock.json` as a real dependency. This was caught immediately (via the "package.json changed on disk" notice) and reverted with `npm uninstall playwright` before any commit; Playwright was then correctly installed in an OS temp directory outside the repository entirely. Recorded here per this project's "do not fabricate implementation history" rule — the mistake happened and was corrected, not silently erased from the record.
+
+### Key implementation decisions
+
+1. **A thin server, not a second implementation.** `server/` was the one structural addition this milestone required beyond `app/` itself, because a browser cannot run `node:crypto`/`node:fs`-dependent modules. Every response is the real function's real return value, serialized — the M6 prompt's "do not create a parallel demonstration engine" requirement is met by construction, not by discipline alone: `server/index.ts` contains no control-matching, DiD, additionality, uncertainty, or settlement-amount arithmetic anywhere.
+2. **`HashRouter`, not `BrowserRouter`.** Avoids needing history-fallback server configuration for a static build — appropriate for a local hackathon demo; a production deployment (M7) may prefer `BrowserRouter` with proper server-side routing config once a real hosting target exists.
+3. **No component library, no charting library.** The M6 prompt explicitly warns against a generic AI/Web3-dashboard aesthetic; hand-written CSS gave full control over a restrained, GIS-appropriate presentation without adding dependencies whose defaults would have to be fought.
+4. **The Arc payload preview is read-only and clearly labeled as such.** `/api/arc-payload-preview` calls the real `arc/payload.ts` functions to show what *would* be submitted to `RestorationDeed.submitVerification()`, but never calls the contract — this satisfies the UI walkthrough requirement for a Financial/Deed view without creating any path from the browser to a transaction.
+
+### Reality / terminology audit
+
+Performed against the actually-rendered UI (not just the source), using the real fixture data (`verification/fixtures.ts`'s Kootenay Riparian Restoration parcels: `riparian_forest` land cover, `alluvial_loam` soil, `canopy_cover_fraction_pct` metric, plausible elevation/slope/aspect/climate-zone values). No invented environmental terminology was introduced — every label on every page corresponds to an actual field in `VerificationResult`, `GuardianCredential`, or the Graph-indexed `DeedHistory`. The synthetic-data disclaimer banner is present on every page (verified in the Playwright run: `hasDisclaimer: true` on all 8 pages). No claim of satellite imagery, field measurement, or regulatory credit status appears anywhere in the UI. Full classification in `docs/M6_M7_READINESS_REPORT.md` §5 (Section 25 of the M6 prompt).
+
+### Security review
+
+- No API key, private key, wallet secret, or `.env` secret exists anywhere in this repository (checked directly — `server/` and `app/` use no credentials at all).
+- No signing capability exists in `app/` or `server/` — `RestorationDeed`'s `authorizedVerifier` is a Hardhat default test account; the demo's on-chain transactions were all sent by `scripts/deployAndRunLocalDemo.cjs` directly against the local node, never through the UI or API server.
+- `/api/arc-payload-preview` never calls `RestorationDeed.submitVerification()` — it only builds and returns the payload object.
+- The Graph is queried read-only (`graph/theGraphProvider.ts` issues GraphQL queries only; The Graph's query protocol has no mutation path for indexed data in the first place).
+- `server/`'s CORS header (`Access-Control-Allow-Origin: *`) and total absence of authentication are appropriate only for local development — flagged explicitly as an M7 blocker if this server is ever exposed beyond `localhost` (see `docs/M6_M7_READINESS_REPORT.md`).
+- No React component uses `dangerouslySetInnerHTML` or otherwise renders unescaped dynamic content; all displayed hashes/addresses/values go through React's default text rendering.
+
+### Tests run and results (actual, this session)
+
+```text
+TypeScript (root):        PASS (tsc --noEmit, 0 errors; subgraph/ and app/ excluded — separate toolchains)
+Vitest (root):             104/104 passed (unchanged from M5)
+Hardhat compile/test:      PASS / 84/84 passed (unchanged from M5)
+Subgraph build/tests:      PASS / 9/9 passed (unchanged from M5)
+Graph Node E2E:            5/5 passed (unchanged from M5)
+App build:                 PASS (tsc -b && vite build)
+App component tests:       9/9 passed (vitest + testing-library, new this milestone)
+Browser verification:      8/8 pages loaded with 0 console errors, 0 page errors, 0 failed requests
+                           (Playwright/Chromium, headless, against the real running local stack)
+Failure-path verification: Graph Node stopped mid-session -> Financial/Auditor pages showed a
+                           specific, actionable UNAVAILABLE state; restarted -> recovered without
+                           a page reload
+```
+
+No test was weakened, skipped, or deleted to obtain these results.
+
+### Documentation
+
+`README.md` rewritten as a full operational guide (prerequisites with exact versions, installation, environment variables, faucet table, synthetic-data map, exact startup/demo/reset sequences, troubleshooting table, simulation-boundary list). `docs/DEMO.md` §8 added (actual architecture, exact commands, what was verified, the bug found and fixed, current limitations). `docs/ARCHITECTURE.md` §8 and §10 updated. `docs/M6_M7_READINESS_REPORT.md` created — the primary M7 handoff artifact (see that document for the full output-verification table, deployment-readiness classification, and prioritized M7 backlog). `CLAUDE.md` updated to record M6 as complete and the current milestone as M7.
+
+### Known limitations
+
+- `server/` and `app/` are local-only, single-instance, unauthenticated — not deployable as-is (M7 backlog item).
+- The Financial/Provenance/Auditor pages reflect only the one deed actually funded and settled on-chain per Hardhat-node lifetime; switching the UI's fixture selector changes off-chain Verification/Guardian/Auditor output but does not create a second on-chain deed.
+- No end-to-end (Playwright) test suite was committed to the repository — verification for this milestone was performed interactively with a temporary script, per the M6 prompt's acceptance gate, but a regression-guarding E2E suite is not yet part of `npm test`. Recorded as an M7 backlog item.
+- `HashRouter` is a local-demo-appropriate choice, not a production one.
+
+### Deviations from Idea 0.2
+
+None. M6 added only the presentation layer explicitly scoped to this milestone.
+
+### Recommended next step
+
+M7 — see `docs/M6_M7_READINESS_REPORT.md` for the complete prioritized backlog and deployment-readiness assessment.

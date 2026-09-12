@@ -46,5 +46,11 @@
   // own package.json — see docs/GRAPH.md. Its .ts files use AssemblyScript
   // syntax (i32, changetype<T>, etc.) that is not valid TypeScript under
   // this config, so it must never be picked up by the root `tsc --noEmit`.
-  "exclude": ["node_modules", "subgraph"]
+  //
+  // app/ is a separate Vite/React project (M6) with its own package.json
+  // and its own tsconfig hierarchy (bundler moduleResolution, no explicit
+  // .js extensions on relative imports) — incompatible with this root
+  // config's NodeNext resolution. Typecheck it via `cd app && npm run
+  // build` (tsc -b, per its own tsconfig), not the root `tsc --noEmit`.
+  "exclude": ["node_modules", "subgraph", "app"]
 }

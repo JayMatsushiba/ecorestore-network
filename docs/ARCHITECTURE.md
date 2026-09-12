@@ -230,7 +230,7 @@ M0 established architecture and interfaces only, and at that point did not imple
 * x402;
 * production financial settlement.
 
-**This list describes M0's scope at the time, not the project's current state.** Control matching, DiD, additionality, uncertainty, Guardian integration, Arc integration, the M4 local vertical integration connecting all three into one executable chain, and the M5 local Graph Node indexing + Auditor correlation layer are implemented as of M1-M5 — see `docs/DEVELOPMENT_LOG.md` for the authoritative, dated record of what is actually built, tested, and committed. The AI agent's own reasoning/orchestration, x402, live Hedera Guardian/Arc deployment, hosted/decentralized Graph Network deployment, AWS, and production financial settlement remain not implemented, per the milestone sequence.
+**This list describes M0's scope at the time, not the project's current state.** Control matching, DiD, additionality, uncertainty, Guardian integration, Arc integration, the M4 local vertical integration connecting all three into one executable chain, the M5 local Graph Node indexing + Auditor correlation layer, and the M6 React presentation layer are implemented as of M1-M6 — see `docs/DEVELOPMENT_LOG.md` for the authoritative, dated record of what is actually built, tested, and committed, and `docs/M6_M7_READINESS_REPORT.md` for the deployment-readiness assessment. The AI agent's own reasoning/orchestration, x402, live Hedera Guardian/Arc deployment, hosted/decentralized Graph Network deployment, AWS, and production financial settlement remain not implemented, per the milestone sequence.
 
 ---
 
@@ -241,3 +241,14 @@ Keep the architecture lean.
 Every component must have a clear reason to exist.
 
 Partner technologies must be load-bearing rather than decorative.
+
+---
+
+## 10. M6 Presentation Layer Implementation Notes
+
+M6 added exactly two components, both strictly at the presentation boundary:
+
+- **`app/`** — a Vite/React/TypeScript single-page application. Reads from `server/`'s HTTP API only; contains no verification, Guardian, Graph, or financial logic of its own, and holds no signing key.
+- **`server/`** — a thin, read-mostly Node HTTP layer whose only reason to exist is that a browser cannot directly execute the Node-based M1-M5 modules (`node:crypto`, `node:fs`, process-local adapter state). Every route calls the real function (`verifyProject`, `MockGuardianAdapter`, `buildVerificationAuthorization`, `TheGraphProvider`, `auditDeed`) and serializes its actual return value — it recomputes nothing and holds no signing key, so it cannot authorize or settle anything even though it runs on a server rather than in the browser.
+
+Neither component moves or narrows any authority boundary defined in §2 above. See `docs/DEMO.md` §8 for what was actually run and verified, and `docs/M6_M7_READINESS_REPORT.md` for the full security/deployment review.

@@ -13,7 +13,8 @@
     "compile": "hardhat compile",
     "test:contracts": "cross-env NODE_OPTIONS=--import=tsx hardhat test",
     "demo:local": "cross-env NODE_OPTIONS=--import=tsx hardhat run scripts/deployAndRunLocalDemo.cjs --network localhost",
-    "test:e2e:graph": "vitest run --config vitest.e2e.config.ts"
+    "test:e2e:graph": "vitest run --config vitest.e2e.config.ts",
+    "server": "tsx server/index.ts"
   },
   "repository": {
     "type": "git",

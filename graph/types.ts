@@ -83,6 +83,8 @@ export interface IndexedFunding {
   readonly sponsor: string;
   readonly amount: string;
   readonly timestamp: string;
+  readonly blockNumber: string;
+  readonly transactionHash: string;
 }
 
 export interface IndexedRefund {
@@ -91,12 +93,16 @@ export interface IndexedRefund {
   readonly sponsor: string;
   readonly amount: string;
   readonly timestamp: string;
+  readonly blockNumber: string;
+  readonly transactionHash: string;
 }
 
 export interface IndexedCancellation {
   readonly id: string;
   readonly deedId: string;
   readonly timestamp: string;
+  readonly blockNumber: string;
+  readonly transactionHash: string;
 }
 
 /** The full indexed history for one deed, as the Auditor needs it. */
