@@ -1,5 +1,6 @@
 import { api } from "../api/client";
 import { AsyncBlock } from "../components/AsyncBlock";
+import { AuditSummary } from "../components/AuditSummary";
 import { useApi } from "../hooks/useApi";
 import { useFixture } from "../fixtureContext";
 import { StatusPill } from "../components/StatusPill";
@@ -14,6 +15,7 @@ export function Financial() {
   const { fixture } = useFixture();
   const deedState = useApi(() => api.deed(), []);
   const arcState = useApi(() => api.arcPayloadPreview(fixture), [fixture]);
+  const auditState = useApi(() => api.audit(fixture), [fixture]);
 
   return (
     <div>
@@ -23,6 +25,16 @@ export function Financial() {
         This page shows its real on-chain state (via the local Graph Node) for the one deed this prototype actually
         funded and settled. <strong>MockUSDC on a local Hardhat network — not real USDC, not a live deployment.</strong>
       </p>
+
+      <div className="panel">
+        <h2>Contract audit (selected verification case vs. on-chain deed)</h2>
+        <p style={{ color: "var(--color-text-muted)", marginTop: -6 }}>
+          The real output of <code>auditDeed()</code> (M5), cross-checking the deed below against the currently
+          selected verification case above the page nav. The on-chain deed itself never changes when you switch
+          cases — this is how a mismatch (e.g. selecting the Failure case) becomes visible.
+        </p>
+        <AsyncBlock state={auditState} subsystem="Auditor">{(data) => <AuditSummary data={data} />}</AsyncBlock>
+      </div>
 
       <div className="panel">
         <h2>On-chain deed state (real, local Hardhat + Graph Node)</h2>

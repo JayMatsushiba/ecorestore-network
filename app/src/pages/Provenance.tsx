@@ -1,6 +1,8 @@
 import { api } from "../api/client";
 import { AsyncBlock } from "../components/AsyncBlock";
+import { AuditSummary } from "../components/AuditSummary";
 import { useApi } from "../hooks/useApi";
+import { useFixture } from "../fixtureContext";
 
 interface TimelineEntry {
   key: string;
@@ -10,15 +12,25 @@ interface TimelineEntry {
 }
 
 export function Provenance() {
+  const { fixture } = useFixture();
   const state = useApi(() => api.deed(), []);
+  const auditState = useApi(() => api.audit(fixture), [fixture]);
 
   return (
     <div>
       <h1>Provenance / Event History</h1>
       <p className="page__lede">
         The indexed event history for this deed, read from the local Graph Node (M5) — not a database this
-        application writes to directly. Each entry corresponds to one <code>RestorationDeed.sol</code> event.
+        application writes to directly. Each entry corresponds to one <code>RestorationDeed.sol</code> event. This
+        timeline reflects the one deed actually funded and settled on-chain and does not change when you switch the
+        "Verification case" selector above — see the contract audit below for whether that selection actually
+        matches this history.
       </p>
+
+      <div className="panel">
+        <h2>Contract audit (selected verification case vs. on-chain deed)</h2>
+        <AsyncBlock state={auditState} subsystem="Auditor">{(data) => <AuditSummary data={data} />}</AsyncBlock>
+      </div>
 
       <div className="panel">
         <AsyncBlock state={state} subsystem="Graph event history">
