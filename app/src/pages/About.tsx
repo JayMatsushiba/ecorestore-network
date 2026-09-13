@@ -99,6 +99,13 @@ export function About() {
             </tr>
           </tbody>
         </table>
+        <p className="boundary-note">
+          <code>RestorationDeed.sol</code> and <code>MockUSDC</code> are already written to deploy to Arc Testnet
+          unchanged — no contract code needs to change to go there. What's withheld is the actual connection: a real
+          RPC endpoint, a funded testnet wallet, and a real testnet USDC address, none of which this prototype holds.
+          Until that connection is supplied, every deed here is created, funded, and settled on a local, in-memory
+          Hardhat network instead.
+        </p>
       </div>
 
       <div className="panel">
