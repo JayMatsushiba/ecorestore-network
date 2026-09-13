@@ -70,6 +70,40 @@ export interface EvidenceResponse {
   evidence: EvidenceObservation[];
 }
 
+/**
+ * Mirrors server/spatialFixtures.ts. Synthetic demonstration geometry for
+ * the Overview map — drawn for this prototype, never read by the M1 engine.
+ */
+export interface ParcelFeatureProperties {
+  parcelId: string;
+  role: "treated" | "control_candidate";
+  areaHectares: number;
+  landCover: string;
+  contaminationReason?: string;
+  synthetic: true;
+}
+
+export interface ParcelFeature {
+  type: "Feature";
+  id: string;
+  geometry: { type: "Polygon"; coordinates: [number, number][][] };
+  properties: ParcelFeatureProperties;
+}
+
+export interface ParcelFeatureCollection {
+  type: "FeatureCollection";
+  features: ParcelFeature[];
+}
+
+export interface GeometryResponse {
+  fixtureKey: string;
+  disclaimer: string;
+  projectId: string;
+  treatedParcelId: string;
+  parcelsWithoutGeometry: string[];
+  extent: ParcelFeatureCollection;
+}
+
 export interface Uncertainty {
   model: string;
   confidenceLevel: number;
