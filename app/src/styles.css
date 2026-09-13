@@ -484,3 +484,283 @@ footer.app-footer {
   font-size: 0.78rem;
   color: var(--color-text-muted);
 }
+
+/* Evidence-page flow diagram (components/VerificationFlow.tsx): evidence
+   sources → structured observations → M1's gated pipeline. Pure CSS boxes
+   and connectors so it wraps on narrow screens and needs no chart library. */
+.flow {
+  margin: 0;
+}
+
+.flow__band {
+  padding: 12px 0 4px;
+}
+
+.flow__band + .flow__band {
+  border-top: 1px dashed var(--color-border);
+}
+
+.flow__band-title.flow__band-title {
+  margin: 0 0 10px;
+}
+
+.flow__band-title code {
+  text-transform: none;
+}
+
+.flow__node {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  list-style: none;
+}
+
+.flow__node--wide {
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+.flow__node-title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.flow__node-detail {
+  color: var(--color-text-muted);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.flow__sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.flow__source--present {
+  border-color: var(--color-ok-border);
+  background: var(--color-ok-bg);
+}
+
+.flow__source--absent {
+  border-style: dashed;
+}
+
+.flow__source-status {
+  margin-top: 6px;
+  font-size: 0.74rem;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.flow__source--present .flow__source-status {
+  color: var(--color-ok-text);
+}
+
+/* Converging connector: horizontal bar across the middle of the band, one
+   stem down from its centre, arrowhead below. */
+.flow__merge {
+  position: relative;
+  height: 34px;
+  margin: 8px 15% 0;
+  border-top: 2px solid var(--color-border);
+}
+
+.flow__merge::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 20px;
+  margin-left: -1px;
+  background: var(--color-border);
+}
+
+.flow__merge::after {
+  content: "▼";
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+/* Diverging connector: stem down from the node above, bar across, one
+   arrowhead per branch of the pair below. */
+.flow__split {
+  position: relative;
+  height: 40px;
+  margin: 0 25%;
+  border-bottom: 2px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+}
+
+.flow__split::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  margin-left: -1px;
+  background: var(--color-border);
+}
+
+.flow__split span {
+  position: relative;
+  width: 2px;
+  background: var(--color-border);
+  margin-top: 22px;
+}
+
+.flow__split span::after {
+  content: "▼";
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+.flow__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.flow__stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  counter-reset: flow-stage;
+}
+
+.flow__stage {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  padding: 8px 10px 8px 12px;
+  font-size: 0.8rem;
+}
+
+.flow__stage--gate {
+  border-color: var(--color-warn-border);
+  background: var(--color-warn-bg);
+}
+
+.flow__stage--output {
+  border-color: var(--color-ok-border);
+  background: var(--color-ok-bg);
+}
+
+/* Stage titles flow inline so the index and gate tag wrap with the words
+   instead of dropping to their own line in narrow columns. */
+.flow__stage .flow__node-title {
+  display: block;
+}
+
+.flow__stage-index {
+  margin-right: 6px;
+  vertical-align: text-bottom;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.flow__tag {
+  margin-left: 6px;
+  vertical-align: middle;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--color-warn-border);
+  color: var(--color-warn-text);
+  background: var(--color-surface);
+}
+
+.flow__legend {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.flow__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.flow__swatch {
+  display: inline-block;
+  width: 16px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.flow__swatch--gate {
+  border-color: var(--color-warn-border);
+  background: var(--color-warn-bg);
+}
+
+.flow__swatch--output {
+  border-color: var(--color-ok-border);
+  background: var(--color-ok-bg);
+}
+
+@media (max-width: 560px) {
+  .flow__pair {
+    grid-template-columns: 1fr;
+  }
+
+  .flow__split {
+    margin: 0 50%;
+    border-bottom: none;
+  }
+
+  .flow__split span:first-child {
+    display: none;
+  }
+
+  .flow__merge {
+    margin-left: 50%;
+    margin-right: 50%;
+    border-top: none;
+  }
+}

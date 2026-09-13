@@ -638,3 +638,51 @@ None. Idea 0.2's geospatial stack (H3 cell sets, STAC evidence, real Sentinel-2 
 * The imagery layer is context, not evidence. Showing the imagery a verification actually consumed requires the real acquisition pipeline (the `analysis/` work on `analysis-evaluation-fixes`, which is not on this branch) and per-scene rendering (COG tiles or pre-rendered PNG overlays) — an M7-scale item, not attempted here.
 * Only the two fixtures the server serves have extents; the other four fixtures' parcels would be reported under `parcelsWithoutGeometry` if they were ever exposed.
 * The map is rebuilt once when the verification result arrives (to recolour controls), which cancels a few in-flight tile requests — visible only in a network log as `ERR_ABORTED`, not to the user.
+
+---
+
+## M6.4 — Evidence page: flow diagram of the deterministic verification pipeline
+
+**Date:** 2026-09-13
+**Scope:** `app/src/components/VerificationFlow.tsx`, `app/src/components/VerificationFlow.test.tsx` (new); `app/src/pages/Evidence.tsx`, `app/src/pages/Evidence.test.tsx` (new); `app/src/styles.css`. No file under `verification/`, `guardian/`, `arc/`, `integration/`, `contracts/`, `subgraph/`, `auditor/`, or `server/` was modified.
+
+### Objective
+
+Give the Evidence page a visual explanation of the deterministic spatial verification pipeline: which data sources (satellite imagery, field visits, …) feed it, how they become structured observations, and the gated steps that turn those observations into a verification finding. Placed in its own panel above the "Observations" panel that holds the treated and control parcel tables.
+
+### What was built
+
+* **`VerificationFlow`** — a static, CSS-only flow diagram in three bands:
+  1. *Evidence sources*: one card per family. The three come from `EvidenceSource` in `verification/models.ts` (optical satellite, SAR satellite, ground report); a fourth, "Drone & IoT sensors", is shown dashed as a future input listed in `docs/VERIFICATION.md` §3 but not in the data model. Each card states honestly what the loaded fixture holds — a record count per source (e.g. "15 synthetic observations in this fixture"), "In the data model — none in this fixture", or "Not yet in the data model". This count is the only thing the component reads from live data.
+  2. *Structured evidence*: the `EvidenceObservation` record shape, splitting into the treated parcel and the candidate control parcels, then converging.
+  3. *Deterministic pipeline*: nine stages in the order `verifyProject()` runs them (evidence sufficiency → control matching → parallel-trend diagnostic → difference-in-differences → additionality → uncertainty → conservative lower bound → quality gate → `VerificationResult`). Gate stages are highlighted with a legend explaining that a failed gate yields `INSUFFICIENT_EVIDENCE` with settled quantity 0; the output stage links to the Verification page, where the real result of running the pipeline on the same fixture is shown.
+* Connectors are drawn with CSS borders and pseudo-elements, so the diagram wraps to a single column on narrow screens without a chart library or SVG.
+* A figcaption repeats that all sources are synthetic and that no real satellite scene or field visit has been ingested.
+
+### Tests run and results (actual, this session)
+
+| Suite | Command | Result |
+|---|---|---|
+| Root typecheck | `npm run typecheck` | 0 errors |
+| Root vitest | `npm test` | 14 files, 110/110 passed (unchanged — no root code touched) |
+| App tests | `cd app && npm test` | 7 files, 20/20 passed (16 pre-existing + 3 in `VerificationFlow.test.tsx`: stage order/gates/output, per-source counts without invented sources, synthetic statement and Verification link; + 1 in `Evidence.test.tsx`: the diagram heading precedes the Observations heading and the tables still render) |
+| App lint | `cd app && npm run lint` | 0 errors; the same 3 pre-existing warnings, none new |
+| App build | `cd app && npm run build` | OK |
+| Browser | headless Chromium over the DevTools protocol against the real `npm run server` and `vite preview`, success fixture | Diagram renders above the Observations panel at 1440 px and 420 px; 0 console errors, 0 exceptions, no horizontal overflow at either width. Screenshots inspected. |
+
+Not run: contracts, subgraph Matchstick, Graph Node E2E — no file they cover changed.
+
+### Decisions
+
+* **Descriptive, not computed.** The stage list is hand-written to mirror `verification/engine.ts` and `docs/VERIFICATION.md` §2; the UI does not introspect the engine. If the pipeline order changes, this component must be updated by hand — noted in its file header.
+* **Sources shown as families, not as claims of ingestion.** The user asked for a view of how satellite imagery and field visits "would be" incorporated. The diagram shows the modelled input families but labels, per fixture, which ones actually contain records, so it cannot be read as saying SAR or field data was used when it was not.
+* **Authority boundaries unchanged.** The component derives nothing beyond a record count per source; no verification value is computed or restated in the browser.
+
+### Deviations from Idea 0.2
+
+None. The diagram describes the M1 pipeline as implemented; it does not add methodology.
+
+### Known limitations / unresolved
+
+* The diagram is static prose plus layout; it does not animate the fixture through the stages or show per-stage intermediate values (those remain on the Verification page).
+* Only the four source families are shown; the future acquisition pipeline (STAC/Sentinel ingestion on the `analysis` branches) is not represented beyond the "future inputs" card.
