@@ -1,3 +1,20 @@
+const PIPELINE_STAGES: { stage: string; tools: string }[] = [
+  { stage: "Environmental evidence", tools: "Synthetic satellite/ground observations — TypeScript fixtures" },
+  {
+    stage: "Deterministic spatial verification",
+    tools: "Control matching, difference-in-differences, additionality, uncertainty — TypeScript verification engine",
+  },
+  {
+    stage: "Guardian workflow",
+    tools: "Methodology validation, verification authorization, credential issuance — Guardian adapter (models Hedera Guardian's role)",
+  },
+  { stage: "Financial settlement", tools: "Escrow, verification, and settlement on-chain — Solidity, OpenZeppelin, Hardhat" },
+  { stage: "Vertical integration", tools: "Orchestrates verification → workflow → settlement into one flow — TypeScript" },
+  { stage: "Blockchain indexing", tools: "Indexes on-chain deed events for query — The Graph Node, AssemblyScript subgraph, GraphQL" },
+  { stage: "Auditor", tools: "Cross-checks on-chain and off-chain records — TypeScript, read-only correlation" },
+  { stage: "Presentation", tools: "Read-only UI over the pipeline — React, TypeScript, Vite" },
+];
+
 export function About() {
   return (
     <div>
@@ -10,18 +27,21 @@ export function About() {
 
       <div className="panel">
         <h2>Architecture</h2>
-        <div className="pipeline" style={{ flexDirection: "column", alignItems: "flex-start" }}>
-          {[
-            "Synthetic BC restoration project (Kootenay Riparian Restoration)",
-            "M1 — deterministic spatial verification (real)",
-            "M2 — Hedera Guardian methodology/credential workflow (Mock adapter)",
-            "M3/M3.1 — RestorationDeed / Arc financial settlement (real Solidity, local Hardhat)",
-            "M4 — vertical integration connecting M1 → M2 → Arc (real)",
-            "M5 — The Graph indexing + Auditor correlation (real, local Graph Node)",
-            "M6 — this React presentation layer",
-          ].map((step) => (
-            <div key={step} className="pipeline__step" style={{ width: "100%" }}>
-              {step}
+        <p style={{ color: "var(--color-text-muted)", marginTop: -6 }}>
+          The pipeline this prototype actually runs, stage by stage, and the tools behind each one.
+        </p>
+        <div className="pipeline" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          {PIPELINE_STAGES.map((s, i) => (
+            <div key={s.stage}>
+              <div className="pipeline__step">
+                <div style={{ fontWeight: 600 }}>{s.stage}</div>
+                <div style={{ color: "var(--color-text-muted)", fontWeight: 400, marginTop: 2 }}>{s.tools}</div>
+              </div>
+              {i < PIPELINE_STAGES.length - 1 && (
+                <div style={{ textAlign: "center", color: "var(--color-text-muted)", padding: "2px 0" }} aria-hidden="true">
+                  ↓
+                </div>
+              )}
             </div>
           ))}
         </div>
