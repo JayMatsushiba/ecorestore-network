@@ -394,6 +394,90 @@ table.data-table th {
   padding-top: 10px;
 }
 
+/* Overview project-extent map (components/ProjectMap.tsx). Swatch colours are
+   the hex twins of --color-primary / --color-accent used for the Leaflet paths. */
+.project-map__canvas {
+  height: 380px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+}
+
+.project-map__legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.project-map__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.project-map__swatch {
+  display: inline-block;
+  width: 18px;
+  height: 12px;
+  border-radius: 2px;
+  border: 2px solid;
+}
+
+.project-map__swatch--treated {
+  border-color: #2f5233;
+  background: rgba(47, 82, 51, 0.28);
+}
+
+.project-map__swatch--eligible_control,
+.project-map__swatch--candidate_control {
+  border-color: #7a8f5c;
+  border-style: dashed;
+  background: rgba(122, 143, 92, 0.18);
+}
+
+.project-map__swatch--excluded_control {
+  border-color: #8a8a82;
+  border-style: dotted;
+  background: rgba(138, 138, 130, 0.1);
+}
+
+.project-map__missing {
+  font-size: 0.82rem;
+  color: var(--color-warn-text);
+  margin: 8px 0 0;
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+.leaflet-container .leaflet-control-layers-list label {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.parcel-tooltip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.parcel-popup {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.parcel-popup__row span:first-child {
+  color: var(--color-text-muted);
+  margin-right: 4px;
+}
+
 footer.app-footer {
   text-align: center;
   padding: 20px;

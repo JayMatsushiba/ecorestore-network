@@ -36,6 +36,7 @@ import {
 } from "../verification/fixtures.js";
 import type { Project, VerificationResult } from "../verification/models.js";
 import type { GuardianCredential } from "../guardian/models.js";
+import { buildProjectExtent } from "./spatialFixtures.js";
 
 const PORT = Number(process.env.PORT ?? 4000);
 const VERIFIER_ID = "guardian-verifier-kootenay-001";
@@ -135,6 +136,23 @@ async function handleEvidence(query: URLSearchParams) {
     disclaimer: "SYNTHETIC DEMONSTRATION DATA — every observation below was authored for this prototype, not measured in the field or from a real satellite pass.",
     metric: M1_METRIC_ID,
     evidence: project.evidence,
+  };
+}
+
+async function handleGeometry(query: URLSearchParams) {
+  // Synthetic parcel footprints for the Overview map (server/spatialFixtures.ts).
+  // Presentation data only: the M1 engine never reads geometry, and nothing
+  // here is derived — control eligibility stays with verifyProject()'s diagnostics.
+  const { key, project } = resolveFixture(query);
+  const { collection, parcelsWithoutGeometry } = buildProjectExtent(project);
+  return {
+    fixtureKey: key,
+    disclaimer:
+      "SYNTHETIC DEMONSTRATION GEOMETRY — parcel footprints drawn for this prototype, not surveyed, tenured, or observed boundaries. The verification engine does not read them.",
+    projectId: project.projectId,
+    treatedParcelId: project.treatedParcel.parcelId,
+    parcelsWithoutGeometry,
+    extent: collection,
   };
 }
 
@@ -264,6 +282,9 @@ const server = createServer(async (req, res) => {
         break;
       case "/api/verification":
         body = await handleVerification(url.searchParams);
+        break;
+      case "/api/geometry":
+        body = await handleGeometry(url.searchParams);
         break;
       case "/api/guardian":
         body = await handleGuardian(url.searchParams);

@@ -112,10 +112,13 @@ Every environmental value in this prototype is synthetic — authored to exercis
 | Project/parcel definitions, evidence observations | `verification/fixtures.ts` | Six fixtures covering the success, partial-settlement, and every documented failure path (`FIXTURE_PARTIAL_SETTLEMENT`, `FIXTURE_PARALLEL_TREND_FAIL`, etc.) |
 | Methodology configuration | `verification/config.ts` | `DEFAULT_METHODOLOGY_CONFIG` — matching tolerances, uncertainty fraction, minimum control count |
 | Metric | `verification/config.ts`'s `M1_METRIC_ID` | `canopy_cover_fraction_pct` — fractional canopy cover, 0–100 |
+| Parcel extents drawn on the Overview map | `server/spatialFixtures.ts` (served at `/api/geometry`) | Synthetic polygons drawn for this prototype and sized to each parcel's declared hectares, placed along the Kootenay River in the Creston Valley only so the map has a plausible setting — not surveyed, tenured, or observed boundaries. The verification engine never reads them (its spatial identity is a placeholder hash, `docs/VERIFICATION.md`) |
 | Guardian verifier identity | `guardian/policy/verifierRegistry.ts` | Hard-coded allowlist, one id: `guardian-verifier-kootenay-001` |
 | On-chain demo run | `scripts/deployAndRunLocalDemo.cjs` → `subgraph/deployment.local.json` (gitignored, regenerated per run) | The one deed this prototype actually funds and settles on a local chain |
 
 The UI's fixture toggle (top-right of every page) lets you switch between the real success case (`FIXTURE_PARTIAL_SETTLEMENT`) and the real parallel-trend-failure case (`FIXTURE_PARALLEL_TREND_FAIL`) — both are genuine M1 fixtures, not UI-invented states.
+
+The Overview page's map draws those synthetic extents with [Leaflet](https://leafletjs.com/) over OpenStreetMap tiles. Its optional "Sentinel-2 cloudless mosaic" layer is EOX's public annual mosaic ([s2maps.eu](https://s2maps.eu), CC BY-NC-SA 4.0), shown for orientation only: this pipeline consumes no imagery at all — every observation it verifies is a synthetic value — so the layer is reference context, not evidence. The map is the one place the browser fetches from hosts other than the demo API (`tile.openstreetmap.org`, `tiles.maps.eox.at`); without internet access it shows the polygons on a blank background.
 
 ## Starting the Local Stack
 
@@ -200,6 +203,7 @@ rm subgraph/deployment.local.json                 # or just start a fresh Hardha
 ## What This Demo Does NOT Represent
 
 - Synthetic environmental data — not real field, satellite, or sensor measurements.
+- Synthetic parcel extents on the Overview map — drawn for the demo, not surveyed or tenured boundaries; the optional Sentinel-2 mosaic behind them is public reference imagery, not evidence the pipeline used.
 - A local Hardhat blockchain — not Arc Testnet, not Arc Mainnet, not any live network.
 - A Mock Guardian adapter — not a live Hedera Guardian deployment.
 - `MockUSDC` — not real USDC; unrestricted local minting.

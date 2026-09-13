@@ -588,3 +588,53 @@ None. No authority boundary, settlement logic, or verification methodology chang
 ### Known limitations
 
 Still true, unchanged from M6.1: only one deed is ever actually created/funded/settled on-chain in this local demo; the Failure case is demonstrated off-chain (Guardian fails closed before Arc, shown in Financial's Arc-payload-preview panel) and, now, as a visible audit mismatch — not as a second real on-chain deed. Building a genuine second on-chain deed for the failure path is a larger scope change deferred to M7, not attempted here.
+
+---
+
+## M6.3 — Overview map: synthetic parcel extents on Leaflet, with a reference-imagery toggle
+
+**Date:** 2026-09-13
+**Scope:** `server/spatialFixtures.ts`, `server/spatialFixtures.test.ts` (new); `server/index.ts` (one new read-only route, `/api/geometry`); `app/src/components/ProjectMap.tsx`, `app/src/components/projectMapLayers.ts`, `app/src/components/ProjectMap.test.tsx` (new); `app/src/pages/Overview.tsx`, `app/src/pages/Overview.test.tsx`, `app/src/api/{types,client}.ts`, `app/src/styles.css`, `app/src/setupTests.ts`, `app/nginx.conf` (comment), `app/package.json` (+ `leaflet`, `@types/leaflet`); `README.md`. No file under `verification/`, `guardian/`, `arc/`, `integration/`, `contracts/`, `subgraph/`, or `auditor/` was modified.
+
+### Objective
+
+Give the Overview page a web map between the project panel and the "Current status" panel: a free basemap (OpenStreetMap), the restoration project's parcel extent, and — if possible — the satellite imagery the pipeline used as evidence, as a toggleable raster.
+
+### What was built
+
+* **Synthetic parcel extents** (`server/spatialFixtures.ts`). The M1 fixtures carry no geometry at all (M1's spatial identity is a placeholder hash of the parcel id — `verification/calculations/spatialIdentity.ts`), so there was nothing to draw. Eight polygons were drawn for this prototype, one per parcel of the two fixtures the server serves, each scaled so its planar area matches the parcel's declared `areaHectares` (within 0.2%; the test enforces 0.5%). They are placed along the Kootenay River in the Creston Valley, British Columbia — the same reach the earlier `feature/spatial-pipeline-prototype` branch used — purely so the map shows a plausible riparian setting. They are labelled synthetic in the file header, the API response's `disclaimer`, the panel text, the layer-control label, and every popup. The verification engine does not read them; `verifyProject()`, the evidence hash, Guardian, and settlement are untouched.
+* **`/api/geometry?fixture=`** returns a GeoJSON FeatureCollection whose feature properties are copied straight from the fixture's `Parcel` records (role, declared hectares, land cover, contamination flag). It derives nothing; it lists any parcel it has no extent for rather than inventing one.
+* **`ProjectMap`** (Leaflet 1.9.4, no React wrapper) draws OpenStreetMap tiles, the parcel polygons, a scale bar, an always-open layer control and a legend. Control parcels are coloured eligible/excluded from the real `VerificationResult.diagnostics.eligibleControlParcelIds` that the Overview already fetches; until that result arrives they are drawn as undifferentiated candidates rather than guessed at. Popups are built from DOM nodes, not HTML strings.
+* **Imagery toggle.** This pipeline consumes no imagery: its observations are synthetic values, so there is no "imagery used as evidence" to show. The nearest honest thing was added instead — EOX's public Sentinel-2 cloudless 2024 mosaic as an overlay that is **off by default** and labelled "reference imagery, not pipeline evidence" in the layer control, the panel note and the README. Attribution and licence (CC BY-NC-SA 4.0, non-commercial) are shown in the map's attribution control.
+
+### Tests run and results (actual, this session)
+
+| Suite | Command | Result |
+|---|---|---|
+| Root typecheck | `npm run typecheck` | 0 errors |
+| Root vitest | `npm test` | 14 files, 110/110 passed (104 pre-existing + 6 new in `server/spatialFixtures.test.ts`: closed rings inside the Kootenay region, area agrees with declared hectares for every parcel of both served fixtures, properties copied not invented, no overlapping parcels within a project, missing parcels reported not fabricated) |
+| App tests | `cd app && npm test` | 5 files, 16/16 passed (11 pre-existing + 3 in `ProjectMap.test.tsx` + 2 more in `Overview.test.tsx`; Leaflet runs for real in jsdom via a one-line `createSVGRect` shim in `setupTests.ts`) |
+| App lint | `cd app && npm run lint` | 0 errors; the same 3 pre-existing warnings, none new |
+| App build | `cd app && npm run build` | OK (bundle 449 kB, +Leaflet) |
+| Browser | headless Chromium over the DevTools protocol against the real `npm run server` and `vite preview` | Success case: 5 polygons, 9 OSM tiles loaded, 0 EOX tiles before the toggle; toggle on: 9 EOX tiles, attribution shows both sources; popup shows fixture values; failure case via the real selector: 3 polygons; headings in order (project, "Project extent", "Current status"); 0 console errors, 0 exceptions, 0 HTTP errors; no horizontal overflow at 1440 px or 420 px. Screenshots were inspected. |
+
+`app/src/setupTests.ts` now also runs testing-library's `cleanup()` after each test (the app's vitest has `globals: false`, so it never ran before); this exposed no defect in the existing tests.
+
+Not run: contracts (`npm run test:contracts`), subgraph Matchstick, Graph Node E2E — no file they cover changed.
+
+### Decisions
+
+* **Geometry lives in `server/`, not `verification/`.** Adding a `geometry` field to M1's `Parcel` would have touched the canonical data model for a presentation need and invited the reading that M1 verifies spatially. It does not; the polygons are demo scenery served by the read layer, and the file header says so.
+* **Real tile hosts.** The map is the one place the browser now contacts hosts other than the demo API (`tile.openstreetmap.org`, `tiles.maps.eox.at`); `app/nginx.conf`'s comment and the README record it. Without internet access the polygons still draw on a blank background.
+* **EOX Sentinel-2 cloudless** was chosen over other free imagery because it is genuinely Sentinel-2 and its terms are explicit. Its licence is non-commercial; a commercial deployment would need a different source or a licence from EOX.
+* **Authority boundaries unchanged.** The route is read-only and computes nothing; the UI still reads only from `server/`; eligibility colouring is the engine's own list, not a UI judgement.
+
+### Deviations from Idea 0.2
+
+None. Idea 0.2's geospatial stack (H3 cell sets, STAC evidence, real Sentinel-2 ingestion) is still unimplemented and this change does not pretend otherwise: the polygons are not an H3 root, the mosaic is not evidence, and no verification value depends on either.
+
+### Known limitations / unresolved
+
+* The imagery layer is context, not evidence. Showing the imagery a verification actually consumed requires the real acquisition pipeline (the `analysis/` work on `analysis-evaluation-fixes`, which is not on this branch) and per-scene rendering (COG tiles or pre-rendered PNG overlays) — an M7-scale item, not attempted here.
+* Only the two fixtures the server serves have extents; the other four fixtures' parcels would be reported under `parcelsWithoutGeometry` if they were ever exposed.
+* The map is rebuilt once when the verification result arrives (to recolour controls), which cancels a few in-flight tile requests — visible only in a network log as `ERR_ABORTED`, not to the user.
